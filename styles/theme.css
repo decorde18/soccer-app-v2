@@ -1,0 +1,89 @@
+/* --------------------------------------------------------------------------
+| Custom CSS Variables (Theme Definition)
+| Hex values from theme.js are converted to HSL (Hue, Saturation, Lightness)
+| HSL is required for the Tailwind config's dynamic opacity.
+| --------------------------------------------------------------------------*/
+
+:root {
+  /* ==================== Colors (using HSL) ==================== */
+  /* Hex: #1E3A8A -> HSL: 220 59% 32% */
+  --color-primary: 220 59% 32%;
+  /* Hex: #0D9488 -> HSL: 173 78% 32% */
+  --color-secondary: 173 78% 32%;
+  /* Hex: #F97316 -> HSL: 25 92% 53% */
+  --color-accent: 25 92% 53%;
+  /* Hex: #F3F4F6 -> HSL: 220 14% 95% */
+  --color-background: 220 14% 95%;
+  /* Hex: #ffffff -> HSL: 0 0% 100% */
+  --color-surface: 0 0% 100%;
+  /* Hex: #1a202c -> HSL: 210 29% 14% */
+  --color-text: 210 29% 14%;
+  /* Hex: #577190 -> HSL: 216 23% 45% */
+  --color-text-label: 216 23% 45%;
+  /* Hex: #f0f4f8 -> HSL: 210 29% 95% */
+  --color-white: 210 29% 95%;
+  /* Hex: #718096 -> HSL: 215 14% 40% */
+  --color-muted: 215 14% 40%;
+  /* Hex: #10b981 -> HSL: 153 71% 39% */
+  --color-success: 153 71% 39%;
+  /* Hex: #ef4444 -> HSL: 355 70% 59% */
+  --color-danger: 355 70% 59%;
+  /* Hex: #dc2626 -> HSL: 355 70% 59% */
+  --color-error-hover: 355 70% 59%;
+  /* Hex: #274870 -> HSL: 218 36% 30% */
+  --color-accent-hover: 218 36% 30%;
+  /* Hex: #6f85a0 -> HSL: 216 23% 54% */
+  --color-border: 216 23% 54%;
+  /* Hex: #8b5cf6 -> HSL: 257 89% 66% */
+  --color-purple: 257 89% 66%;
+  /* Shadow is handled separately in CSS, but the primary color reference is useful */
+  --shadow-primary: 220 59% 32%; /* Based on primary color */
+
+  /* ==================== Spacing & Layout (from theme.js) ==================== */
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --padding-small: 0.8rem;
+  --padding-medium: 1.2rem;
+  --padding-large: 1.6rem;
+  --padding-xlarge: 2.4rem;
+
+  /* ==================== Typography & Fonts (from theme.js) ==================== */
+  --font-family-body: "Inter", sans-serif;
+  --font-family-heading: "Poppins", sans-serif;
+  --font-family-main: "Arial", sans-serif;
+  --font-size-title: 2rem;
+  --font-size-subtitle: 1.5rem;
+  --font-size-small: 1rem;
+  --font-size-medium: 1.75rem;
+  --font-size-large: 2rem;
+  --font-size-xlarge: 2.4rem;
+  --font-size-body: 1.25rem;
+  --font-size-input: 1.75rem;
+  --font-size-label: 1.75rem;
+  --font-size-button: 1.4rem;
+  --font-weight-bold: 700;
+
+  /* ==================== Border Radius (from theme.js) ==================== */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-default: 0.8rem;
+
+  /* ==================== Dark Theme Fallback (from theme.js) ==================== */
+  --dark-background: 218 51% 4%;
+  --dark-text: 210 29% 95%;
+  --dark-primary: 218 36% 30%;
+  --dark-secondary: 215 67% 13%;
+  --dark-accent: 218 36% 30%;
+  --dark-accent-hover: 218 36% 30%;
+}
+
+/* Dark mode overrides */
+[data-theme="dark"] {
+  --color-background: var(--dark-background);
+  --color-text: var(--dark-text);
+  --color-primary: var(--dark-primary);
+  --color-secondary: var(--dark-secondary);
+  --color-accent: var(--dark-accent);
+}
