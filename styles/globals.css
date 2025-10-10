@@ -1,8 +1,9 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* 1. Import Theme Variables */
 @import "./theme.css";
-
 *,
 *::before,
 *::after {

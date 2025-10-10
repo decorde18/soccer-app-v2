@@ -6,38 +6,53 @@
 
 :root {
   /* ==================== Colors (using HSL) ==================== */
-  /* Hex: #1E3A8A -> HSL: 220 59% 32% */
-  --color-primary: 220 59% 32%;
-  /* Hex: #0D9488 -> HSL: 173 78% 32% */
-  --color-secondary: 173 78% 32%;
-  /* Hex: #F97316 -> HSL: 25 92% 53% */
-  --color-accent: 25 92% 53%;
-  /* Hex: #F3F4F6 -> HSL: 220 14% 95% */
-  --color-background: 220 14% 95%;
-  /* Hex: #ffffff -> HSL: 0 0% 100% */
+  /* Primary: #0f3460 (Deep Navy Blue) -> HSL: 211 75% 22% */
+  --color-primary: 211 75% 22%;
+
+  /* Secondary: #16213e (Darker Navy) -> HSL: 218 44% 16% */
+  --color-secondary: 218 44% 16%;
+
+  /* Accent: #e94560 (Vibrant Coral Red) -> HSL: 349 77% 59% */
+  --color-accent: 349 77% 59%;
+
+  /* Background: #f8f9fa (Soft Off-White) -> HSL: 210 17% 98% */
+  --color-background: 210 17% 98%;
+
+  /* Surface: #ffffff (Pure White) -> HSL: 0 0% 100% */
   --color-surface: 0 0% 100%;
-  /* Hex: #1a202c -> HSL: 210 29% 14% */
-  --color-text: 210 29% 14%;
-  /* Hex: #577190 -> HSL: 216 23% 45% */
-  --color-text-label: 216 23% 45%;
-  /* Hex: #f0f4f8 -> HSL: 210 29% 95% */
+
+  /* Text: #1a1a2e (Deep Charcoal) -> HSL: 240 29% 14% */
+  --color-text: 240 29% 14%;
+
+  /* Text Label: #533483 (Muted Purple-Blue) -> HSL: 267 44% 36% */
+  --color-text-label: 211 35% 45%;
+
+  /* White: #f0f4f8 (Light Blue-Gray) -> HSL: 210 29% 95% */
   --color-white: 210 29% 95%;
-  /* Hex: #718096 -> HSL: 215 14% 40% */
-  --color-muted: 215 14% 40%;
-  /* Hex: #10b981 -> HSL: 153 71% 39% */
-  --color-success: 153 71% 39%;
-  /* Hex: #ef4444 -> HSL: 355 70% 59% */
-  --color-danger: 355 70% 59%;
-  /* Hex: #dc2626 -> HSL: 355 70% 59% */
-  --color-error-hover: 355 70% 59%;
-  /* Hex: #274870 -> HSL: 218 36% 30% */
-  --color-accent-hover: 218 36% 30%;
-  /* Hex: #6f85a0 -> HSL: 216 23% 54% */
-  --color-border: 216 23% 54%;
-  /* Hex: #8b5cf6 -> HSL: 257 89% 66% */
-  --color-purple: 257 89% 66%;
-  /* Shadow is handled separately in CSS, but the primary color reference is useful */
-  --shadow-primary: 220 59% 32%; /* Based on primary color */
+
+  /* Muted: #6c757d (Medium Gray) -> HSL: 210 11% 46% */
+  --color-muted: 210 11% 46%;
+
+  /* Success: #10b981 (Emerald Green) -> HSL: 160 84% 39% */
+  --color-success: 160 84% 39%;
+
+  /* Danger: #e94560 (Same as Accent Red) -> HSL: 349 77% 59% */
+  --color-danger: 349 77% 59%;
+
+  /* Error Hover: #d63447 (Darker Red) -> HSL: 349 67% 52% */
+  --color-error-hover: 349 67% 52%;
+
+  /* Accent Hover: #1a4d7a (Brighter Navy) -> HSL: 207 64% 29% */
+  --color-accent-hover: 207 64% 29%;
+
+  /* Border: #cbd5e1 (Light Blue-Gray) -> HSL: 214 32% 85% */
+  --color-border: 214 32% 85%;
+
+  /* Purple: #8b5cf6 (Vibrant Purple) -> HSL: 258 90% 66% */
+  --color-purple: 258 90% 66%;
+
+  /* Shadow Primary: Based on primary color */
+  --shadow-primary: 211 75% 22%;
 
   /* ==================== Spacing & Layout (from theme.js) ==================== */
   --spacing-sm: 8px;
@@ -81,9 +96,10 @@
 
 /* Dark mode overrides */
 [data-theme="dark"] {
-  --color-background: var(--dark-background);
-  --color-text: var(--dark-text);
-  --color-primary: var(--dark-primary);
-  --color-secondary: var(--dark-secondary);
-  --color-accent: var(--dark-accent);
+  --dark-background: 218 44% 8%;
+  --dark-text: 210 17% 95%;
+  --dark-primary: 211 75% 35%;
+  --dark-secondary: 218 44% 12%;
+  --dark-accent: 349 77% 59%;
+  --dark-accent-hover: 349 67% 52%;
 }

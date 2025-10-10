@@ -97,43 +97,29 @@ function NavBar() {
         </div>
 
         {/* Navigation */}
-        <nav className='py-6'>
+        <nav className='py-6 left-6 right-6'>
           {navItems.map((item, key) => {
             const isActive = pathname === item.id;
             const Icon = item.icon;
 
             return (
               <Button
-                key={key}
-                variant='primary'
+                key={`${item.id}${key}`}
                 onClick={() =>
                   item.link
                     ? window.open(item.link, "_blank")
                     : router.push(item.id)
                 }
+                className={`w-full flex items-center gap-4 px-6 py-4 text-white text-base cursor-pointer transition-all duration-200 border-l-4 ${
+                  isActive
+                    ? "bg-white/10 border-[#38bdf8]"
+                    : "bg-transparent border-transparent hover:bg-white/10 hover:translate-x-1"
+                }`}
               >
                 <div size={20}>
-                  {Icon}
-                  {item.label}
+                  {Icon} {item.label}
                 </div>
               </Button>
-              // <Button
-              //   key={`${item.id}${key}`}
-              //   onClick={() =>
-              //     item.link
-              //       ? window.open(item.link, "_blank")
-              //       : router.push(item.id)
-              //   }
-              //   // className={`w-full flex items-center gap-4 px-6 py-4 text-white text-base cursor-pointer transition-all duration-200 border-l-4 ${
-              //   //   isActive
-              //   //     ? "bg-white/10 border-[#38bdf8]"
-              //   //     : "bg-transparent border-transparent hover:bg-white/10 hover:translate-x-1"
-              //   // }`}
-              // >
-              //   <div size={20}>
-              //     {Icon} {item.label}
-              //   </div>
-              // </Button>
             );
           })}
         </nav>
