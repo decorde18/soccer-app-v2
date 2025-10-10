@@ -26,7 +26,7 @@ export default function RootLayout({ children }) {
         <link rel='icon' type='image/png' href='/favicon.png' />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} `}>
-        <AppWrapper>{children}</AppWrapper>
+        {children}
       </body>
     </html>
   );

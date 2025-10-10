@@ -36,6 +36,11 @@
   /* Success: #10b981 (Emerald Green) -> HSL: 160 84% 39% */
   --color-success: 160 84% 39%;
 
+  /* Warning Colors */
+  --color-warningbg: 48 100% 91%; /* bg-yellow-50 */
+  --color-warningborder: 48 89% 60%; /* border-yellow-400 */
+  --color-warningtext: 48 89% 35%; /* text-yellow-800 */
+
   /* Danger: #e94560 (Same as Accent Red) -> HSL: 349 77% 59% */
   --color-danger: 349 77% 59%;
 
