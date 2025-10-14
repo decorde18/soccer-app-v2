@@ -38,97 +38,6 @@ const PeriodLineup = ({ periodNumber = 2, previousLineup = null }) => {
     setRoster(players);
   }, [players.length]);
 
-  // const getPlayerStatus = (playerId) => {
-  //   return playerStatus[playerId] || "available";
-  // };
-  // const togglePlayerStatus = (playerId, currentStatus) => {
-  //   const statusCycle = {
-  //     available: "unavailable",
-  //     unavailable: "injured",
-  //     injured: "available",
-  //   };
-  //   const newStatus = statusCycle[currentStatus];
-  //   setPlayerStatus({
-  //     ...playerStatus,
-  //     [playerId]: newStatus,
-  //   });
-
-  //   // Remove from selections if marked unavailable/injured
-  //   if (currentStatus === "available") {
-  //     setStarters(starters.filter((id) => id !== playerId));
-  //     setBench(bench.filter((id) => id !== playerId));
-  //     if (goalkeeper === playerId) {
-  //       setGoalkeeper(null);
-  //     }
-  //   }
-  // };
-  // const toggleStarter = (playerId) => {
-  //   const status = getPlayerStatus(playerId);
-  //   if (status !== "available") return;
-
-  //   const isStarter = starters.includes(playerId);
-  //   const isBench = bench.includes(playerId);
-
-  //   if (isStarter) {
-  //     setStarters(starters.filter((id) => id !== playerId));
-  //     if (goalkeeper === playerId) {
-  //       setGoalkeeper(null);
-  //     }
-  //   } else if (isBench) {
-  //     setBench(bench.filter((id) => id !== playerId));
-  //   } else {
-  //     if (starters.length < 11) {
-  //       setStarters([...starters, playerId]);
-  //     }
-  //   }
-  // };
-  // const toggleBench = (playerId) => {
-  //   const status = getPlayerStatus(playerId);
-  //   if (status !== "available") return;
-
-  //   const isBench = bench.includes(playerId);
-  //   const isStarter = starters.includes(playerId);
-
-  //   if (isBench) {
-  //     setBench(bench.filter((id) => id !== playerId));
-  //   } else if (isStarter) {
-  //     setStarters(starters.filter((id) => id !== playerId));
-  //     if (goalkeeper === playerId) {
-  //       setGoalkeeper(null);
-  //     }
-  //   } else {
-  //     setBench([...bench, playerId]);
-  //   }
-  // };
-  // const toggleGoalkeeper = (playerId) => {
-  //   if (!starters.includes(playerId)) return;
-  //   setGoalkeeper(goalkeeper === playerId ? null : playerId);
-  // };
-  // const canStartPeriod = () => {
-  //   return starters.length === 11 && goalkeeper !== null;
-  // };
-  // const handleStartPeriod = () => {
-  //   if (canStartPeriod()) {
-  //     const lineupData = {
-  //       starters,
-  //       goalkeeper,
-  //       bench,
-  //     };
-  //     console.log("Starting period with lineup:", lineupData);
-  //     alert(`Starting Period ${periodNumber}!`);
-  //     // Navigate to: /games/:gameId/live
-  //   }
-  // };
-  // const getPlayerById = (id) => roster.find((p) => p.id === id);
-
-  // const availablePlayers = roster.filter((p) => {
-  //   const status = getPlayerStatus(p.id);
-  //   return (
-  //     status === "available" &&
-  //     !starters.includes(p.id) &&
-  //     !bench.includes(p.id)
-  //   );
-  // });
   const handleStatus = (playerId, action) => {
     setRoster((prevRoster) => {
       const currentPlayer = prevRoster.find((p) => p.id === playerId);
@@ -178,13 +87,13 @@ const PeriodLineup = ({ periodNumber = 2, previousLineup = null }) => {
   return (
     <div className='flex flex-col h-screen max-w-7xl mx-auto bg-gray-100'>
       {/* Header */}
-      <div className='shrink-0 p-5'>
+      <div className='shrink-0 px-5 pt-5'>
         <GameHeader gameDetails={gameDetails} />
       </div>
 
       {/* Scrollable Main Content */}
-      <div className='flex-1 overflow-y-auto p-5'>
-        <div className='grid grid-rows-[auto_1fr_auto] gap-2 h-full'>
+      <div className='flex-1 overflow-hidden p-5'>
+        <div className='grid grid-cols-1 lg:grid-cols-2 gap-4 h-full'>
           <PlayerStatusSections roster={roster} handleStatus={handleStatus} />
         </div>
       </div>

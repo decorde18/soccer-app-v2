@@ -17,11 +17,16 @@ function PlayerRow({ player, handleStatus, section, starterLength }) {
 
     if (section === "starters" || section === "bench") {
       if (section === "starters") {
-        actions.push({
-          label: "Goalkeeper",
-          status: "goalkeeper",
-          variant: playerStatus === "goalkeeper" ? "success" : "muted",
-        });
+        actions.push(
+          {
+            label: "Goalkeeper",
+            status: "goalkeeper",
+            variant: playerStatus === "goalkeeper" ? "success" : "muted",
+          },
+          { label: "Bench", status: "bench", variant: "muted" }
+        );
+      } else {
+        actions.push({ label: "Start", status: "starter", variant: "primary" });
       }
       actions.push({ label: "Remove", status: "available", variant: "danger" });
     }
