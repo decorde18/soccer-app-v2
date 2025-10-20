@@ -1,28 +1,14 @@
+// Table.jsx - Rewritten to use inline styling
+const CLASS_STYLE_MAP = {
+  // Map Tailwind classes to specific inline styles for reliable rendering
+  "bg-red-100": { backgroundColor: "#fee2e2" },
+  "bg-green-100": { backgroundColor: "#dcfce7" },
+  // Add other critical dynamic classes here
+};
 import React from "react";
+// cn utility is kept for structure but its output will mostly be inline styles now
 import { cn } from "@/lib/utils";
 
-/*<Table 
-  columns={columns}
-  data={data}
-  actions={(row, index) => (
-    <>
-      <button 
-        onClick={() => handleEdit(row)}
-        className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-      >
-        Edit
-      </button>
-      <button 
-        onClick={() => handleDelete(row)}
-        className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-      >
-        Delete
-      </button>
-    </>
-  )}
-  actionsLabel="Actions"
-  actionsWidth="200px"
-/>*/
 export default function Table({
   columns = [],
   data = [],
@@ -42,70 +28,42 @@ export default function Table({
   actionsLabel = "Actions",
   actionsWidth,
 }) {
-  const sizeClasses = {
-    sm: "text-[var(--font-size-small)]",
-    md: "text-[var(--font-size-base)]",
-    lg: "text-[var(--font-size-large)]",
+  const sizeStyles = {
+    xs: { fontSize: "var(--font-size-small)" },
+    sm: { fontSize: "var(--font-size-small)" },
+    md: { fontSize: "var(--font-size-base)" },
+    lg: { fontSize: "var(--font-size-large)" },
   };
 
   const cellPadding = {
-    sm: "px-3 py-1.5",
-    md: "px-4 py-2.5",
-    lg: "px-5 py-3.5",
+    xs: { padding: "2px 8px" }, // px-2 py-0.5
+    sm: { padding: "6px 12px" }, // px-3 py-1.5
+    md: { padding: "10px 16px" }, // px-4 py-2.5
+    lg: { padding: "14px 20px" }, // px-5 py-3.5
   };
 
-  const tableClasses = cn(
-    "w-full border-collapse",
-    sizeClasses[size],
-    bordered && "border border-[hsl(var(--color-border))]",
-    className
-  );
-
-  const headerClasses = cn(
-    "bg-[hsl(var(--color-background-secondary))]",
-    "text-[hsl(var(--color-text-label))]",
-    "font-semibold",
-    "text-left",
-    bordered && "border-b-2 border-[hsl(var(--color-border))]",
-    headerClassName
-  );
-
-  const getRowClasses = (index) => {
-    const classes = [
-      "transition-colors duration-150",
-      bordered && "border-b border-[hsl(var(--color-border))]",
-    ];
-
-    if (striped && index % 2 === 1) {
-      classes.push("bg-[hsl(var(--color-background-secondary)/.3)]");
-    }
-
-    if (hoverable) {
-      classes.push(
-        "hover:bg-[hsl(var(--color-background-secondary)/.5)]",
-        onRowClick && "cursor-pointer"
-      );
-    }
-
-    if (typeof rowClassName === "function") {
-      classes.push(rowClassName(index));
-    } else if (rowClassName) {
-      classes.push(rowClassName);
-    }
-
-    return cn(classes);
+  const borderStyle = bordered
+    ? { border: "1px solid hsl(var(--color-border))" }
+    : {};
+  const headerBaseStyle = {
+    backgroundColor: "hsl(var(--color-background))",
+    color: "hsl(var(--color-text-label))",
+    fontWeight: "600",
+    textAlign: "left",
+    position: "sticky",
+    top: 0,
+    zIndex: 10,
+    borderBottom: bordered ? "2px solid hsl(var(--color-border))" : "none",
   };
 
-  const getCellClasses = (columnKey, isHeader = false) => {
-    const classes = [cellPadding[size]];
+  // Helper to merge padding and custom inline styles/classes
+  const getCellStyles = (columnKey, isHeader = false) => {
+    let style = { ...cellPadding[size] };
 
-    if (typeof cellClassName === "function") {
-      classes.push(cellClassName(columnKey, isHeader));
-    } else if (cellClassName) {
-      classes.push(cellClassName);
-    }
+    // Apply custom inline styles if provided via cellClassName (function or string not supported for pure inline)
+    // For simplicity, we only include padding and basic structure here.
 
-    return cn(classes);
+    return style;
   };
 
   const renderCellContent = (row, column) => {
@@ -122,31 +80,53 @@ export default function Table({
   };
 
   return (
-    <div className='overflow-x-auto'>
-      <table className={tableClasses}>
-        {caption && (
-          <caption className='text-[hsl(var(--color-text-label))] text-[var(--font-size-small)] mb-2 text-left font-medium'>
-            {caption}
-          </caption>
-        )}
-        <thead className={headerClasses}>
+    <div className='overflow-y-auto'>
+      {caption && (
+        <div
+          style={{
+            color: "hsl(var(--color-text-label))",
+            fontSize: "var(--font-size-small)",
+            marginBottom: "8px",
+            textAlign: "left",
+            fontWeight: "500",
+          }}
+        >
+          {caption}
+        </div>
+      )}
+
+      <table
+        style={{
+          ...sizeStyles[size],
+          ...borderStyle,
+          width: "100%",
+          borderCollapse: "collapse",
+        }}
+        className={className} // Keeping className for outer customizations
+      >
+        <thead
+          style={headerBaseStyle}
+          className={cn("shadow-sm", headerClassName)} // Keeping classNames for utility classes like shadow
+        >
           <tr>
             {columns.map((column) => (
               <th
                 key={column.key}
-                className={cn(
-                  getCellClasses(column.key, true),
-                  column.headerClassName
-                )}
-                style={{ width: column.width }}
+                style={{
+                  ...getCellStyles(column.key, true),
+                  width: column.width,
+                }}
+                className={column.headerClassName}
               >
                 {column.label}
               </th>
             ))}
             {actions && (
               <th
-                className={cn(getCellClasses("actions", true))}
-                style={{ width: actionsWidth }}
+                style={{
+                  ...getCellStyles("actions", true),
+                  width: actionsWidth,
+                }}
               >
                 {actionsLabel}
               </th>
@@ -158,44 +138,99 @@ export default function Table({
             <tr>
               <td
                 colSpan={columns.length + (actions ? 1 : 0)}
-                className={cn(
-                  "text-center text-[hsl(var(--color-text-secondary))]",
-                  cellPadding[size]
-                )}
+                style={{
+                  textAlign: "center",
+                  color: "hsl(var(--color-text-secondary))",
+                  fontStyle: "italic",
+                  ...cellPadding[size],
+                }}
               >
                 {emptyMessage}
               </td>
             </tr>
           ) : (
-            data.map((row, index) => (
-              <tr
-                key={row.id || index}
-                className={getRowClasses(index)}
-                onClick={() => handleRowClick(row, index)}
-              >
-                {columns.map((column) => (
-                  <td
-                    key={column.key}
-                    className={cn(
-                      getCellClasses(column.key, false),
-                      column.cellClassName
-                    )}
-                  >
-                    {renderCellContent(row, column)}
-                  </td>
-                ))}
-                {actions && (
-                  <td
-                    className={cn(getCellClasses("actions", false))}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className='flex gap-2 items-center'>
-                      {actions(row, index)}
-                    </div>
-                  </td>
-                )}
-              </tr>
-            ))
+            data.map((row, index) => {
+              // Row base styling
+              let rowStyle = {
+                verticalAlign: "middle",
+                transition: "background-color 150ms ease-in-out",
+                borderBottom: bordered
+                  ? "1px solid hsl(var(--color-border))"
+                  : "none",
+              };
+
+              if (striped && index % 2 === 1) {
+                rowStyle.backgroundColor =
+                  "hsl(var(--color-background-secondary)/.3)";
+              }
+
+              if (hoverable) {
+                // Cannot directly simulate hover:bg inline, this feature is lost.
+                // You'd need a component with state for true hover effects.
+                if (onRowClick) {
+                  rowStyle.cursor = "pointer";
+                }
+              }
+
+              // Apply custom rowClassName (function or string)
+              let dynamicClasses = "";
+
+              // Apply custom rowClassName
+              if (typeof rowClassName === "function") {
+                dynamicClasses = rowClassName(row, index);
+              } else if (rowClassName) {
+                dynamicClasses = rowClassName;
+              }
+              // --- NEW: Process dynamicClasses and apply inline style ---
+              if (dynamicClasses) {
+                // Split classes if multiple are passed (though usually just one here)
+                const classes = dynamicClasses.split(/\s+/).filter((c) => c);
+
+                classes.forEach((cls) => {
+                  if (CLASS_STYLE_MAP[cls]) {
+                    // Merge mapped styles, allowing the map to override default rowStyle
+                    rowStyle = { ...rowStyle, ...CLASS_STYLE_MAP[cls] };
+                  }
+                  // If the class is NOT in the map, it's ignored for inline styling
+                });
+              }
+
+              return (
+                <tr
+                  key={row.id || index}
+                  style={rowStyle}
+                  // Keep className here to apply non-critical classes (like hover styles)
+                  className={dynamicClasses}
+                  onClick={() => handleRowClick(row, index)}
+                >
+                  {columns.map((column) => (
+                    <td
+                      key={column.key}
+                      style={getCellStyles(column.key, false)}
+                      className={column.cellClassName}
+                    >
+                      {renderCellContent(row, column)}
+                    </td>
+                  ))}
+
+                  {actions && (
+                    <td
+                      style={{
+                        ...getCellStyles("actions", false),
+                        padding: 0,
+                        verticalAlign: "middle",
+                        width: actionsWidth,
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className='flex items-center justify-center gap-2 h-full min-h-[2rem] px-2'>
+                        {actions(row, index)}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              );
+            })
           )}
         </tbody>
       </table>

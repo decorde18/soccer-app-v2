@@ -2,30 +2,30 @@ import PlayerRow from "./PlayerRow";
 
 const statusArray = [
   {
-    status: ["available"],
+    gameStatus: ["available"],
     label: "Available Players",
     section: "available",
     span: "wide",
     sort: ["number"],
   },
   {
-    status: ["starter", "goalkeeper"],
+    gameStatus: ["starter", "goalkeeper"],
     label: "Starters",
     section: "starters",
-    sort: ["status", "number"],
+    sort: ["gameStatus", "number"],
   },
   {
-    status: ["bench"],
+    gameStatus: ["bench"],
     label: "Game Changers",
     section: "bench",
     sort: ["number"],
   },
   {
-    status: ["unavailable", "injured"],
+    gameStatus: ["unavailable", "injured"],
     label: "Unavailable Players",
     section: "unavailable",
     span: "wide",
-    sort: ["status", "number"],
+    sort: ["gameStatus", "number"],
   },
 ];
 
@@ -34,7 +34,7 @@ function PlayerStatusSections({ roster, handleStatus }) {
     <>
       {statusArray.map((statusObj) => {
         const filteredPlayers = roster.filter((player) =>
-          statusObj.status.some((s) => player.status === s)
+          statusObj.gameStatus.some((s) => player.gameStatus === s)
         );
         // Sort players based on statusObj.sort
         const sortedPlayers = [...filteredPlayers].sort((a, b) => {
@@ -53,7 +53,7 @@ function PlayerStatusSections({ roster, handleStatus }) {
         });
 
         const starterLength = roster.filter(
-          (player) => player.status === "starter"
+          (player) => player.gameStatus === "starter"
         ).length;
         return (
           <div
@@ -98,7 +98,7 @@ function PlayerStatusSections({ roster, handleStatus }) {
               )}
             </div>
             {!filteredPlayers.find(
-              (player) => player.status === "goalkeeper"
+              (player) => player.gameStatus === "goalkeeper"
             ) &&
               statusObj.section === "starters" && (
                 <div className='mt-4 p-3 bg-warningbg border border-warningborder rounded-lg text-warningtext text-sm'>

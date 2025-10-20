@@ -13,7 +13,9 @@ export default function Button({
     "inline-flex items-center justify-center rounded-[var(--radius-default)] font-semibold transition-colors duration-200";
 
   const sizes = {
-    xs: "text-xs px-2 py-1",
+    xs: "text-[0.7rem] px-1.5 py-0.5",
+
+    sm: "text-xs px-2 py-1",
     md: "text-base px-4 py-2",
     lg: "text-lg px-6 py-3",
   };
