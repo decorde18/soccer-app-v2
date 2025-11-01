@@ -5,18 +5,18 @@ import NavBar from "./NavBar";
 
 function AppWrapper({ children }) {
   return (
-    <Providers>
-      <div className='layout'>
-        <div className='main-body'>
-          <NavBar />
-          <div className='main-content'>
-            <Header />
-            {children}
-          </div>
+    // <Providers>
+    <div className='layout'>
+      <div className='main-body'>
+        <NavBar />
+        <div className='main-content'>
+          <Header />
+          {children}
         </div>
-        <Footer />
       </div>
-    </Providers>
+      <Footer />
+    </div>
+    // </Providers>
   );
 }
 

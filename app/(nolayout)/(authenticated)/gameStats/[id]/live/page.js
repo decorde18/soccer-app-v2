@@ -7,8 +7,8 @@ function page() {
   return (
     <>
       <LiveGameHeader />
-      <OnFieldPlayers />
-      <OnBenchPlayers />
+      {/* <OnFieldPlayers />
+      <OnBenchPlayers /> */}
       {/* Component 4: Top Right Column (Non-scrolling, 1/2 height of remaining space)
         - `row-start-2`: Starts in the second row.
         - `row-span-2`: Spans the remaining two rows (Rows 2 and 3).

@@ -4,10 +4,10 @@ export async function GET() {
   const profile = {
     userName: "David Cordero de Jesus",
     initials: "DC",
-    email: "davidc3@wcs.edu",
+    email: "decordecoach@gmail.com",
     firstName: "David",
     role: "admin",
-    jobTitle: "RBT",
+    jobTitle: "Head Coach",
   };
   return NextResponse.json(profile);
 }

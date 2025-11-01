@@ -6,7 +6,7 @@ export const gameDayPlayers = [
     shots: 0,
     goals: 0,
     assists: 0,
-    timeIn: 1500,
+
     timeInCurrent: null,
     timeOut: null,
     timeOutRecent: null,
@@ -27,7 +27,7 @@ export const gameDayPlayers = [
     shots: 3,
     goals: 1,
     assists: 2,
-    timeIn: 1500,
+
     timeInCurrent: 1500,
     timeOut: null,
     timeOutRecent: null,
@@ -48,7 +48,7 @@ export const gameDayPlayers = [
     shots: 5,
     goals: 2,
     assists: 1,
-    timeIn: 1500,
+
     timeInCurrent: 1500,
     timeOut: null,
     timeOutRecent: null,
@@ -69,7 +69,7 @@ export const gameDayPlayers = [
     shots: 4,
     goals: 1,
     assists: 3,
-    timeIn: 1500,
+
     timeInCurrent: 1500,
     timeOut: null,
     timeOutRecent: null,
@@ -90,7 +90,7 @@ export const gameDayPlayers = [
     shots: 2,
     goals: 0,
     assists: 1,
-    timeIn: 1500,
+
     timeInCurrent: 1500,
     timeOut: null,
     timeOutRecent: null,
@@ -111,7 +111,7 @@ export const gameDayPlayers = [
     shots: 1,
     goals: 0,
     assists: 2,
-    timeIn: 1200,
+
     timeInCurrent: 300,
     timeOut: 300,
     timeOutRecent: 300,
@@ -132,7 +132,7 @@ export const gameDayPlayers = [
     shots: 2,
     goals: 1,
     assists: 0,
-    timeIn: 900,
+
     timeInCurrent: 900,
     timeOut: null,
     timeOutRecent: null,
@@ -153,7 +153,7 @@ export const gameDayPlayers = [
     shots: 0,
     goals: 0,
     assists: 1,
-    timeIn: 600,
+
     timeInCurrent: null,
     timeOut: 900,
     timeOutRecent: 300,
@@ -174,7 +174,7 @@ export const gameDayPlayers = [
     shots: 1,
     goals: 0,
     assists: 0,
-    timeIn: 480,
+
     timeInCurrent: null,
     timeOut: 1020,
     timeOutRecent: 720,
@@ -195,7 +195,7 @@ export const gameDayPlayers = [
     shots: 0,
     goals: 0,
     assists: 0,
-    timeIn: 0,
+
     timeInCurrent: null,
     timeOut: null,
     timeOutRecent: null,
@@ -216,7 +216,7 @@ export const gameDayPlayers = [
     shots: 3,
     goals: 1,
     assists: 1,
-    timeIn: 720,
+
     timeInCurrent: null,
     timeOut: 780,
     timeOutRecent: 480,
@@ -237,7 +237,7 @@ export const gameDayPlayers = [
     shots: 0,
     goals: 0,
     assists: 0,
-    timeIn: 0,
+
     timeInCurrent: null,
     timeOut: null,
     timeOutRecent: null,
@@ -258,7 +258,7 @@ export const gameDayPlayers = [
     shots: 0,
     goals: 0,
     assists: 0,
-    timeIn: 0,
+
     timeInCurrent: null,
     timeOut: null,
     timeOutRecent: null,
@@ -279,7 +279,7 @@ export const gameDayPlayers = [
     shots: 0,
     goals: 0,
     assists: 0,
-    timeIn: 0,
+
     timeInCurrent: null,
     timeOut: null,
     timeOutRecent: null,
@@ -300,7 +300,7 @@ export const gameDayPlayers = [
     shots: 0,
     goals: 0,
     assists: 0,
-    timeIn: 0,
+
     timeInCurrent: null,
     timeOut: null,
     timeOutRecent: null,
@@ -321,7 +321,7 @@ export const gameDayPlayers = [
     shots: 0,
     goals: 0,
     assists: 0,
-    timeIn: 0,
+
     timeInCurrent: null,
     timeOut: null,
     timeOutRecent: null,
@@ -342,7 +342,7 @@ export const gameDayPlayers = [
     shots: 0,
     goals: 0,
     assists: 0,
-    timeIn: 0,
+
     timeInCurrent: null,
     timeOut: null,
     timeOutRecent: null,
@@ -363,7 +363,7 @@ export const gameDayPlayers = [
     shots: 0,
     goals: 0,
     assists: 0,
-    timeIn: 0,
+
     timeInCurrent: null,
     timeOut: null,
     timeOutRecent: null,
@@ -386,23 +386,96 @@ export const mockGame = {
   awayTeam: "Lightning United",
   homeScore: 3,
   awayScore: 1,
-  currentPeriod: 2,
-  totalPeriods: 2,
   periodLength: 1800, // 30 minutes in seconds
-  currentTime: 1500, // 25 minutes into period 2
-  isRunning: true,
-  periods: [
-    {
-      number: 1,
-      startTime: 0,
-      endTime: 1800,
-      completed: true,
-    },
-    {
-      number: 2,
-      startTime: 0,
-      endTime: 1800,
-      completed: false,
-    },
-  ],
+  isCountdown: false,
+  periods: [],
 };
+
+// Mock data - replace with your API calls
+export const mockClubs = [
+  {
+    id: 1,
+    name: "Brentwood High School",
+    location_name: "Brentwood, TN",
+    founded_year: 1982,
+    club_type: "High School",
+  },
+  {
+    id: 2,
+    name: "Franklin High School",
+    location_name: "Franklin, TN",
+    founded_year: 1952,
+    club_type: "High School",
+  },
+  {
+    id: 3,
+    name: "Nashville United SC",
+    location_name: "Nashville, TN",
+    founded_year: 2002,
+    club_type: "Club",
+  },
+];
+
+export const mockSeasons = [
+  {
+    id: 1,
+    name: "2024-25",
+    start_date: "2024-08-01",
+    end_date: "2025-05-31",
+    is_active: true,
+  },
+  {
+    id: 2,
+    name: "2023-24",
+    start_date: "2023-08-01",
+    end_date: "2024-05-31",
+    is_active: false,
+  },
+];
+
+export const mockTeams = [
+  {
+    id: 1,
+    name: "Varsity Boys",
+    club_id: 1,
+    club_name: "Brentwood High School",
+    team_type: "Varsity",
+    gender: "male",
+    age_group: null,
+    roster_count: 18,
+    is_active: true,
+  },
+  {
+    id: 2,
+    name: "JV Boys",
+    club_id: 1,
+    club_name: "Brentwood High School",
+    team_type: "JV",
+    gender: "male",
+    age_group: null,
+    roster_count: 16,
+    is_active: true,
+  },
+  {
+    id: 3,
+    name: "Varsity Girls",
+    club_id: 2,
+    club_name: "Franklin High School",
+    team_type: "Varsity",
+    gender: "female",
+    age_group: null,
+    roster_count: 20,
+    is_active: true,
+  },
+  {
+    id: 4,
+    name: "U17 Boys NPL",
+    club_id: 3,
+    club_name: "Nashville United SC",
+    team_type: "Club",
+    gender: "male",
+    age_group: "U17",
+    roster_count: 22,
+    is_active: true,
+  },
+];

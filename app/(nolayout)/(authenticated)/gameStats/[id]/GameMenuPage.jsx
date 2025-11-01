@@ -1,12 +1,14 @@
 "use client";
 
 import Button from "@/components/ui/Button";
-import { navItemsGameStats } from "@/lib/config";
+import { useGame } from "@/contexts/GameLiveContext";
+
 import { usePathname, useRouter } from "next/navigation";
 
 import { useState } from "react";
 
-export default function GameMenuPage({ gameId }) {
+export default function GameMenuPage() {
+  const { gameId } = useGame();
   const router = useRouter();
   const pathname = usePathname();
   const [gameState, setGameState] = useState("not_started"); // Options: 'not_started', 'in_progress', 'suspended', 'ended'
@@ -24,7 +26,7 @@ export default function GameMenuPage({ gameId }) {
       case "not_started":
         return (
           <>
-            <Button onClick={() => router.push(`${pathname}/period/1/lineup`)}>
+            <Button onClick={() => router.push(`${pathname}/lineup`)}>
               See Game Lineup
             </Button>
             <Button onClick={() => router.push(`${pathname}/settings`)}>

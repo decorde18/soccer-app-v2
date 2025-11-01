@@ -4,20 +4,17 @@ import { useEffect, useState } from "react";
 
 // Scoreboard.jsx
 function LiveGameHeaderClock() {
-  const { game, calculatePeriodTime, formatTime } = useGame();
+  const { getPeriodTime, formatTime, gameStage } = useGame();
+
   const [displayTime, setDisplayTime] = useState(0);
-
   useEffect(() => {
-    if (!game.isRunning) {
-      setDisplayTime(calculatePeriodTime());
-      return;
-    }
-
+    if (gameStage !== "during_period") return;
     const interval = setInterval(() => {
-      setDisplayTime(calculatePeriodTime());
+      setDisplayTime(getPeriodTime());
     }, 1000);
+
     return () => clearInterval(interval);
-  }, [game.isRunning, calculatePeriodTime]);
+  }, [getPeriodTime]);
 
   return <div>{formatTime(displayTime)}</div>;
 }

@@ -5,7 +5,8 @@ import { usePlayers } from "@/contexts/GamePlayersContext";
 import { useMemo } from "react";
 
 function OnBenchPlayers() {
-  const { players, updateFieldStatus } = usePlayers();
+  const { players, updateFieldStatus, calculateTotalTimeOnField } =
+    usePlayers();
   const columns = [
     { key: "number", label: "#" },
     { key: "name", label: "Name", width: "30%" },
@@ -39,7 +40,7 @@ function OnBenchPlayers() {
         )
         .map((player) => ({ ...player })),
     [players]
-  );
+  ).map((player) => ({ ...player, timeIn: calculateTotalTimeOnField() }));
   return (
     <div className='row-start-3 shadow-lg overflow-hidden flex flex-col'>
       <Table

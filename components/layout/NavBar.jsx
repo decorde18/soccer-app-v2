@@ -14,10 +14,14 @@ function NavBar() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  // Handle screen size + auto-open on desktop
+  // Detect if we're on a "dark" page (like /live or /gameStats)
+  const isDarkHeader = pathname?.includes("/live");
+
+  // Handle screen size + auto-open on desktop (but NOT for gameStats)
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth >= 1024) {
+      // Only auto-open on desktop if NOT on gameStats routes
+      if (!pathname?.includes("/gameStats") && window.innerWidth >= 1024) {
         setSidebarOpen(true);
       } else {
         setSidebarOpen(false);
@@ -27,11 +31,11 @@ function NavBar() {
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, [pathname]);
 
-  // Auto-close sidebar when route changes (mobile only)
+  // Auto-close sidebar when route changes (mobile only, or always for gameStats)
   useEffect(() => {
-    if (window.innerWidth < 1024) {
+    if (window.innerWidth < 1024 || pathname?.includes("/gameStats")) {
       setSidebarOpen(false);
     }
   }, [pathname]);
@@ -45,24 +49,73 @@ function NavBar() {
 
   const { userName, jobTitle, initials } = user;
 
+  const navItemsToShow = () => {
+    // Find if current pathname matches any specific route section
+    const matchingSection = navItems.find(
+      (item) =>
+        item.showOnUrl &&
+        item.showOnUrl !== "all" &&
+        pathname?.includes(item.showOnUrl)
+    )?.showOnUrl;
+
+    // Filter items based on the matching section
+    const sectionSpecificItems = matchingSection
+      ? navItems.filter((item) => item.showOnUrl === matchingSection)
+      : navItems.filter((item) => !item.showOnUrl || item.showOnUrl === "all");
+
+    // Always include "all" items and remove duplicates
+    const allItems = navItems.filter((item) => item.showOnUrl === "all");
+    const uniqueItems = [
+      ...allItems,
+      ...sectionSpecificItems.filter((item) => item.showOnUrl !== "all"),
+    ];
+
+    return uniqueItems;
+  };
+
+  // Determine sidebar classes based on whether we're on gameStats
+  const isGameStatsRoute = pathname?.includes("/gameStats");
+  const sidebarClasses = isGameStatsRoute
+    ? // GameStats: always mobile behavior (closed by default, hamburger always visible)
+      `fixed top-0 left-0 h-full w-60 bg-gradient-to-br from-primary to-secondary text-white z-[1100] transition-transform duration-300 ease-in-out ${
+        sidebarOpen
+          ? "translate-x-0 shadow-[4px_0_20px_rgba(0,0,0,0.1)]"
+          : "-translate-x-full"
+      }`
+    : // Regular routes: desktop sidebar, mobile hamburger
+      `fixed top-0 left-0 h-full w-60 bg-gradient-to-br from-primary to-secondary text-white z-[1100] transition-transform duration-300 ease-in-out ${
+        sidebarOpen
+          ? "translate-x-0 shadow-[4px_0_20px_rgba(0,0,0,0.1)]"
+          : "-translate-x-full"
+      } lg:relative lg:w-[280px] lg:translate-x-0 lg:shadow-none`;
+
   return (
     <>
-      {/* Hamburger Button - Mobile Only */}
+      {/* Hamburger Button - Mobile Only (or always for GameStats) */}
       <button
         onClick={() => setSidebarOpen((prev) => !prev)}
-        className='fixed top-4 left-4 z-[1200] bg-transparent border-none cursor-pointer lg:hidden'
+        className={`w-14 fixed top-4 left-4 z-[1200] bg-transparent border-none cursor-pointer ${
+          isGameStatsRoute ? "" : "lg:hidden"
+        }`}
         aria-label='Toggle menu'
       >
         {sidebarOpen ? (
           <X size={28} className='text-white' />
         ) : (
-          <Menu size={28} className='text-text' />
+          <Menu
+            size={28}
+            className={`transition-colors duration-300 ${
+              isDarkHeader ? "text-white" : "text-text"
+            }`}
+          />
         )}
       </button>
 
-      {/* Backdrop - Mobile Only */}
+      {/* Backdrop - Mobile Only (or always for GameStats) */}
       <div
-        className={`fixed inset-0 bg-black/40 z-[1000] transition-opacity duration-300 lg:hidden ${
+        className={`fixed inset-0 bg-black/40 z-[1000] transition-opacity duration-300 ${
+          isGameStatsRoute ? "" : "lg:hidden"
+        } ${
           sidebarOpen
             ? "opacity-100 pointer-events-auto"
             : "opacity-0 pointer-events-none"
@@ -71,17 +124,11 @@ function NavBar() {
       />
 
       {/* Sidebar */}
-      <aside
-        className={`fixed top-0 left-0 h-full w-60 bg-gradient-to-br from-primary to-secondary text-white z-[1100] transition-transform duration-300 ease-in-out ${
-          sidebarOpen
-            ? "translate-x-0 shadow-[4px_0_20px_rgba(0,0,0,0.1)]"
-            : "-translate-x-full"
-        } lg:relative lg:w-[280px] lg:translate-x-0 lg:shadow-none`}
-      >
+      <aside className={sidebarClasses}>
         {/* Header */}
         <div className='p-6 border-b border-white/10'>
           <h1 className='text-2xl font-bold mb-2 bg-gradient-to-r from-white to-[#e2e8f0] bg-clip-text text-transparent'>
-            RBT Forms
+            Soccer Stats App
           </h1>
 
           {/* User Info */}
@@ -98,7 +145,7 @@ function NavBar() {
 
         {/* Navigation */}
         <nav className='py-6 left-6 right-6'>
-          {navItems.map((item, key) => {
+          {navItemsToShow().map((item, key) => {
             const isActive = pathname === item.id;
             const Icon = item.icon;
 
@@ -126,13 +173,6 @@ function NavBar() {
 
         {/* Logout Button */}
         <div className='absolute bottom-6 left-6 right-6'>
-          {/* <button
-            onClick={() => console.log("Logout")}
-            className='w-full flex items-center gap-4 px-6 py-4 bg-transparent border-transparent text-white text-base cursor-pointer transition-all duration-200 hover:bg-white/10 hover:translate-x-1 border-l-4'
-          >
-            <LogOut size={20} />
-            Logout
-          </button> */}
           <AuthLogoutButton />
         </div>
       </aside>

@@ -1,4 +1,5 @@
-import NavBarGameStats from "@/components/layout/NavBarGameStats";
+import NavBar from "@/components/layout/NavBar";
+
 import GameProviders from "@/contexts/GameProviders";
 
 function layout({ children }) {
@@ -6,7 +7,7 @@ function layout({ children }) {
     <GameProviders>
       <div className='layout'>
         <div className='main-body'>
-          <NavBarGameStats />
+          <NavBar />
           <div className='main-content'>{children}</div>
         </div>
       </div>

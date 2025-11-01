@@ -1,22 +1,23 @@
+"use client";
+import React from "react";
 import Button from "@/components/ui/Button";
 import LiveGameHeaderClock from "./LiveGameHeaderClock";
-import { Menu } from "lucide-react";
+
+import { useGame } from "@/contexts/GameLiveContext";
 
 function LiveGameHeader() {
-  return (
-    <div className='col-span-2 row-start-1 bg-secondary flex items-center px-3 py-3 text-background shadow-lg'>
-      {/* Left Section - Menu Toggle */}
-      <div className='flex-shrink-0'>
-        <button
-          className='p-2 hover:bg-background/10 rounded-md transition-colors mt-[-20px]'
-          aria-label='Menu'
-        >
-          <Menu className='w-6 h-6 text-background' />
-        </button>
-      </div>
+  const { endPeriod } = useGame();
 
-      {/* Center Section - Score */}
-      <div className='flex items-center gap-8 flex-1 justify-center'>
+  return (
+    <header
+      className='relative col-span-2 row-start-1 flex items-center justify-between px-4 py-3 shadow-lg bg-secondary text-background
+      '
+    >
+      {/* Left Section — Hamburger */}
+      <div className='flex-shrink-0 w-10 flex items-center justify-start'></div>
+
+      {/* Center Section — Score + Clock */}
+      <div className='absolute left-1/2 transform -translate-x-1/2 flex items-center gap-8'>
         {/* Home Team */}
         <div className='text-center min-w-[80px]'>
           <div className='text-xs font-medium tracking-wider opacity-80 mb-1'>
@@ -44,13 +45,13 @@ function LiveGameHeader() {
         </div>
       </div>
 
-      {/* Right Section - End Period Button (2x width of left section) */}
-      <div className='flex-shrink-0 w-[120x] flex justify-end'>
-        <Button variant='danger' className='text-sm'>
+      {/* Right Section — Fixed Width */}
+      <div className='flex-shrink-0 w-[120px] flex justify-end'>
+        <Button variant='danger' className='text-sm' onClick={endPeriod}>
           END PERIOD
         </Button>
       </div>
-    </div>
+    </header>
   );
 }
 

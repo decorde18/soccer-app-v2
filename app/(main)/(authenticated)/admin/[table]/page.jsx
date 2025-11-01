@@ -4,15 +4,15 @@ import DynamicForm from "@/components/admin/DynamicForm";
 import DataTable from "@/components/admin/DataTable";
 import { useParams } from "next/navigation";
 
-export default function PeopleAdmin(params) {
+export default function DbTableAdmin(params) {
   const { table } = useParams();
 
-  const [people, setPeople] = useState([]);
+  const [dbTable, setDbTable] = useState([]);
   const [editing, setEditing] = useState(null);
 
   const load = async () => {
     const res = await fetch(`/api/${table}`);
-    setPeople(await res.json());
+    setDbTable(await res.json());
   };
 
   useEffect(() => {
@@ -36,8 +36,8 @@ export default function PeopleAdmin(params) {
   };
 
   return (
-    <div className='p-6 space-y-6'>
-      <h1 className='text-2xl font-bold'>Manage People</h1>
+    <div className='p-6 space-y-6 flex gap-2'>
+      <h1 className='text-2xl font-bold'>Manage {table}</h1>
 
       <DynamicForm
         table={table}
@@ -46,7 +46,7 @@ export default function PeopleAdmin(params) {
       />
 
       <DataTable
-        data={people}
+        data={dbTable}
         onEdit={(row) => setEditing(row)}
         onDelete={handleDelete}
       />
