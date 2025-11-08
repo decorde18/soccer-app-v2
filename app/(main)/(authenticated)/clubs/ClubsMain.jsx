@@ -36,13 +36,8 @@ function ClubsMain() {
     try {
       if (editingClub) {
         await update(editingClub.id, data);
-        // const updatedClub = await update(editingClub.id, data);
-        // setClubs(
-        //   clubs.map((club) => (club.id === editingClub.id ? updatedClub : club))
-        // );
       } else {
         await create(data);
-        // setClubs([...clubs, data]);
       }
       setIsModalOpen(false);
       setFormData({});
@@ -67,9 +62,8 @@ function ClubsMain() {
 
   if (loading) return <div>Loading clubs...</div>;
   if (error) return <div>Error loading clubs</div>;
-
   return (
-    <div>
+    <>
       <div className='flex items-center justify-between flex-row-reverse p-3'>
         <Button onClick={handleAdd} className='w-40 '>
           Add Club
@@ -79,8 +73,10 @@ function ClubsMain() {
         columns={clubsFields}
         data={clubs}
         enableFiltering={true}
-        filterPlaceholder='Search by name, email, or role...'
-        filterKeys={["name", "email", "role"]}
+        filterPlaceholder='Search clubs...'
+        filterKeys={clubsFields
+          .filter((col) => col?.filterable !== false)
+          .map((col) => col.name)}
         enableSorting={true}
         defaultSortKey='name'
         enablePagination={true}
@@ -118,7 +114,7 @@ function ClubsMain() {
           loading={loading}
         />
       </Modal>
-    </div>
+    </>
   );
 }
 

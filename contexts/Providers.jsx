@@ -1,7 +1,5 @@
-import { AuthProvider } from "./AuthContext";
-
 function Providers({ children }) {
-  return <AuthProvider>{children}</AuthProvider>;
+  return { children };
 }
 
 export default Providers;

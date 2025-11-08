@@ -1,14 +1,16 @@
 "use client";
-import { LogOut, Menu, X } from "lucide-react";
+import { LogOut, Menu, X, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
-import AuthLogoutButton from "@/app/auth/logout/AuthLogoutButton";
-import { navItems } from "@/lib/config";
+
+import { getNavSectionsForUser } from "@/lib/config";
 import Button from "../ui/Button";
+import useAuthStore from "@/stores/authStore";
+import LogoutButton from "@/app/(main)/public/auth/logout/LogoutButton";
 
 function NavBar() {
-  const { user, logout } = useAuth();
+  const user = useAuthStore((s) => s.user);
+
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -44,48 +46,24 @@ function NavBar() {
     setMounted(true);
   }, []);
 
-  if (!user) return <p>Loading...</p>;
+  if (!user) return null;
   if (!mounted) return null;
 
-  const { userName, jobTitle, initials } = user;
-
-  const navItemsToShow = () => {
-    // Find if current pathname matches any specific route section
-    const matchingSection = navItems.find(
-      (item) =>
-        item.showOnUrl &&
-        item.showOnUrl !== "all" &&
-        pathname?.includes(item.showOnUrl)
-    )?.showOnUrl;
-
-    // Filter items based on the matching section
-    const sectionSpecificItems = matchingSection
-      ? navItems.filter((item) => item.showOnUrl === matchingSection)
-      : navItems.filter((item) => !item.showOnUrl || item.showOnUrl === "all");
-
-    // Always include "all" items and remove duplicates
-    const allItems = navItems.filter((item) => item.showOnUrl === "all");
-    const uniqueItems = [
-      ...allItems,
-      ...sectionSpecificItems.filter((item) => item.showOnUrl !== "all"),
-    ];
-
-    return uniqueItems;
-  };
+  const sections = getNavSectionsForUser(user);
 
   // Determine sidebar classes based on whether we're on gameStats
   const isGameStatsRoute = pathname?.includes("/gameStats");
   const sidebarClasses = isGameStatsRoute
     ? // GameStats: always mobile behavior (closed by default, hamburger always visible)
-      `fixed top-0 left-0 h-full w-60 bg-gradient-to-br from-primary to-secondary text-white z-[1100] transition-transform duration-300 ease-in-out ${
+      `fixed top-0 left-0 h-full w-64 bg-gradient-to-br from-primary to-secondary text-white z-[1100] transition-transform duration-300 ease-in-out ${
         sidebarOpen
-          ? "translate-x-0 shadow-[4px_0_20px_rgba(0,0,0,0.1)]"
+          ? "translate-x-0 shadow-[4px_0_20px_rgba(0,0,0,0.2)]"
           : "-translate-x-full"
       }`
     : // Regular routes: desktop sidebar, mobile hamburger
-      `fixed top-0 left-0 h-full w-60 bg-gradient-to-br from-primary to-secondary text-white z-[1100] transition-transform duration-300 ease-in-out ${
+      `fixed top-0 left-0 h-full w-64 bg-gradient-to-br from-primary to-secondary text-white z-[1100] transition-transform duration-300 ease-in-out ${
         sidebarOpen
-          ? "translate-x-0 shadow-[4px_0_20px_rgba(0,0,0,0.1)]"
+          ? "translate-x-0 shadow-[4px_0_20px_rgba(0,0,0,0.2)]"
           : "-translate-x-full"
       } lg:relative lg:w-[280px] lg:translate-x-0 lg:shadow-none`;
 
@@ -94,17 +72,17 @@ function NavBar() {
       {/* Hamburger Button - Mobile Only (or always for GameStats) */}
       <button
         onClick={() => setSidebarOpen((prev) => !prev)}
-        className={`w-14 fixed top-4 left-4 z-[1200] bg-transparent border-none cursor-pointer ${
+        className={`w-14 fixed top-4 left-4 z-[1200] bg-transparent border-none cursor-pointer transition-transform hover:scale-110 ${
           isGameStatsRoute ? "" : "lg:hidden"
         }`}
         aria-label='Toggle menu'
       >
         {sidebarOpen ? (
-          <X size={28} className='text-white' />
+          <X size={28} className='text-white drop-shadow-lg' />
         ) : (
           <Menu
             size={28}
-            className={`transition-colors duration-300 ${
+            className={`transition-colors duration-300 drop-shadow-lg ${
               isDarkHeader ? "text-white" : "text-text"
             }`}
           />
@@ -113,7 +91,7 @@ function NavBar() {
 
       {/* Backdrop - Mobile Only (or always for GameStats) */}
       <div
-        className={`fixed inset-0 bg-black/40 z-[1000] transition-opacity duration-300 ${
+        className={`fixed inset-0 bg-black/50 z-[1000] transition-opacity duration-300 ${
           isGameStatsRoute ? "" : "lg:hidden"
         } ${
           sidebarOpen
@@ -125,56 +103,95 @@ function NavBar() {
 
       {/* Sidebar */}
       <aside className={sidebarClasses}>
-        {/* Header */}
-        <div className='p-6 border-b border-white/10'>
-          <h1 className='text-2xl font-bold mb-2 bg-gradient-to-r from-white to-[#e2e8f0] bg-clip-text text-transparent'>
-            Soccer Stats App
-          </h1>
+        {/* Flex container to handle scrolling properly */}
+        <div className='flex flex-col h-full'>
+          {/* Header - Fixed */}
+          <div className='flex-shrink-0 p-6 border-b border-white/10'>
+            <h1 className='text-2xl font-bold mb-1 bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent'>
+              Soccer Stats
+            </h1>
+            <p className='text-xs text-white/60 uppercase tracking-wider'>
+              Pro Platform
+            </p>
+          </div>
 
-          {/* User Info */}
-          <div className='flex items-center gap-3 mt-4'>
-            <div className='w-10 h-10 rounded-full bg-gradient-to-br from-[#38bdf8] to-[#06b6d4] flex items-center justify-center font-semibold'>
-              {initials}
-            </div>
-            <div>
-              <div className='font-semibold'>{userName}</div>
-              <div className='text-sm opacity-80'>{jobTitle}</div>
-            </div>
+          {/* Navigation - Scrollable */}
+          <nav className='flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar'>
+            {sections.map(({ section, items }) => (
+              <div key={section}>
+                <div className='text-xs font-semibold text-white/50 uppercase tracking-wider mb-3 px-4'>
+                  {section}
+                </div>
+                <div className='space-y-1'>
+                  {items.map((item, key) => {
+                    const isActive = pathname === item.id;
+                    const Icon = item.icon;
+
+                    return (
+                      <Button
+                        key={`${item.id}${key}`}
+                        onClick={() =>
+                          item.link
+                            ? window.open(item.link, "_blank")
+                            : router.push(item.id)
+                        }
+                        className={`w-full flex items-center gap-3 px-4  text-white text-sm cursor-pointer transition-all duration-200 rounded-lg ${
+                          isActive
+                            ? "bg-white/15 backdrop-blur-sm shadow-lg"
+                            : "bg-transparent hover:bg-white/10 hover:translate-x-1"
+                        }`}
+                      >
+                        <div className='flex items-center gap-3 w-full'>
+                          {Icon && <span className='text-lg'>{Icon}</span>}
+                          <span className='font-medium'>{item.label}</span>
+                        </div>
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </nav>
+
+          {/* Footer Actions - Fixed */}
+          <div className='flex-shrink-0 p-4 border-t border-white/10 space-y-1 bg-gradient-to-t from-black/10 to-transparent'>
+            <Button onClick={() => router.push("/settings")}>
+              <Settings size={20} />
+              <span className='font-medium'>Settings</span>
+            </Button>
+
+            <LogoutButton />
           </div>
         </div>
 
-        {/* Navigation */}
-        <nav className='py-6 left-6 right-6'>
-          {navItemsToShow().map((item, key) => {
-            const isActive = pathname === item.id;
-            const Icon = item.icon;
+        {/* Custom Scrollbar Styles */}
+        <style jsx global>{`
+          .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+          }
 
-            return (
-              <Button
-                key={`${item.id}${key}`}
-                onClick={() =>
-                  item.link
-                    ? window.open(item.link, "_blank")
-                    : router.push(item.id)
-                }
-                className={`w-full flex items-center gap-4 px-6 py-4 text-white text-base cursor-pointer transition-all duration-200 border-l-4 ${
-                  isActive
-                    ? "bg-white/10 border-[#38bdf8]"
-                    : "bg-transparent border-transparent hover:bg-white/10 hover:translate-x-1"
-                }`}
-              >
-                <div size={20}>
-                  {Icon} {item.label}
-                </div>
-              </Button>
-            );
-          })}
-        </nav>
+          .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin: 8px 0;
+          }
 
-        {/* Logout Button */}
-        <div className='absolute bottom-6 left-6 right-6'>
-          <AuthLogoutButton />
-        </div>
+          .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            transition: background 0.2s;
+          }
+
+          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+          }
+
+          /* Firefox */
+          .custom-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.05);
+          }
+        `}</style>
       </aside>
     </>
   );

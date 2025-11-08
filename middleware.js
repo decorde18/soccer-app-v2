@@ -1,37 +1,42 @@
+// middleware.js - Convention-based with route groups
 import { NextResponse } from "next/server";
 
 export function middleware(req) {
-  const token = "fakeTOekn"; // adjust to your real cookie name
-  // const token = req.cookies.get("session"); // adjust to your real cookie name
+  const token = req.cookies.get("auth-token")?.value;
   const { pathname } = req.nextUrl;
 
-  const isAuthPage = pathname.startsWith("/auth");
+  // Check if route is in (public) folder - these routes are accessible without auth
+  const isPublicRoute =
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/about") ||
+    pathname.startsWith("/contact") ||
+    pathname.startsWith("/pricing");
+
+  const isAuthRoute = pathname.startsWith("/auth");
   const isRoot = pathname === "/";
 
-  // 1️⃣ If no token → allow auth pages, otherwise force login
+  // 1️⃣ No token - allow public routes, block everything else
   if (!token) {
-    if (!isAuthPage) {
-      return NextResponse.redirect(new URL("/auth/login", req.url));
+    if (isPublicRoute) {
+      return NextResponse.next();
     }
-    return NextResponse.next(); // allow staying on /auth/*
+    return NextResponse.redirect(new URL("/public/auth/login", req.url));
   }
 
-  // 2️⃣ If token but on /auth/* → redirect to dashboard
-  if (isAuthPage) {
+  // 2️⃣ Has token - redirect auth pages to dashboard
+  if (isAuthRoute) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
-  // 3️⃣ If root → send to dashboard
+  // 3️⃣ Has token on root - redirect to dashboard
   if (isRoot) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
-  // 4️⃣ Otherwise → allow route (or you can redirect invalids to dashboard)
+  // 4️⃣ All other routes with token - allow (protected by default)
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next|static|favicon.ico).*)", // exclude _next, static files, and favicon
-  ],
+  matcher: ["/((?!_next|static|favicon.ico|api|.*\\..*).)*"],
 };

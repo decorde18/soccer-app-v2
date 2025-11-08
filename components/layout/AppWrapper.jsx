@@ -1,11 +1,9 @@
-import Providers from "@/contexts/Providers";
 import Footer from "./Footer";
 import Header from "./Header";
 import NavBar from "./NavBar";
 
 function AppWrapper({ children }) {
   return (
-    // <Providers>
     <div className='layout'>
       <div className='main-body'>
         <NavBar />
@@ -16,7 +14,6 @@ function AppWrapper({ children }) {
       </div>
       <Footer />
     </div>
-    // </Providers>
   );
 }
 

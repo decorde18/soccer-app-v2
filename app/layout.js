@@ -2,8 +2,7 @@
 import "../styles/globals.css";
 import { Geist, Geist_Mono } from "next/font/google";
 import "@/styles/globals.css";
-import AppWrapper from "@/components/layout/AppWrapper";
-import Providers from "@/contexts/Providers";
+import AuthProvider from "@/components/AuthProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,7 +26,7 @@ export default function RootLayout({ children }) {
         <link rel='icon' type='image/png' href='/favicon.png' />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} `}>
-        <Providers>{children}</Providers>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );
