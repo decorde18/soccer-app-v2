@@ -5,6 +5,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Database, Table, ChevronDown, Search, Grid, List } from "lucide-react";
 
+import { Card } from "@/components/ui/card/Card";
+import { CardHeader } from "@/components/ui/card/CardHeader";
+import { CardTitle } from "@/components/ui/card/CardTitle";
+import { CardDescription } from "@/components/ui/card/CardDescription";
+import { CardGrid } from "@/components/ui/card/CardGrid";
+import { CardList } from "@/components/ui/card/CardList";
+
 import { ADMIN_TABLES } from "@/lib/config";
 
 export default function AdminPage() {
@@ -41,7 +48,7 @@ export default function AdminPage() {
         </div>
 
         {/* Search & View Toggle */}
-        <div className='bg-surface rounded-xl shadow-sm border border-border p-4 mb-6'>
+        <Card variant='default' padding='md' className='mb-6'>
           <div className='flex flex-col sm:flex-row gap-4 items-center justify-between'>
             {/* Search */}
             <div className='relative flex-1 w-full sm:w-auto'>
@@ -82,41 +89,47 @@ export default function AdminPage() {
               </button>
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Tables Grid/List */}
         {viewMode === "grid" ? (
-          <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4'>
+          <CardGrid cols={3} gap='md'>
             {filteredTables.map((table) => (
-              <button
+              <Card
                 key={table.value}
+                variant='clickable'
+                padding='md'
                 onClick={() => handleTableSelect(table.value)}
-                className='group bg-surface border border-border rounded-xl p-6 hover:shadow-lg hover:border-primary/50 transition-all duration-200 text-left hover:-translate-y-1'
+                className='group'
               >
                 <div className='flex items-start gap-4'>
                   <div className='text-4xl group-hover:scale-110 transition-transform'>
                     {table.icon}
                   </div>
                   <div className='flex-1'>
-                    <div className='flex items-center gap-2 mb-1'>
-                      <h3 className='font-semibold text-text group-hover:text-primary transition-colors'>
-                        {table.label}
-                      </h3>
-                      <Table size={14} className='text-muted' />
-                    </div>
-                    <p className='text-sm text-muted'>{table.description}</p>
+                    <CardHeader className='mb-0'>
+                      <div className='flex items-center gap-2 mb-1'>
+                        <CardTitle className='group-hover:text-primary transition-colors'>
+                          {table.label}
+                        </CardTitle>
+                        <Table size={14} className='text-muted' />
+                      </div>
+                      <CardDescription>{table.description}</CardDescription>
+                    </CardHeader>
                   </div>
                 </div>
-              </button>
+              </Card>
             ))}
-          </div>
+          </CardGrid>
         ) : (
-          <div className='space-y-2'>
+          <CardList gap='sm'>
             {filteredTables.map((table) => (
-              <button
+              <Card
                 key={table.value}
+                variant='clickable'
+                padding='md'
                 onClick={() => handleTableSelect(table.value)}
-                className='w-full group bg-surface border border-border rounded-lg p-4 hover:shadow-md hover:border-primary/50 transition-all duration-200 text-left'
+                className='group'
               >
                 <div className='flex items-center gap-4'>
                   <div className='text-3xl group-hover:scale-110 transition-transform'>
@@ -124,21 +137,21 @@ export default function AdminPage() {
                   </div>
                   <div className='flex-1'>
                     <div className='flex items-center gap-2 mb-1'>
-                      <h3 className='font-semibold text-text group-hover:text-primary transition-colors'>
+                      <CardTitle className='group-hover:text-primary transition-colors text-base'>
                         {table.label}
-                      </h3>
+                      </CardTitle>
                       <Table size={14} className='text-muted' />
                     </div>
-                    <p className='text-sm text-muted'>{table.description}</p>
+                    <CardDescription>{table.description}</CardDescription>
                   </div>
                   <ChevronDown
                     className='text-muted rotate-[-90deg] group-hover:translate-x-1 transition-transform'
                     size={20}
                   />
                 </div>
-              </button>
+              </Card>
             ))}
-          </div>
+          </CardList>
         )}
 
         {/* No Results */}
@@ -152,7 +165,7 @@ export default function AdminPage() {
         )}
 
         {/* Stats Footer */}
-        <div className='mt-8 bg-surface rounded-xl shadow-sm border border-border p-4'>
+        <Card variant='default' padding='md' className='mt-8'>
           <div className='flex flex-wrap gap-6 justify-center text-center'>
             <div>
               <div className='text-2xl font-bold text-primary'>
@@ -172,7 +185,7 @@ export default function AdminPage() {
               </div>
             </div>
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );
