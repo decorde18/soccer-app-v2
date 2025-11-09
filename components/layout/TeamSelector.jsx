@@ -238,7 +238,7 @@ function TeamSelector({ type }) {
                 : "Organization"
             }
             size='sm'
-            width='md'
+            width='lg'
             value={selectedClub?.id || ""}
             options={[
               { value: "", label: "Select Organization" },
@@ -260,7 +260,7 @@ function TeamSelector({ type }) {
           <Select
             label='Team'
             size='sm'
-            width='md'
+            width='lg'
             value={selectedTeam?.id || ""}
             options={[
               { value: "", label: "Select Team" },
@@ -282,7 +282,7 @@ function TeamSelector({ type }) {
           <Select
             label='Season'
             size='sm'
-            width='sm'
+            width='md'
             value={selectedSeason?.id || ""}
             options={[
               { value: "", label: "Select Season" },

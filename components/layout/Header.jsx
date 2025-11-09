@@ -1,32 +1,28 @@
 "use client";
 import { format } from "date-fns";
 import { useEffect, useState } from "react";
-import { ChevronDown, Settings } from "lucide-react";
-import useAuthStore from "@/stores/authStore";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import useAuthStore from "@/stores/authStore";
 import TeamSelector from "./TeamSelector";
+import LoginButton from "@/app/(public)/auth/LoginButton";
+import LogoutButton from "@/app/(public)/auth/LogoutButton";
+import Button from "../ui/Button";
+import { ChevronDown, Settings, User } from "lucide-react";
 
 function Header() {
   const user = useAuthStore((s) => s.user);
-  const [mounted, setMounted] = useState(false);
+
+  const router = useRouter();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [windowWidth, setWindowWidth] = useState(0);
 
   // Track window size for responsive behavior
   useEffect(() => {
-    const handleResize = () => {
-      setWindowWidth(window.innerWidth);
-    };
-
-    // Set initial width
+    const handleResize = () => setWindowWidth(window.innerWidth);
     handleResize();
-
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  useEffect(() => {
-    setMounted(true);
   }, []);
 
   useEffect(() => {
@@ -35,122 +31,143 @@ function Header() {
         setUserMenuOpen(false);
       }
     };
-
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
   }, [userMenuOpen]);
 
-  if (!user) return null;
-  if (!mounted) return null;
-
-  const { name, roles } = user;
-  const firstNameInitial = user.first_name ? user.first_name[0] : "";
-  const lastNameInitial = user.last_name ? user.last_name[0] : "";
-  const initials = `${firstNameInitial}${lastNameInitial}`.toUpperCase();
-
   const formattedDate = format(new Date(), "EEEE, MMMM d, yyyy");
 
-  // Responsive breakpoints (matching Tailwind defaults)
+  // Responsive breakpoints
   const isXL = windowWidth >= 1280;
   const isSM = windowWidth >= 640;
   const isLG = windowWidth >= 1024;
 
+  // User info (only if logged in)
+  const name = user?.name;
+  const roles = user?.roles || [];
+  const firstNameInitial = user?.first_name ? user.first_name[0] : "";
+  const lastNameInitial = user?.last_name ? user.last_name[0] : "";
+  const initials = `${firstNameInitial}${lastNameInitial}`.toUpperCase();
+
   return (
-    <header className='bg-surface border-b border-border sticky top-0 z-50 shadow-sm pt-2'>
-      <div className='flex items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 h-16'>
-        {/* Left - Date (hidden on mobile and tablet) */}
+    <header className='bg-surface border-b border-border sticky top-0 z-50 shadow-sm'>
+      <div className='flex items-center justify-between gap-2 px-3 sm:px-4 md:px-6 h-auto min-h-16 py-2 flex-wrap'>
+        {/* Left - Date (hidden on smaller screens) */}
         {isXL && (
           <div className='text-sm text-muted whitespace-nowrap'>
             {formattedDate}
           </div>
         )}
 
-        {/* Center - Team Selector - shifts right on mobile for hamburger */}
-        <div className={`flex-1 flex justify-center ${!isLG ? "ml-14" : ""}`}>
-          <TeamSelector type='header' />
+        {/* Center - Team Selector (scrollable on smaller screens) */}
+        <div
+          className={`flex-1 flex justify-center overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent ${
+            !isLG ? "ml-0" : ""
+          }`}
+        >
+          <div className='w-full max-w-full sm:max-w-[90%] md:max-w-[80%] lg:max-w-[70%] xl:max-w-[60%]'>
+            <TeamSelector type='header' />
+          </div>
         </div>
 
-        {/* Right - User Menu */}
-        <div className='relative user-menu-container flex justify-end'>
-          <button
-            onClick={() => setUserMenuOpen(!userMenuOpen)}
-            className='flex items-center gap-3 hover:bg-background rounded-lg p-2 transition-colors'
-          >
-            <div className='flex items-center gap-3'>
-              <div className='w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary text-white flex items-center justify-center font-semibold text-sm shadow-md'>
-                {initials}
+        {/* Right - User Menu (only if logged in) */}
+        {user ? (
+          <div className='relative user-menu-container flex justify-end'>
+            <button
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              className='flex items-center gap-3 hover:bg-background rounded-lg p-2 transition-colors'
+            >
+              <div className='flex items-center gap-3'>
+                <div className='w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary text-white flex items-center justify-center font-semibold text-sm shadow-md'>
+                  {initials}
+                </div>
+                {isSM && (
+                  <div className='text-left'>
+                    <div className='font-semibold text-sm text-text'>
+                      {name}
+                    </div>
+                    <div className='text-xs text-muted capitalize'>
+                      {roles[0]}
+                    </div>
+                  </div>
+                )}
               </div>
               {isSM && (
-                <div className='text-left'>
-                  <div className='font-semibold text-sm text-text'>{name}</div>
-                  <div className='text-xs text-muted capitalize'>
-                    {roles[0]}
-                  </div>
-                </div>
+                <ChevronDown
+                  size={16}
+                  className={`text-muted transition-transform ${
+                    userMenuOpen ? "rotate-180" : ""
+                  }`}
+                />
               )}
-            </div>
-            {isSM && (
-              <ChevronDown
-                size={16}
-                className={`text-muted transition-transform ${
-                  userMenuOpen ? "rotate-180" : ""
-                }`}
-              />
+            </button>
+
+            {userMenuOpen && (
+              <div className='absolute right-0 mt-2 w-56 p-6 bg-surface rounded-lg shadow-lg border border-border py-2 z-50'>
+                {!isSM && (
+                  <div className='px-4 py-3 border-b border-border'>
+                    <div className='font-semibold text-sm text-text'>
+                      {name}
+                    </div>
+                    <div className='text-xs text-muted capitalize'>
+                      {roles[0]}
+                    </div>
+                  </div>
+                )}
+                <Button
+                  onClick={() => {
+                    router.push("/profile");
+                    setUserMenuOpen(!userMenuOpen);
+                  }}
+                >
+                  <User size={20} />
+                  <span className='font-medium'>Profile</span>
+                </Button>
+                <Button
+                  onClick={() => {
+                    router.push("/settings");
+                    setUserMenuOpen(!userMenuOpen);
+                  }}
+                >
+                  <Settings size={20} />
+                  <span className='font-medium'>Settings</span>
+                </Button>
+
+                <div className='border-t border-border my-2'></div>
+
+                <LogoutButton />
+              </div>
             )}
-          </button>
-
-          {/* Dropdown Menu */}
-          {userMenuOpen && (
-            <div className='absolute right-0 mt-2 w-56 bg-surface rounded-lg shadow-lg border border-border py-2 z-50'>
-              {/* User Info (mobile only) */}
-              {!isSM && (
-                <div className='px-4 py-3 border-b border-border'>
-                  <div className='font-semibold text-sm text-text'>{name}</div>
-                  <div className='text-xs text-muted capitalize'>
-                    {roles[0]}
-                  </div>
-                </div>
-              )}
-
-              <Link href='/profile'>
-                <button
-                  onClick={() => setUserMenuOpen(false)}
-                  className='w-full px-4 py-2 text-left text-sm text-text hover:bg-background transition-colors flex items-center gap-2'
-                >
-                  <div className='w-4 h-4 flex items-center justify-center'>
-                    👤
-                  </div>
-                  View Profile
-                </button>
-              </Link>
-
-              <Link href='/settings'>
-                <button
-                  onClick={() => setUserMenuOpen(false)}
-                  className='w-full px-4 py-2 text-left text-sm text-text hover:bg-background transition-colors flex items-center gap-2'
-                >
-                  <Settings size={16} className='text-muted' />
-                  Settings
-                </button>
-              </Link>
-
-              <div className='border-t border-border my-2'></div>
-
-              <Link href='/logout'>
-                <button
-                  onClick={() => setUserMenuOpen(false)}
-                  className='w-full px-4 py-2 text-left text-sm text-danger hover:bg-red-50 transition-colors flex items-center gap-2'
-                >
-                  <div className='w-4 h-4 flex items-center justify-center'>
-                    🚪
-                  </div>
-                  Logout
-                </button>
-              </Link>
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          // If no user, show Login/Register buttons (optional)
+          <div className='flex gap-2'>
+            <LoginButton />
+            <Link href='/auth/register'>
+              <button className='text-sm px-3 py-1 rounded-md bg-primary text-white hover:bg-primary/90 transition'>
+                Register
+              </button>
+            </Link>
+          </div>
+        )}
       </div>
+
+      {/* Scrollbar styling */}
+      <style jsx>{`
+        .scrollbar-thin::-webkit-scrollbar {
+          height: 4px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+          background: hsl(var(--color-border));
+          border-radius: 10px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+          background: hsl(var(--color-muted));
+        }
+      `}</style>
     </header>
   );
 }

@@ -1,12 +1,13 @@
 "use client";
-import { LogOut, Menu, X, Settings } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
-import { getNavSectionsForUser } from "@/lib/config";
 import Button from "../ui/Button";
 import useAuthStore from "@/stores/authStore";
-import LogoutButton from "@/app/(main)/public/auth/logout/LogoutButton";
+import LogoutButton from "@/app/(public)/auth/LogoutButton";
+import { getNavSectionsForUser } from "@/lib/roleutils";
+import { navItems } from "@/lib/config";
 
 function NavBar() {
   const user = useAuthStore((s) => s.user);
@@ -14,7 +15,6 @@ function NavBar() {
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
   // Detect if we're on a "dark" page (like /live or /gameStats)
   const isDarkHeader = pathname?.includes("/live");
@@ -42,14 +42,7 @@ function NavBar() {
     }
   }, [pathname]);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!user) return null;
-  if (!mounted) return null;
-
-  const sections = getNavSectionsForUser(user);
+  const sections = getNavSectionsForUser(user, navItems);
 
   // Determine sidebar classes based on whether we're on gameStats
   const isGameStatsRoute = pathname?.includes("/gameStats");
@@ -117,51 +110,61 @@ function NavBar() {
 
           {/* Navigation - Scrollable */}
           <nav className='flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar'>
-            {sections.map(({ section, items }) => (
-              <div key={section}>
-                <div className='text-xs font-semibold text-white/50 uppercase tracking-wider mb-3 px-4'>
-                  {section}
-                </div>
-                <div className='space-y-1'>
-                  {items.map((item, key) => {
-                    const isActive = pathname === item.id;
-                    const Icon = item.icon;
+            {sections.map(({ section, items }) =>
+              items.length ? (
+                <div key={section}>
+                  <div className='text-xs font-semibold text-white/50 uppercase tracking-wider mb-3 px-4'>
+                    {section}
+                  </div>
+                  <div className='space-y-1'>
+                    {items.map((item, key) => {
+                      const isActive = pathname === item.id;
+                      const Icon = item.icon;
 
-                    return (
-                      <Button
-                        key={`${item.id}${key}`}
-                        onClick={() =>
-                          item.link
-                            ? window.open(item.link, "_blank")
-                            : router.push(item.id)
-                        }
-                        className={`w-full flex items-center gap-3 px-4  text-white text-sm cursor-pointer transition-all duration-200 rounded-lg ${
-                          isActive
-                            ? "bg-white/15 backdrop-blur-sm shadow-lg"
-                            : "bg-transparent hover:bg-white/10 hover:translate-x-1"
-                        }`}
-                      >
-                        <div className='flex items-center gap-3 w-full'>
-                          {Icon && <span className='text-lg'>{Icon}</span>}
-                          <span className='font-medium'>{item.label}</span>
-                        </div>
-                      </Button>
-                    );
-                  })}
+                      return (
+                        <Button
+                          key={`${item.id}${key}`}
+                          onClick={() =>
+                            item.link
+                              ? window.open(item.link, "_blank")
+                              : router.push(item.id)
+                          }
+                          className={`w-full flex items-center gap-3 px-4  text-white text-sm cursor-pointer transition-all duration-200 rounded-lg ${
+                            isActive
+                              ? "bg-white/15 backdrop-blur-sm shadow-lg"
+                              : "bg-transparent hover:bg-white/10 hover:translate-x-1"
+                          }`}
+                        >
+                          <div className='flex items-center gap-3 w-full'>
+                            {Icon && <span className='text-lg'>{Icon}</span>}
+                            <span className='font-medium'>{item.label}</span>
+                          </div>
+                        </Button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ) : null
+            )}
           </nav>
 
           {/* Footer Actions - Fixed */}
-          <div className='flex-shrink-0 p-4 border-t border-white/10 space-y-1 bg-gradient-to-t from-black/10 to-transparent'>
-            <Button onClick={() => router.push("/settings")}>
-              <Settings size={20} />
-              <span className='font-medium'>Settings</span>
-            </Button>
-
-            <LogoutButton />
-          </div>
+          {user && (
+            <div className='flex-shrink-0 p-4 border-t border-white/10 space-y-1 pr-8 bg-gradient-to-t from-black/10 to-transparent'>
+              {/* <Button
+                onClick={() => router.push("/settings")}
+                className={`w-full flex items-center gap-3 px-4 text-white text-sm cursor-pointer transition-all duration-200 rounded-lg ${
+                  pathname === "/settings"
+                    ? "bg-white/15 backdrop-blur-sm shadow-lg"
+                    : "bg-transparent hover:bg-white/10 hover:translate-x-1"
+                }`}
+              >
+                <Settings size={20} />
+                <span className='font-medium'>Settings</span>
+              </Button> */}
+              <LogoutButton />
+            </div>
+          )}
         </div>
 
         {/* Custom Scrollbar Styles */}

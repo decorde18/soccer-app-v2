@@ -25,7 +25,7 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     // Call your API to authenticate
-    const res = await fetch("/api/login", {
+    const res = await fetch("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });

@@ -2,7 +2,13 @@
 import "../styles/globals.css";
 import { Geist, Geist_Mono } from "next/font/google";
 import "@/styles/globals.css";
+import { Suspense } from "react";
 import AuthProvider from "@/components/AuthProvider";
+import Footer from "@/components/layout/Footer";
+import Header from "@/components/layout/Header";
+import NavBar from "@/components/layout/NavBar";
+import HeaderSkeleton from "@/components/layout/HeaderSkeleton";
+import NavBarSkeleton from "@/components/layout/NavBarSkeleton";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,8 +21,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "TITLE",
-  description: "DESCRIPTION",
+  title: "Soccer Stats App",
+  description: "Cordero Soccer Stats Everything App",
 };
 
 export default function RootLayout({ children }) {
@@ -25,8 +31,23 @@ export default function RootLayout({ children }) {
       <head>
         <link rel='icon' type='image/png' href='/favicon.png' />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} `}>
-        <AuthProvider>{children}</AuthProvider>
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+        <AuthProvider>
+          <div className='layout'>
+            <div className='main-body'>
+              <Suspense fallback={<NavBarSkeleton />}>
+                <NavBar />
+              </Suspense>
+              <div className='main-content'>
+                <Suspense fallback={<HeaderSkeleton />}>
+                  <Header />
+                </Suspense>
+                {children}
+              </div>
+            </div>
+            <Footer />
+          </div>
+        </AuthProvider>
       </body>
     </html>
   );

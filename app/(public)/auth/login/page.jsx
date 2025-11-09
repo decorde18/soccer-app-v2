@@ -51,7 +51,7 @@ export default function LoginPage() {
           {error && <p className='text-red-600 text-sm'>{error}</p>}
         </form>
         <Link
-          href='/public/auth/register'
+          href='/auth/register'
           className='block text-center text-blue-600 mt-6 hover:underline'
         >
           Don't have an account? Register

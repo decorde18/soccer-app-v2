@@ -121,7 +121,7 @@ export default function RegisterPage() {
       </form>
 
       <Link
-        href='/public/auth/login'
+        href='/auth/login'
         className='block text-center text-blue-600 mt-6 hover:underline'
       >
         Already have an account? Login

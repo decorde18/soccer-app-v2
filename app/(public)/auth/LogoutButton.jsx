@@ -1,4 +1,3 @@
-// components/LogoutButton.jsx
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -12,7 +11,7 @@ export default function LogoutButton({ className = "" }) {
 
   const handleLogout = async () => {
     await logout();
-    router.push("/public/auth/login");
+    router.push("/auth/login");
     router.refresh();
   };
 
@@ -22,12 +21,13 @@ export default function LogoutButton({ className = "" }) {
       disabled={isLoading}
       variant='danger'
       size='sm'
+      className={className}
     >
       {isLoading ? (
         "Logging out..."
       ) : (
         <>
-          <LogOut />
+          <LogOut size={18} />
           <span className='font-medium'>Logout</span>
         </>
       )}

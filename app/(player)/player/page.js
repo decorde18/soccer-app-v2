@@ -1,5 +1,5 @@
 function page() {
-  return <div></div>;
+  return <div>Player Profile Page</div>;
 }
 
 export default page;
