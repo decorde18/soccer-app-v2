@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Database, Table, ChevronDown, Search, Grid, List } from "lucide-react";
 
-import { Card } from "@/components/ui/card/Card";
+import { Card } from "@/components/ui/Card";
 import { CardHeader } from "@/components/ui/card/CardHeader";
 import { CardTitle } from "@/components/ui/card/CardTitle";
 import { CardDescription } from "@/components/ui/card/CardDescription";

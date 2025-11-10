@@ -14,6 +14,11 @@ export function Card({
   shadow = false,
   onClick,
   className = "",
+  header = "",
+  footer = "",
+  title = "",
+  description = "",
+  icon,
   ...props
 }) {
   const variants = {
@@ -48,7 +53,17 @@ export function Card({
       `}
       {...props}
     >
+      <div className='flex items-center gap-3 mb-4'>
+        <span className='text-3xl'>{icon}</span>
+        <h3 className={`font-semibold text-lg text-text ${className}`}>
+          {title}
+        </h3>
+      </div>
+      <p className='text-sm text-muted mt-1 '>{description}</p>
       {children}
+      {footer && (
+        <div className='mt-4 pt-4 border-t border-border'>{footer}</div>
+      )}
     </div>
   );
 }

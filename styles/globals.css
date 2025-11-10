@@ -113,4 +113,11 @@ a {
     margin-bottom: 0.4rem;
     display: block;
   }
+
+  h1 {
+    font-size: var(--font-size-title);
+    font-weight: var(--font-weight-bold);
+    margin-bottom: var(--padding-medium);
+    color: hsl(var(--color-heading));
+  }
 }

@@ -2,13 +2,10 @@
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import Link from "next/link";
-import { CardTitle } from "@/components/ui/card/CardTitle";
-import { CardHeader } from "@/components/ui/card/CardHeader";
-import { CardGrid } from "@/components/ui/card/CardGrid";
-import { Card } from "@/components/ui/card/Card";
-import { CardDescription } from "@/components/ui/card/CardDescription";
-import { CardList } from "@/components/ui/card/CardList";
-import { CardContent, CardFooter } from "@/components/ui/card/CardContent";
+
+import { Card } from "@/components/ui/Card";
+
+import { Grid, GridColumn } from "@/components/ui/Grid";
 
 export default async function Dashboard() {
   // Check if user is logged in (optional on this page)
@@ -28,109 +25,98 @@ export default async function Dashboard() {
   // Example Usage Component
   return (
     <div className='space-y-8 p-6'>
-      {/* Grid Example */}
-      <div>
-        <h2 className='text-2xl font-bold mb-4'>Grid Layout</h2>
-        <CardGrid cols={3} gap='md'>
-          <Card variant='clickable'>
-            <CardHeader>
-              <div className='flex items-center gap-3'>
-                <span className='text-3xl'>👤</span>
-                <div>
-                  <CardTitle>Users</CardTitle>
-                  <CardDescription>Manage user accounts</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
+      <Grid gap='6'>
+        <GridColumn span={4} spanMobile={12}>
+          <Card
+            variant='hover'
+            shadow
+            header='This is the header'
+            title='This is the title'
+            description='This is the description'
+            icon='👤'
+          >
+            Content
           </Card>
+        </GridColumn>
+      </Grid>
+      <div className='space-y-8 p-6'>
+        {/* Grid Example */}
+        <div>
+          <h2 className='text-2xl font-bold mb-4'>Grid Layout</h2>
 
-          <Card variant='hover' shadow>
-            <CardHeader>
-              <div className='flex items-center gap-3'>
-                <span className='text-3xl'>⚽</span>
-                <div>
-                  <CardTitle>Teams</CardTitle>
-                  <CardDescription>Configure teams</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-          </Card>
+          <Card
+            variant='clickable'
+            description='Manage user accounts'
+            icon='👤'
+            title='Users'
+          ></Card>
 
-          <Card variant='outlined'>
-            <CardHeader>
-              <div className='flex items-center gap-3'>
-                <span className='text-3xl'>📊</span>
-                <div>
-                  <CardTitle>Stats</CardTitle>
-                  <CardDescription>View statistics</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-          </Card>
-        </CardGrid>
-      </div>
+          <Card
+            variant='hover'
+            shadow
+            description='Configure teams'
+            title='Teams'
+            icon='⚽'
+          ></Card>
 
-      {/* List Example */}
-      <div>
-        <h2 className='text-2xl font-bold mb-4'>List Layout</h2>
-        <CardList gap='sm'>
-          <Card variant='clickable' padding='md'>
-            <div className='flex items-center gap-4'>
-              <span className='text-3xl'>👤</span>
-              <div className='flex-1'>
-                <CardTitle>Users</CardTitle>
-                <CardDescription>
-                  Manage user accounts and permissions
-                </CardDescription>
-              </div>
-            </div>
-          </Card>
+          <Card
+            variant='outlined'
+            description='View statistics'
+            icon='📊'
+            title='Stats'
+          ></Card>
+        </div>
 
-          <Card variant='clickable' padding='md'>
-            <div className='flex items-center gap-4'>
-              <span className='text-3xl'>⚽</span>
-              <div className='flex-1'>
-                <CardTitle>Teams</CardTitle>
-                <CardDescription>Configure teams and rosters</CardDescription>
-              </div>
-            </div>
-          </Card>
-        </CardList>
-      </div>
+        {/* List Example */}
+        <div>
+          <h2 className='text-2xl font-bold mb-4'>List Layout</h2>
 
-      {/* Complex Card Example */}
-      <div>
-        <h2 className='text-2xl font-bold mb-4'>Complex Card</h2>
-        <CardGrid cols={2} gap='lg'>
-          <Card variant='hover' shadow padding='lg'>
-            <CardHeader>
-              <div className='flex items-center justify-between'>
-                <CardTitle>Analytics</CardTitle>
-                <span className='text-2xl'>📈</span>
-              </div>
-              <CardDescription>Track your performance metrics</CardDescription>
-            </CardHeader>
+          <Card
+            variant='clickable'
+            padding='md'
+            description='Manage user accounts and permissions'
+            title='Users'
+            icon='👤'
+          ></Card>
 
-            <CardContent>
-              <div className='space-y-2'>
-                <div className='flex justify-between'>
-                  <span className='text-sm text-muted'>Total Users</span>
-                  <span className='font-semibold'>1,234</span>
-                </div>
-                <div className='flex justify-between'>
-                  <span className='text-sm text-muted'>Active Teams</span>
-                  <span className='font-semibold'>56</span>
-                </div>
-              </div>
-            </CardContent>
+          <Card
+            variant='clickable'
+            padding='md'
+            description='Configure teams and rosters'
+            icon='⚽'
+            title='Teams'
+          ></Card>
+        </div>
 
-            <CardFooter>
+        {/* Complex Card Example */}
+        <div>
+          <h2 className='text-2xl font-bold mb-4'>Complex Card</h2>
+
+          <Card
+            variant='hover'
+            shadow
+            padding='lg'
+            description='  Track your performance metrics'
+            icon='📈'
+            title='Analytics'
+            footer={
               <button className='w-full bg-primary text-white py-2 rounded-lg hover:bg-primary/90 transition'>
                 View Details
               </button>
-            </CardFooter>
+            }
+          >
+            <div className='space-y-2'>
+              <div className='flex justify-between'>
+                <span className='text-sm text-muted'>Total Users</span>
+                <span className='font-semibold'>1,234</span>
+              </div>
+              <div className='flex justify-between'>
+                <span className='text-sm text-muted'>Active Teams</span>
+                <span className='font-semibold'>56</span>
+              </div>
+            </div>
           </Card>
-        </CardGrid>
+        </div>
       </div>
     </div>
   );

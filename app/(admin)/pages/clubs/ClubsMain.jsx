@@ -1,25 +1,22 @@
 "use client";
 
 import { useApiData } from "@/hooks/useApiData";
-import { useRouter } from "next/navigation";
 
 import { useEffect, useState } from "react";
-
 import { clubsFields } from "@/lib/pageColumns";
-
 import Button from "@/components/ui/Button";
-import TableContainer from "@/components/ui/TableContainer";
+
 import Modal from "@/components/ui/Modal";
 import Form from "@/components/ui/Form";
 
 import { Edit2 } from "lucide-react";
+import ClubsTable from "@/app/(public)/clubs/ClubsTable";
 
 function ClubsMain() {
-  const router = useRouter();
   const {
-    data: fetchedData,
     loading,
     error,
+    data: fetchedData,
     create,
     update,
   } = useApiData("clubs");
@@ -53,15 +50,15 @@ function ClubsMain() {
   };
   const handleAdd = () => {
     setEditingClub(null);
-    setFormData({ club_type: "high_school", is_active: true });
+    setFormData({ type: "high_school", is_active: true });
     setIsModalOpen(true);
   };
   const handleFieldChange = (fieldName, value) => {
     setFormData((prev) => ({ ...prev, [fieldName]: value }));
   };
-
   if (loading) return <div>Loading clubs...</div>;
   if (error) return <div>Error loading clubs</div>;
+
   return (
     <>
       <div className='flex items-center justify-between flex-row-reverse p-3'>
@@ -69,21 +66,8 @@ function ClubsMain() {
           Add Club
         </Button>
       </div>
-      <TableContainer
-        columns={clubsFields}
-        data={clubs}
-        enableFiltering={true}
-        filterPlaceholder='Search clubs...'
-        filterKeys={clubsFields
-          .filter((col) => col?.filterable !== false)
-          .map((col) => col.name)}
-        enableSorting={true}
-        defaultSortKey='name'
-        enablePagination={true}
-        pageSize={10}
-        pageSizeOptions={[5, 10, 25]}
-        size='md'
-        onRowClick={(row) => router.push(`/clubs/${row.id}`)}
+      <ClubsTable
+        clubs={clubs}
         actions={(row) => (
           <Button
             size='sm'
@@ -97,8 +81,7 @@ function ClubsMain() {
             Edit
           </Button>
         )}
-        actionsWidth='100px'
-      ></TableContainer>
+      />
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
