@@ -10,7 +10,8 @@ export async function POST(request) {
       last_name,
       email,
       password,
-      roles = ["user"],
+      // The 'roles' column is now replaced by the 'system_admin' boolean flag.
+      // New users are not admins by default.
     } = await request.json();
 
     if (!first_name || !last_name || !email || !password) {
@@ -45,23 +46,26 @@ export async function POST(request) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Convert roles array to JSON string for MySQL
-    const rolesJson = JSON.stringify(roles);
+    // Set system_admin to 0 (false) for all new registrations
+    const system_admin = 0;
 
-    // Insert person
+    // Updated INSERT statement to use system_admin instead of roles
     const [result] = await pool.execute(
-      "INSERT INTO people (first_name, last_name, email, password_hash, roles, created_at) VALUES (?, ?, ?, ?, ?, NOW())",
-      [first_name, last_name, email, hashedPassword, rolesJson]
+      "INSERT INTO people (first_name, last_name, email, password_hash, system_admin, created_at) VALUES (?, ?, ?, ?, ?, NOW())",
+      [first_name, last_name, email, hashedPassword, system_admin]
     );
 
     const userId = result.insertId;
+
+    // Determine systemRole for JWT and response
+    const systemRole = system_admin === 1 ? "system_admin" : "user";
 
     // Generate JWT token
     const token = jwt.sign(
       {
         userId,
         email,
-        roles,
+        systemRole,
       },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
@@ -75,7 +79,8 @@ export async function POST(request) {
         last_name,
         name: `${first_name} ${last_name}`.trim(),
         email,
-        roles,
+        system_admin, // Include the new field in the response
+        systemRole,
       },
       token,
     });

@@ -18,7 +18,7 @@ export async function POST(request) {
 
     const pool = getPool();
 
-    // Get fresh person data
+    // Get fresh person data (SELECT * will now include system_admin)
     const [people] = await pool.execute("SELECT * FROM people WHERE id = ?", [
       decoded.userId,
     ]);
@@ -30,17 +30,14 @@ export async function POST(request) {
     const person = people[0];
     const { password_hash: _, ...personWithoutPassword } = person;
 
-    // Parse roles if stored as JSON string
-    const roles =
-      typeof person.roles === "string"
-        ? JSON.parse(person.roles)
-        : person.roles;
+    // Get system-level role based on the new system_admin boolean (0 or 1)
+    const systemRole = person.system_admin === 1 ? "system_admin" : "user";
 
-    // Combine first_name and last_name into name for frontend
     const user = {
       ...personWithoutPassword,
       name: `${person.first_name} ${person.last_name}`.trim(),
-      roles,
+      systemRole,
+      // personWithoutPassword now correctly includes system_admin
     };
 
     // Generate new token
@@ -48,7 +45,7 @@ export async function POST(request) {
       {
         userId: person.id,
         email: person.email,
-        roles,
+        systemRole,
       },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }

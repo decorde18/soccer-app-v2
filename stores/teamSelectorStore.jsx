@@ -4,7 +4,6 @@ import { persist } from "zustand/middleware";
 
 // Helper to extract unique values from the flat data
 function normalizeTeamsView(rawData) {
-  // Get unique clubs
   const clubsMap = new Map();
   rawData.forEach((row) => {
     if (!clubsMap.has(row.club_id)) {
@@ -21,7 +20,6 @@ function normalizeTeamsView(rawData) {
     }
   });
 
-  // Get unique teams
   const teamsMap = new Map();
   rawData.forEach((row) => {
     if (row.team_id && !teamsMap.has(row.team_id)) {
@@ -39,129 +37,192 @@ function normalizeTeamsView(rawData) {
     }
   });
 
-  // Get unique seasons (by season_id, not team_season id)
-  const seasonsMap = new Map();
-  rawData.forEach((row) => {
-    if (row.season_id && !seasonsMap.has(row.season_id)) {
-      seasonsMap.set(row.season_id, {
-        id: row.season_id,
-        name: row.season_name,
-        start: row.season_start,
-        end: row.season_end,
-        is_current: row.is_current,
-      });
-    }
-  });
-
   return {
-    rawData, // Keep the raw data for final filtering
-    clubs: Array.from(clubsMap.values()),
-    teams: Array.from(teamsMap.values()),
-    seasons: Array.from(seasonsMap.values()),
+    clubs: Array.from(clubsMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    ),
+    teams: Array.from(teamsMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    ),
   };
 }
 
 export const useTeamSelectorStore = create(
   persist(
     (set, get) => ({
-      // Current selections
+      // Full, denormalized data loaded from API
+      rawData: [],
+
+      // Selector state
       selectedType: null,
       selectedClub: null,
       selectedTeam: null,
       selectedSeason: null,
-      selectedTeamSeasonId: null, // The final team_season junction ID
+      selectedTeamSeasonId: null,
 
-      // All data
-      rawData: [], // Keep raw data for final ID lookup
-      clubs: [],
-      teams: [],
-      seasons: [],
-
-      // Loading state
       isLoading: false,
       error: null,
 
-      // Actions
-      setType: (type) =>
-        set({
-          selectedType: type,
-          selectedClub: null,
-          selectedTeam: null,
-          selectedSeason: null,
-          selectedTeamSeasonId: null,
-        }),
+      // ACTIONS
 
-      setClub: (club) =>
-        set({
-          selectedClub: club,
-          selectedTeam: null,
-          selectedSeason: null,
-          selectedTeamSeasonId: null,
-        }),
-
-      setTeam: (team) =>
-        set({
-          selectedTeam: team,
-          selectedSeason: null,
-          selectedTeamSeasonId: null,
-        }),
-
-      setSeason: (season) => {
-        const { rawData, selectedTeam } = get();
-
-        // Find the team_season ID from raw data
-        const teamSeasonRecord = rawData.find(
-          (row) =>
-            row.team_id === selectedTeam?.id && row.season_id === season?.id
-        );
-
-        set({
-          selectedSeason: season,
-          selectedTeamSeasonId: teamSeasonRecord?.id || null,
-        });
-      },
-
-      // Load and normalize data
-      loadTeamsView: async () => {
+      /**
+       * Load team data from all_viewable_teams_view
+       * Works for both public and authenticated users - same view, no filtering needed!
+       * @param {number} currentTeamSeasonId - Optional: restore this context
+       */
+      loadTeamsView: async (currentTeamSeasonId = null) => {
         set({ isLoading: true, error: null });
+
         try {
-          const response = await fetch("/api/teams_seasons_view");
-          if (!response.ok) throw new Error("Failed to fetch teams");
+          // Fetch from the universal view - works for everyone!
+          const response = await fetch("/api/views/all_viewable_teams_view", {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            // Include credentials so auth token is sent if available
+            credentials: "include",
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to load teams: ${response.statusText}`);
+          }
 
           const rawData = await response.json();
-          const normalized = normalizeTeamsView(rawData);
+
+          // Normalize the data
+          const { clubs, teams } = normalizeTeamsView(rawData);
+
+          // Get current state for potential restoration
+          const currentState = get();
+
+          // Attempt to restore context from the loaded data
+          let initialSeason = currentState.selectedSeason;
+          let initialTeam = currentState.selectedTeam;
+          let initialClub = currentState.selectedClub;
+          let initialType = currentState.selectedType;
+          let initialTeamSeasonId =
+            currentTeamSeasonId || currentState.selectedTeamSeasonId;
+
+          if (initialTeamSeasonId) {
+            const initialRow = rawData.find(
+              (row) => row.id === initialTeamSeasonId // 'id' is the team_season_id
+            );
+
+            if (initialRow) {
+              initialSeason = {
+                id: initialRow.season_id,
+                name: initialRow.season_name,
+                start: initialRow.season_start,
+                end: initialRow.season_end,
+                is_current: initialRow.is_current,
+                team_season_id: initialRow.id, // The team_season junction ID
+              };
+              initialTeam = teams.find((t) => t.id === initialRow.team_id);
+              initialClub = clubs.find((c) => c.id === initialRow.club_id);
+              initialType = initialRow.type; // 'club' or 'high_school'
+            }
+          }
 
           set({
-            rawData: normalized.rawData,
-            clubs: normalized.clubs,
-            teams: normalized.teams,
-            seasons: normalized.seasons,
+            rawData,
+            clubs,
+            teams,
+            selectedType: initialType,
+            selectedClub: initialClub,
+            selectedTeam: initialTeam,
+            selectedSeason: initialSeason,
+            selectedTeamSeasonId: initialTeamSeasonId,
             isLoading: false,
+            error: null,
           });
         } catch (error) {
-          set({ error: error.message, isLoading: false });
+          console.error("Error loading teams view:", error);
+          set({
+            isLoading: false,
+            error: error.message,
+          });
         }
       },
 
-      // Filtered getters based on cascade
+      setType: (type) => {
+        set({ selectedType: type });
+        get().setClub(null);
+      },
+
+      setClub: (club) => {
+        set({ selectedClub: club });
+        get().setTeam(null);
+      },
+
+      setTeam: (team) => {
+        set({ selectedTeam: team });
+        get().setSeason(null);
+      },
+
+      setSeason: (season) => {
+        const teamSeasonId = season ? season.team_season_id : null;
+        set({
+          selectedSeason: season,
+          selectedTeamSeasonId: teamSeasonId,
+        });
+      },
+
+      // SELECTORS
+
       getAvailableTypes: () => {
-        const { clubs } = get();
-        return [...new Set(clubs.map((club) => club.type))];
+        const { rawData } = get();
+
+        // Get unique club types from the data
+        const types = new Set(rawData.map((row) => row.type));
+        return Array.from(types).map((type) => ({
+          value: type,
+          label: type === "club" ? "Club" : "High School",
+        }));
       },
 
       getAvailableClubs: () => {
-        const { clubs, selectedType } = get();
+        const { rawData, selectedType } = get();
         if (!selectedType) return [];
-        return clubs.filter(
-          (club) => club.type === selectedType && club.is_active
+
+        // Filter by selected type
+        const filteredData = rawData.filter((row) => row.type === selectedType);
+
+        const clubsMap = new Map();
+        filteredData.forEach((row) => {
+          if (!clubsMap.has(row.club_id)) {
+            clubsMap.set(row.club_id, {
+              id: row.club_id,
+              name: row.club_name,
+            });
+          }
+        });
+
+        return Array.from(clubsMap.values()).sort((a, b) =>
+          a.name.localeCompare(b.name)
         );
       },
 
       getAvailableTeams: () => {
-        const { teams, selectedClub } = get();
+        const { rawData, selectedClub } = get();
         if (!selectedClub) return [];
-        return teams.filter(
-          (team) => team.club_id === selectedClub.id && team.is_active
+
+        const filteredData = rawData.filter(
+          (row) => row.club_id === selectedClub.id
+        );
+
+        const teamsMap = new Map();
+        filteredData.forEach((row) => {
+          if (!teamsMap.has(row.team_id)) {
+            teamsMap.set(row.team_id, {
+              id: row.team_id,
+              name: row.team_name,
+            });
+          }
+        });
+
+        return Array.from(teamsMap.values()).sort((a, b) =>
+          a.name.localeCompare(b.name)
         );
       },
 
@@ -169,7 +230,6 @@ export const useTeamSelectorStore = create(
         const { rawData, selectedTeam } = get();
         if (!selectedTeam) return [];
 
-        // Get unique seasons for this team from raw data
         const teamSeasons = rawData
           .filter((row) => row.team_id === selectedTeam.id && row.season_id)
           .map((row) => ({
@@ -181,7 +241,6 @@ export const useTeamSelectorStore = create(
             team_season_id: row.id, // The junction table ID
           }));
 
-        // Remove duplicates and sort
         const uniqueSeasons = Array.from(
           new Map(teamSeasons.map((s) => [s.id, s])).values()
         );
@@ -190,6 +249,29 @@ export const useTeamSelectorStore = create(
           if (a.is_current && !b.is_current) return -1;
           if (!a.is_current && b.is_current) return 1;
           return new Date(b.start) - new Date(a.start);
+        });
+      },
+
+      // Get the full current context - useful for passing to child components
+      getCurrentContext: () => {
+        const state = get();
+        return {
+          type: state.selectedType,
+          club: state.selectedClub,
+          team: state.selectedTeam,
+          season: state.selectedSeason,
+          teamSeasonId: state.selectedTeamSeasonId,
+        };
+      },
+
+      // Clear all selections
+      clearSelections: () => {
+        set({
+          selectedType: null,
+          selectedClub: null,
+          selectedTeam: null,
+          selectedSeason: null,
+          selectedTeamSeasonId: null,
         });
       },
     }),

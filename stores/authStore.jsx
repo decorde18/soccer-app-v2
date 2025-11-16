@@ -53,6 +53,15 @@ const useAuthStore = create(
             error: null,
           });
 
+          // ✅ FIX: Load user context after login
+          try {
+            const { useUserContextStore } = await import("./userContextStore");
+            await useUserContextStore.getState().loadUserContext(data.user.id);
+          } catch (error) {
+            console.error("Failed to load user context:", error);
+            // Don't fail login if context fails
+          }
+
           return data;
         } catch (error) {
           set({
@@ -81,6 +90,14 @@ const useAuthStore = create(
         } finally {
           // Clear cookie
           document.cookie = "auth-token=; path=/; max-age=0";
+
+          // Clear user context store
+          try {
+            const { useUserContextStore } = await import("./userContextStore");
+            useUserContextStore.getState().clearContext();
+          } catch (error) {
+            console.error("Failed to clear user context:", error);
+          }
 
           set({
             user: null,
@@ -135,6 +152,12 @@ const useAuthStore = create(
 
       clearError: () => set({ error: null }),
 
+      // Helper to check if user is system admin
+      isSystemAdmin: () => {
+        const { user } = get();
+        return user?.systemRole === "system_admin";
+      },
+
       // Hydration helper
       _hasHydrated: false,
       setHasHydrated: (hasHydrated) => set({ _hasHydrated: hasHydrated }),
@@ -154,6 +177,13 @@ const useAuthStore = create(
           document.cookie = `auth-token=${state.token}; path=/; max-age=${
             60 * 60 * 24 * 7
           }; SameSite=Lax`;
+        }
+
+        // ✅ FIX: Reload context on hydration
+        if (state?.user?.id) {
+          import("./userContextStore").then(({ useUserContextStore }) => {
+            useUserContextStore.getState().loadUserContext(state.user.id);
+          });
         }
       },
     }

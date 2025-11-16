@@ -44,16 +44,16 @@ export async function POST(request) {
       );
     }
 
-    const roles =
-      typeof person.roles === "string"
-        ? JSON.parse(person.roles)
-        : person.roles;
+    // ✅ Get system_admin as boolean
+    const isSystemAdmin =
+      person.system_admin === 1 || person.system_admin === true;
 
+    // Generate JWT token with user info
     const token = jwt.sign(
       {
         userId: person.id,
         email: person.email,
-        roles,
+        systemAdmin: isSystemAdmin, // ✅ Use consistent naming
       },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
@@ -63,9 +63,12 @@ export async function POST(request) {
 
     const user = {
       ...personWithoutPassword,
+      id: person.id, // ✅ Make sure id is included
       name: `${person.first_name} ${person.last_name}`.trim(),
-      roles,
+      systemAdmin: isSystemAdmin, // ✅ Add to user object
     };
+
+    console.log("Login successful for:", email, "System Admin:", isSystemAdmin);
 
     return NextResponse.json({
       success: true,

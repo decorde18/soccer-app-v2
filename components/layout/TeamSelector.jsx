@@ -2,8 +2,9 @@
 import { useEffect, useRef, useState } from "react";
 import Select from "../ui/Select";
 import { useTeamSelectorStore } from "@/stores/teamSelectorStore";
+import useAuthStore from "@/stores/authStore";
 
-function TeamSelector({ type }) {
+function TeamSelector({ type, onContextChange }) {
   const {
     selectedType,
     selectedClub,
@@ -21,17 +22,18 @@ function TeamSelector({ type }) {
     getAvailableClubs,
     getAvailableTeams,
     getAvailableSeasons,
+    getCurrentContext,
   } = useTeamSelectorStore();
+
+  // Get auth state - only for preference saving
+  const { isAuthenticated, user } = useAuthStore();
 
   const availableTypes = getAvailableTypes();
   const availableClubs = getAvailableClubs();
   const availableTeams = getAvailableTeams();
   const availableSeasons = getAvailableSeasons();
 
-  // Track the previous season to attempt persistence
   const previousSeasonRef = useRef(null);
-
-  // Track window size for responsive behavior
   const [windowWidth, setWindowWidth] = useState(0);
   const [mounted, setMounted] = useState(false);
 
@@ -41,7 +43,6 @@ function TeamSelector({ type }) {
       setWindowWidth(window.innerWidth);
     };
 
-    // Set initial width
     handleResize();
     setMounted(true);
 
@@ -49,51 +50,80 @@ function TeamSelector({ type }) {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Load data on mount
   useEffect(() => {
-    loadTeamsView();
-  }, []);
+    // Priority order:
+    // 1. Currently selected team season (from persisted state)
+    // 2. User's favorite team season (if authenticated)
+    // 3. null (no selection)
+    const currentTeamSeasonId =
+      selectedTeamSeasonId ||
+      (isAuthenticated ? user?.favorite_team_season_id : null);
 
-  // When available seasons change (due to team change), try to persist the season
+    loadTeamsView(currentTeamSeasonId);
+  }, []); // Only run once on mount
+
+  // Notify parent when context changes
+  useEffect(() => {
+    if (onContextChange) {
+      const context = {
+        type: selectedType,
+        club: selectedClub,
+        team: selectedTeam,
+        season: selectedSeason,
+        teamSeasonId: selectedTeamSeasonId,
+      };
+      onContextChange(context);
+    }
+  }, [
+    selectedType,
+    selectedClub,
+    selectedTeam,
+    selectedSeason,
+    selectedTeamSeasonId,
+    onContextChange,
+  ]);
+
+  // Season persistence logic
   useEffect(() => {
     if (
       previousSeasonRef.current &&
       availableSeasons.length > 0 &&
       !selectedSeason
     ) {
-      // Try to find a season with the same name as the previous selection
       const matchingSeason = availableSeasons.find(
         (s) => s.name === previousSeasonRef.current.name
       );
 
       if (matchingSeason) {
-        // Silently set the matching season without triggering preferences update
         setSeason(matchingSeason);
       }
     }
   }, [availableSeasons, selectedSeason, setSeason]);
 
   const handleSeasonChange = async (season) => {
-    // Store the season for persistence
     previousSeasonRef.current = season;
     setSeason(season);
 
-    // After setting season, selectedTeamSeasonId will be populated
-    if (type !== "header") {
-      // Get the updated team_season_id from store
+    // Only save to user preferences if authenticated and not header type
+    if (isAuthenticated && type !== "header") {
       const teamSeasonId = useTeamSelectorStore.getState().selectedTeamSeasonId;
 
-      await fetch("/api/user/preferences", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          favorite_team_season_id: teamSeasonId,
-        }),
-      });
+      try {
+        await fetch("/api/user/preferences", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            favorite_team_season_id: teamSeasonId,
+          }),
+        });
+      } catch (error) {
+        console.error("Failed to save preference:", error);
+      }
     }
   };
 
   const handleTeamChange = (team) => {
-    // Store current season before changing teams
     if (selectedSeason) {
       previousSeasonRef.current = selectedSeason;
     }
@@ -105,7 +135,6 @@ function TeamSelector({ type }) {
   if (error) return <div className='text-sm text-danger'>Error: {error}</div>;
   if (!mounted) return null;
 
-  // Responsive breakpoint (640px matches Tailwind's 'sm')
   const isMobile = windowWidth < 640;
 
   return (
@@ -120,11 +149,11 @@ function TeamSelector({ type }) {
               size='sm'
               width='sm'
               value={selectedType || ""}
+              placeholder='Select a Type'
               options={[
-                { value: "", label: "Select Type" },
                 ...availableTypes.map((type) => ({
-                  value: type,
-                  label: type === "club" ? "Club" : "School",
+                  value: type.value,
+                  label: type.label,
                 })),
               ]}
               onChange={(e) => setType(e.target.value || null)}
@@ -144,8 +173,10 @@ function TeamSelector({ type }) {
               size='sm'
               width='md'
               value={selectedClub?.id || ""}
+              placeholder={`Select a ${
+                selectedType === "club" ? "Club" : "School"
+              }`}
               options={[
-                { value: "", label: "Select Org" },
                 ...availableClubs.map((club) => ({
                   value: club.id,
                   label: club.name,
@@ -168,8 +199,8 @@ function TeamSelector({ type }) {
               size='sm'
               width='md'
               value={selectedTeam?.id || ""}
+              placeholder='Select a Team'
               options={[
-                { value: "", label: "Select Team" },
                 ...availableTeams.map((team) => ({
                   value: team.id,
                   label: team.name,
@@ -185,15 +216,15 @@ function TeamSelector({ type }) {
             />
           </div>
 
-          {/* 4. Season Select (filtered by team) → Results in team_season ID */}
+          {/* 4. Season Select (filtered by team) */}
           <div className='flex-shrink-0 min-w-[120px]'>
             <Select
               label='Season'
               size='sm'
               width='sm'
               value={selectedSeason?.id || ""}
+              placeholder='Select a Season'
               options={[
-                { value: "", label: "Select Season" },
                 ...availableSeasons.map((season) => ({
                   value: season.id,
                   label: `${season.name}${season.is_current ? " •" : ""}`,
@@ -218,11 +249,11 @@ function TeamSelector({ type }) {
             size='sm'
             width='sm'
             value={selectedType || ""}
+            placeholder='Select a Type'
             options={[
-              { value: "", label: "Select Type" },
               ...availableTypes.map((type) => ({
-                value: type,
-                label: type === "club" ? "Club" : "High School",
+                value: type.value,
+                label: type.label,
               })),
             ]}
             onChange={(e) => setType(e.target.value || null)}
@@ -240,8 +271,10 @@ function TeamSelector({ type }) {
             size='sm'
             width='lg'
             value={selectedClub?.id || ""}
+            placeholder={`Select a ${
+              selectedType === "club" ? "Club" : "High School"
+            }`}
             options={[
-              { value: "", label: "Select Organization" },
               ...availableClubs.map((club) => ({
                 value: club.id,
                 label: club.name,
@@ -262,8 +295,8 @@ function TeamSelector({ type }) {
             size='sm'
             width='lg'
             value={selectedTeam?.id || ""}
+            placeholder='Select a Team'
             options={[
-              { value: "", label: "Select Team" },
               ...availableTeams.map((team) => ({
                 value: team.id,
                 label: team.name,
@@ -278,14 +311,14 @@ function TeamSelector({ type }) {
             disabled={!selectedClub}
           />
 
-          {/* 4. Season Select (filtered by team) → Results in team_season ID */}
+          {/* 4. Season Select (filtered by team) */}
           <Select
             label='Season'
             size='sm'
             width='md'
             value={selectedSeason?.id || ""}
+            placeholder='Select a Season'
             options={[
-              { value: "", label: "Select Season" },
               ...availableSeasons.map((season) => ({
                 value: season.id,
                 label: `${season.name}${season.is_current ? " (Current)" : ""}`,

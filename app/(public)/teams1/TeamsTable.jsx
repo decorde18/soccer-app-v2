@@ -9,7 +9,11 @@ import { useEffect, useState } from "react";
 
 function TeamsTable({ teams: externalData = null, actions = null }) {
   const router = useRouter();
-  const { loading, error, data: fetchedData } = useApiData("teams_view");
+  const {
+    loading,
+    error,
+    data: fetchedData,
+  } = useApiData("all_viewable_teams_view");
   const [teams, setTeams] = useState(externalData);
 
   useEffect(() => {

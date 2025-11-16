@@ -44,7 +44,7 @@ function Header() {
 
   // User info (only if logged in)
   const name = user?.name;
-  const roles = user?.roles || [];
+  const systemAdmin = user?.system_admin;
   const firstNameInitial = user?.first_name ? user.first_name[0] : "";
   const lastNameInitial = user?.last_name ? user.last_name[0] : "";
   const initials = `${firstNameInitial}${lastNameInitial}`.toUpperCase();
@@ -65,9 +65,9 @@ function Header() {
             !isLG ? "ml-0" : ""
           }`}
         >
-          <div className='w-full max-w-full sm:max-w-[90%] md:max-w-[80%] lg:max-w-[70%] xl:max-w-[60%]'>
+          {/* <div className='w-full max-w-full sm:max-w-[90%] md:max-w-[80%] lg:max-w-[70%] xl:max-w-[60%]'>
             <TeamSelector type='header' />
-          </div>
+          </div> */}
         </div>
 
         {/* Right - User Menu (only if logged in) */}
@@ -87,7 +87,7 @@ function Header() {
                       {name}
                     </div>
                     <div className='text-xs text-muted capitalize'>
-                      {roles[0]}
+                      {systemAdmin && "Admin"}
                     </div>
                   </div>
                 )}
@@ -110,7 +110,7 @@ function Header() {
                       {name}
                     </div>
                     <div className='text-xs text-muted capitalize'>
-                      {roles[0]}
+                      {systemAdmin && "Admin"}
                     </div>
                   </div>
                 )}
