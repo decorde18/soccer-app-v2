@@ -1,9 +1,10 @@
 "use client";
 import { format } from "date-fns";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import useAuthStore from "@/stores/authStore";
+import { useTeamSelectorStore } from "@/stores/teamSelectorStore";
 import TeamSelector from "./TeamSelector";
 import LoginButton from "@/app/(public)/auth/LoginButton";
 import LogoutButton from "@/app/(public)/auth/LogoutButton";
@@ -12,10 +13,13 @@ import { ChevronDown, Settings, User } from "lucide-react";
 
 function Header() {
   const user = useAuthStore((s) => s.user);
-
   const router = useRouter();
+  const pathname = usePathname();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [windowWidth, setWindowWidth] = useState(0);
+
+  // Get team context from store
+  const { selectedTeam, selectedTeamSeasonId } = useTeamSelectorStore();
 
   // Track window size for responsive behavior
   useEffect(() => {
@@ -34,6 +38,26 @@ function Header() {
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
   }, [userMenuOpen]);
+
+  // Handle team context changes from TeamSelector
+  const handleContextChange = useCallback(
+    (context) => {
+      if (!context?.teamSeasonId) return;
+
+      // If on a team page, navigate to the newly selected team
+      if (pathname?.startsWith("/teams/")) {
+        router.push(`/teams/${context.teamSeasonId}`);
+      }
+
+      // If on a league/standings page, update with new league if available
+      if (pathname?.startsWith("/leagues/") && context.league?.id) {
+        router.push(`/leagues/${context.league.id}`);
+      }
+
+      // Add more page-specific navigation logic as needed
+    },
+    [pathname, router]
+  );
 
   const formattedDate = format(new Date(), "EEEE, MMMM d, yyyy");
 
@@ -65,9 +89,9 @@ function Header() {
             !isLG ? "ml-0" : ""
           }`}
         >
-          {/* <div className='w-full max-w-full sm:max-w-[90%] md:max-w-[80%] lg:max-w-[70%] xl:max-w-[60%]'>
-            <TeamSelector type='header' />
-          </div> */}
+          <div className='w-full max-w-full sm:max-w-[90%] md:max-w-[80%] lg:max-w-[70%] xl:max-w-[60%]'>
+            <TeamSelector type='header' onContextChange={handleContextChange} />
+          </div>
         </div>
 
         {/* Right - User Menu (only if logged in) */}
@@ -103,7 +127,7 @@ function Header() {
             </button>
 
             {userMenuOpen && (
-              <div className='absolute right-0 mt-2 w-56 p-6 bg-surface rounded-lg shadow-lg border border-border py-2 z-50'>
+              <div className='absolute right-0 top-full mt-2 w-56 bg-surface rounded-lg shadow-lg border border-border py-2 z-50'>
                 {!isSM && (
                   <div className='px-4 py-3 border-b border-border'>
                     <div className='font-semibold text-sm text-text'>
@@ -117,7 +141,7 @@ function Header() {
                 <Button
                   onClick={() => {
                     router.push("/profile");
-                    setUserMenuOpen(!userMenuOpen);
+                    setUserMenuOpen(false);
                   }}
                 >
                   <User size={20} />
@@ -126,7 +150,7 @@ function Header() {
                 <Button
                   onClick={() => {
                     router.push("/settings");
-                    setUserMenuOpen(!userMenuOpen);
+                    setUserMenuOpen(false);
                   }}
                 >
                   <Settings size={20} />
@@ -140,7 +164,7 @@ function Header() {
             )}
           </div>
         ) : (
-          // If no user, show Login/Register buttons (optional)
+          // If no user, show Login/Register buttons
           <div className='flex gap-2'>
             <LoginButton />
             <Link href='/auth/register'>

@@ -4,28 +4,21 @@
 // app/(user)/layout.js
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { verifyToken } from "@/lib/auth";
-import { hasRoleAccess } from "@/lib/roleutils";
+
+import { getCurrentUser } from "@/lib/serverAuth";
 
 export default async function UserLayout({ children }) {
   const cookieStore = await cookies();
   const token = cookieStore.get("auth-token")?.value;
+  const user = await getCurrentUser();
 
   // Server-side auth check - instant, no flash
   if (!token) {
     redirect("/auth/login?returnUrl=/user");
   }
 
-  // Verify token and check role
-  let user;
-  try {
-    user = await verifyToken(token);
-  } catch (error) {
-    redirect("/auth/login");
-  }
-  // Check permissions
-  if (hasRoleAccess(user.roles, "user") === false) {
-    // Return 403 component
+  // Return 403 component
+  if (!user) {
     return (
       <div className='flex min-h-screen items-center justify-center'>
         <div className='text-center'>

@@ -146,18 +146,30 @@ export const useTeamSelectorStore = create(
       },
 
       setType: (type) => {
-        set({ selectedType: type });
-        get().setClub(null);
+        set({
+          selectedType: type,
+          selectedClub: null,
+          selectedTeam: null,
+          selectedSeason: null,
+          selectedTeamSeasonId: null,
+        });
       },
 
       setClub: (club) => {
-        set({ selectedClub: club });
-        get().setTeam(null);
+        set({
+          selectedClub: club,
+          selectedTeam: null,
+          selectedSeason: null,
+          selectedTeamSeasonId: null,
+        });
       },
 
       setTeam: (team) => {
-        set({ selectedTeam: team });
-        get().setSeason(null);
+        set({
+          selectedTeam: team,
+          selectedSeason: null,
+          selectedTeamSeasonId: null,
+        });
       },
 
       setSeason: (season) => {
@@ -170,22 +182,30 @@ export const useTeamSelectorStore = create(
 
       // SELECTORS
 
+      /**
+       * Get all available types - ALWAYS shows all types regardless of selection
+       */
       getAvailableTypes: () => {
         const { rawData } = get();
 
-        // Get unique club types from the data
+        // Get unique club types from ALL the data
         const types = new Set(rawData.map((row) => row.type));
-        return Array.from(types).map((type) => ({
-          value: type,
-          label: type === "club" ? "Club" : "High School",
-        }));
+        return Array.from(types)
+          .sort()
+          .map((type) => ({
+            value: type,
+            label: type === "club" ? "Club" : "High School",
+          }));
       },
 
+      /**
+       * Get all available clubs - ALWAYS shows all clubs within selected type
+       */
       getAvailableClubs: () => {
         const { rawData, selectedType } = get();
         if (!selectedType) return [];
 
-        // Filter by selected type
+        // Filter by selected type and show ALL clubs in that type
         const filteredData = rawData.filter((row) => row.type === selectedType);
 
         const clubsMap = new Map();
@@ -194,6 +214,7 @@ export const useTeamSelectorStore = create(
             clubsMap.set(row.club_id, {
               id: row.club_id,
               name: row.club_name,
+              type: row.type,
             });
           }
         });
@@ -203,10 +224,14 @@ export const useTeamSelectorStore = create(
         );
       },
 
+      /**
+       * Get all available teams - ALWAYS shows all teams within selected club
+       */
       getAvailableTeams: () => {
         const { rawData, selectedClub } = get();
         if (!selectedClub) return [];
 
+        // Show ALL teams in the selected club
         const filteredData = rawData.filter(
           (row) => row.club_id === selectedClub.id
         );
@@ -217,6 +242,7 @@ export const useTeamSelectorStore = create(
             teamsMap.set(row.team_id, {
               id: row.team_id,
               name: row.team_name,
+              club_id: row.club_id,
             });
           }
         });
@@ -226,10 +252,14 @@ export const useTeamSelectorStore = create(
         );
       },
 
+      /**
+       * Get all available seasons - ALWAYS shows all seasons for selected team
+       */
       getAvailableSeasons: () => {
         const { rawData, selectedTeam } = get();
         if (!selectedTeam) return [];
 
+        // Show ALL seasons for the selected team
         const teamSeasons = rawData
           .filter((row) => row.team_id === selectedTeam.id && row.season_id)
           .map((row) => ({
@@ -245,6 +275,7 @@ export const useTeamSelectorStore = create(
           new Map(teamSeasons.map((s) => [s.id, s])).values()
         );
 
+        // Sort: current season first, then by date descending
         return uniqueSeasons.sort((a, b) => {
           if (a.is_current && !b.is_current) return -1;
           if (!a.is_current && b.is_current) return 1;

@@ -479,3 +479,141 @@ export const mockTeams = [
     is_active: true,
   },
 ];
+// Mock data for testing TeamOverview component
+// You can use this in your component temporarily or create API mock endpoints
+
+export const mockStandings = [
+  {
+    league_name: "Premier Division",
+    position: 3,
+    points: 45,
+    wins: 14,
+    draws: 3,
+    losses: 5,
+    total_games: 38,
+    total_teams: 20,
+    goals_for: 52,
+    goals_against: 28,
+  },
+  {
+    league_name: "State Cup Competition",
+    position: 1,
+    points: 18,
+    wins: 6,
+    draws: 0,
+    losses: 0,
+    total_games: 8,
+    total_teams: 12,
+    goals_for: 24,
+    goals_against: 6,
+  },
+];
+
+export const mockRecentGames = [
+  {
+    id: 1,
+    opponent_name: "City United FC",
+    result: "W",
+    score: "3-1",
+    date: "2024-11-15",
+    location: "Home Stadium",
+    home_team_id: 123,
+    team_id: 123,
+  },
+  {
+    id: 2,
+    opponent_name: "Athletic Club",
+    result: "W",
+    score: "2-0",
+    date: "2024-11-08",
+    location: "Athletic Grounds",
+    home_team_id: 456,
+    team_id: 123,
+  },
+  {
+    id: 3,
+    opponent_name: "Rangers FC",
+    result: "D",
+    score: "2-2",
+    date: "2024-11-01",
+    location: "Home Stadium",
+    home_team_id: 123,
+    team_id: 123,
+  },
+  {
+    id: 4,
+    opponent_name: "Blue Stars",
+    result: "L",
+    score: "1-3",
+    date: "2024-10-25",
+    location: "Blue Stars Arena",
+    home_team_id: 789,
+    team_id: 123,
+  },
+  {
+    id: 5,
+    opponent_name: "Strikers FC",
+    result: "W",
+    score: "4-2",
+    date: "2024-10-18",
+    location: "Home Stadium",
+    home_team_id: 123,
+    team_id: 123,
+  },
+];
+
+export const mockUpcomingGames = [
+  {
+    id: 6,
+    opponent_name: "Thunder FC",
+    date: "2024-11-24",
+    time: "3:00 PM",
+    location: "Thunder Stadium",
+    home_team_id: 999,
+    team_id: 123,
+  },
+  {
+    id: 7,
+    opponent_name: "Phoenix United",
+    date: "2024-11-30",
+    time: "1:00 PM",
+    location: "Home Stadium",
+    home_team_id: 123,
+    team_id: 123,
+  },
+  {
+    id: 8,
+    opponent_name: "Lions SC",
+    date: "2024-12-07",
+    time: "5:30 PM",
+    location: "Lions Complex",
+    home_team_id: 888,
+    team_id: 123,
+  },
+];
+export const mockStatLeaders = {
+  goals: {
+    player_id: 101,
+    player_name: "Marcus Johnson",
+    player_number: 10,
+    value: 18,
+  },
+  assists: {
+    player_id: 102,
+    player_name: "Alex Rivera",
+    player_number: 7,
+    value: 12,
+  },
+  clean_sheets: {
+    player_id: 103,
+    player_name: "David Chen",
+    player_number: 1,
+    value: 9,
+  },
+  // Optional: Team totals
+  team_totals: {
+    goals: 52,
+    assists: 45,
+    clean_sheets: 12,
+  },
+};

@@ -1,17 +1,24 @@
-// app/dashboard/page.js - Enhanced dashboard with user team cards
+// app/dashboard/page.js - Dashboard showing my teams or current selected team
 "use client";
 
 import { useUserContextStore } from "@/stores/userContextStore";
+import { useTeamSelectorStore } from "@/stores/teamSelectorStore";
 import useAuthStore from "@/stores/authStore";
-import { useCallback, useEffect, useState } from "react";
-import TeamSelector from "@/components/layout/TeamSelector";
-import TeamCard from "@/components/ui/TeamCard";
-import StandingsTable from "./GridExample";
+import { useEffect } from "react";
+import TeamOverview from "@/components/ui/DashBoard/TeamOverview";
 
 export default function Dashboard() {
   const { user, isAuthenticated } = useAuthStore();
   const { myTeams, loadUserContext } = useUserContextStore();
-  const [currentContext, setCurrentContext] = useState(null);
+
+  // Get current team from the header selector
+  const {
+    selectedTeam,
+    selectedClub,
+    selectedSeason,
+    selectedTeamSeasonId,
+    selectedType,
+  } = useTeamSelectorStore();
 
   useEffect(() => {
     if (user) {
@@ -19,89 +26,105 @@ export default function Dashboard() {
     }
   }, [user, loadUserContext]);
 
-  // Handle context changes from TeamSelector - memoized to prevent re-renders
-  const handleContextChange = useCallback((context) => {
-    setCurrentContext(context);
-  }, []);
+  // Build team object from current selection for TeamOverview component
+  const currentTeam =
+    selectedTeamSeasonId && selectedTeam && selectedClub && selectedSeason
+      ? {
+          team_season_id: selectedTeamSeasonId,
+          team_id: selectedTeam.id,
+          team_name: selectedTeam.name,
+          club_id: selectedClub.id,
+          club_name: selectedClub.name,
+          season_id: selectedSeason.id,
+          season_name: selectedSeason.name,
+          type: selectedType,
+        }
+      : null;
+
+  // Determine what to show: My Teams if authenticated with teams, otherwise current team
+  const showMyTeams = isAuthenticated && myTeams.length > 0;
 
   return (
     <div className='min-h-screen bg-background'>
-      {/* Team Selector Section */}
-      <div className='sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border'>
-        <div className='container mx-auto px-4 py-4'>
-          <div className='w-full max-w-full sm:max-w-[90%] md:max-w-[80%] lg:max-w-[70%] xl:max-w-[60%]'>
-            <TeamSelector type='header' onContextChange={handleContextChange} />
-          </div>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className='container mx-auto px-4 py-8'>
-        {/* <StandingsTable /> */}
         {/* Welcome Section */}
         <div className='mb-8'>
-          <h1 className='text-3xl font-bold text-foreground mb-2'>
+          <h1 className='text-3xl font-bold text-text mb-2'>
             {isAuthenticated
               ? `Welcome back, ${user?.first_name}!`
               : "Dashboard"}
           </h1>
-          <p className='text-muted'>
-            {currentContext?.team
-              ? `Viewing ${currentContext.team.name} - ${
-                  currentContext.season?.name || "Select a season"
-                }`
-              : "Select a team to view details"}
-          </p>
+          {showMyTeams && (
+            <p className='text-muted'>
+              Quick overview of all your teams' performance and upcoming matches
+            </p>
+          )}
+          {!showMyTeams && currentTeam && (
+            <p className='text-muted'>
+              Quick overview of {currentTeam.team_name}'s performance and
+              upcoming matches
+            </p>
+          )}
         </div>
-        {/* My Teams Section */}
-        {isAuthenticated && myTeams.length > 0 && (
-          <div className='mb-12'>
-            <h2 className='text-2xl font-bold text-foreground mb-6'>
-              My Teams
-            </h2>
-            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
-              {myTeams.map((team) => (
-                <TeamCard
-                  key={team.team_season_id}
-                  team={team}
-                  teamSeasonId={team.team_season_id}
-                />
-              ))}
-            </div>
+
+        {/* My Teams Section - Only for authenticated users with teams */}
+        {showMyTeams && (
+          <div className='space-y-12'>
+            {myTeams.map((team) => (
+              <div
+                key={team.team_season_id}
+                className='pb-12 border-b border-border last:border-b-0'
+              >
+                <TeamOverview team={team} />
+              </div>
+            ))}
           </div>
         )}
-        {/* Empty State for Non-authenticated Users */}
-        {!isAuthenticated && (
+
+        {/* Current Team Section - For non-authenticated or users without teams */}
+        {!showMyTeams && currentTeam && (
+          <div className='pb-12'>
+            <TeamOverview team={currentTeam} />
+          </div>
+        )}
+
+        {/* Empty State for Non-authenticated Users without selection */}
+        {!isAuthenticated && !currentTeam && (
           <div className='text-center py-16'>
             <div className='mb-6'>
               <div className='text-6xl mb-4'>⚽</div>
-              <h3 className='text-2xl font-bold text-foreground mb-2'>
+              <h3 className='text-2xl font-bold text-text mb-2'>
                 Welcome to TeamHub
               </h3>
+              <p className='text-muted max-w-md mx-auto mb-4'>
+                Select a team from the selector above to view their performance,
+                standings, and upcoming matches.
+              </p>
               <p className='text-muted max-w-md mx-auto'>
-                Sign in to see your teams, track standings, and stay updated
-                with schedules and stats.
+                Sign in to track your own teams and get personalized updates.
               </p>
             </div>
             <button
-              className='bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary/90 transition font-medium'
+              className='bg-primary text-white px-6 py-3 rounded-lg hover:bg-accent-hover transition font-medium'
               onClick={() => (window.location.href = "/auth/login")}
             >
               Sign In to Get Started
             </button>
           </div>
         )}
+
         {/* Empty State for Authenticated Users with No Teams */}
-        {isAuthenticated && myTeams.length === 0 && (
+        {isAuthenticated && myTeams.length === 0 && !currentTeam && (
           <div className='text-center py-16'>
             <div className='mb-6'>
               <div className='text-6xl mb-4'>🎯</div>
-              <h3 className='text-2xl font-bold text-foreground mb-2'>
+              <h3 className='text-2xl font-bold text-text mb-2'>
                 No Teams Yet
               </h3>
               <p className='text-muted max-w-md mx-auto'>
                 You haven't joined any teams yet. Use the team selector above to
-                explore teams and get started.
+                explore teams and view their details.
               </p>
             </div>
           </div>

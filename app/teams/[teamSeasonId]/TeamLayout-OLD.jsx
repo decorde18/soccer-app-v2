@@ -1,9 +1,8 @@
-// `app/teams/[teamSeasonId]/TeamLayout.jsx`
+// app/teams/[teamSeasonId]/TeamLayout.jsx
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Permissions } from "@/lib/clientPermissions";
 
 export default function TeamLayout({
   children,
@@ -13,23 +12,31 @@ export default function TeamLayout({
 }) {
   const pathname = usePathname();
 
-  const canEdit = Permissions.canEditTeam(access);
-  const canManageRoster = Permissions.canManageRoster(access);
+  // Public tabs - everyone can see these
+  const publicTabs = [
+    { name: "Schedule", href: `/teams/${teamSeasonId}/schedule` },
+    { name: "Roster", href: `/teams/${teamSeasonId}/roster` },
+    { name: "Stats", href: `/teams/${teamSeasonId}/stats` },
+  ];
 
-  const tabs = [
-    { name: "Schedule", href: `/teams/${teamSeasonId}/schedule`, public: true },
-    { name: "Roster", href: `/teams/${teamSeasonId}/roster`, public: true },
-    { name: "Stats", href: `/teams/${teamSeasonId}/stats`, public: true },
-    {
-      name: "Events",
-      href: `/teams/${teamSeasonId}/events`,
-      requireAuth: true,
-    },
-    {
-      name: "Settings",
-      href: `/teams/${teamSeasonId}/settings`,
-      requireEdit: true,
-    },
+  // Protected tabs - only show if user has access
+  const protectedTabs = access
+    ? [
+        { name: "Events", href: `/teams/${teamSeasonId}/events` },
+        {
+          name: "Manage",
+          href: `/teams/${teamSeasonId}/manage/schedule`,
+          requireEdit: true,
+        },
+      ]
+    : [];
+
+  const allTabs = [
+    ...publicTabs,
+    ...protectedTabs.filter((tab) => {
+      if (tab.requireEdit && !access?.can_edit) return false;
+      return true;
+    }),
   ];
 
   return (
@@ -46,16 +53,20 @@ export default function TeamLayout({
               {access.role}
             </span>
           )}
+          {!access && (
+            <Link
+              href='/auth/login'
+              className='inline-block mt-2 text-sm text-blue-600 hover:text-blue-800'
+            >
+              Log in to access team features →
+            </Link>
+          )}
         </div>
 
         {/* Navigation Tabs */}
         <div className='max-w-7xl mx-auto px-8'>
           <nav className='flex space-x-8'>
-            {tabs.map((tab) => {
-              // Hide tabs based on permissions
-              if (tab.requireEdit && !canEdit) return null;
-              if (tab.requireAuth && !access) return null;
-
+            {allTabs.map((tab) => {
               const isActive = pathname.startsWith(tab.href);
 
               return (

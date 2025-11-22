@@ -17,6 +17,7 @@ export function Card({
   header = "",
   footer = "",
   title = "",
+  subTitle = "",
   description = "",
   icon,
   ...props
@@ -57,6 +58,7 @@ export function Card({
         <span className='text-3xl'>{icon}</span>
         <h3 className={`font-semibold text-lg text-text ${className}`}>
           {title}
+          <p className='text-sm text-muted'>{subTitle}</p>
         </h3>
       </div>
       <p className='text-sm text-muted mt-1 '>{description}</p>
