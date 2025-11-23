@@ -1,7 +1,7 @@
 "use client";
-import { use, useState, useEffect } from "react";
-import { apiFetch } from "@/app/api/fetcher";
+import { useState, useEffect } from "react";
 import { useApiData } from "@/hooks/useApiData";
+import { Card } from "@/components/ui/Card";
 
 export default function SchedulePage({ teamSeasonId }) {
   const [games, setGames] = useState([]);
@@ -12,31 +12,26 @@ export default function SchedulePage({ teamSeasonId }) {
     loading: loadingHome,
     error: errorHome,
     data: homeGames,
-  } = useApiData("games_view", {
+  } = useApiData("games_summary_view", {
     filters: { home_team_season_id: teamSeasonId },
-    sortBy: "start_date", // Column to sort by
-    order: "asc", // Direction (optional)
+    sortBy: "start_date",
+    order: "asc",
   });
+
   const {
     loading: loadingAway,
     error: errorAway,
     data: awayGames,
-  } = useApiData("games_view", {
+  } = useApiData("games_summary_view", {
     filters: { away_team_season_id: teamSeasonId },
-    sortBy: "start_date", // Column to sort by
-    order: "asc", // Direction (optional)
-  });
-  const {
-    loading: loadingLeagueTeams,
-    error: errorLeagueTeams,
-    data: leagueTeamsGames,
-  } = useApiData("View_leagueTeams", {
-    filters: { team_id: teamSeasonId },
+    sortBy: "start_date",
+    order: "asc",
   });
 
   useEffect(() => {
     loadingHome || loadingAway ? setLoading(true) : setLoading(false);
     errorHome || errorAway ? setError(errorHome || errorAway) : setError(null);
+
     const allGames = [...homeGames, ...awayGames];
     const uniqueGames = Array.from(
       new Map(allGames.map((g) => [g.game_id, g])).values()
@@ -54,20 +49,6 @@ export default function SchedulePage({ teamSeasonId }) {
     errorAway,
   ]);
 
-  if (loading) {
-    return (
-      <div className='p-8 text-center text-muted'>Loading schedule...</div>
-    );
-  }
-  console.log(leagueTeamsGames);
-  if (error) {
-    return (
-      <div className='p-8 text-center text-red-500'>
-        Error loading schedule: {error.message}
-      </div>
-    );
-  }
-
   // Helper to format time (13:00:00 -> 1:00 PM)
   const formatTime = (timeStr) => {
     if (!timeStr) return null;
@@ -78,15 +59,29 @@ export default function SchedulePage({ teamSeasonId }) {
     return `${hour12}:${minutes} ${ampm}`;
   };
 
+  if (loading) {
+    return (
+      <div className='p-8 text-center text-muted'>Loading schedule...</div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className='p-8 text-center text-accent'>
+        Error loading schedule: {error?.message}
+      </div>
+    );
+  }
+
   return (
     <div className='p-8'>
       <div className='max-w-4xl mx-auto'>
-        <h1 className='text-2xl font-bold mb-6'>Schedule</h1>
+        <h1 className='text-2xl font-bold mb-6 text-text'>Schedule</h1>
 
         {games.length === 0 ? (
-          <div className='bg-white rounded-lg shadow p-8 text-center text-gray-500'>
-            No games scheduled yet.
-          </div>
+          <Card className='text-center'>
+            <p className='text-muted'>No games scheduled yet.</p>
+          </Card>
         ) : (
           <div className='space-y-4'>
             {games.map((game) => {
@@ -98,115 +93,114 @@ export default function SchedulePage({ teamSeasonId }) {
               const opponentClub = isHome
                 ? game.away_club_name
                 : game.home_club_name;
-              const isPast =
-                new Date(game.start_date) < new Date().setHours(0, 0, 0, 0);
 
-              // Placeholder for scores (not in your data yet)
               const hasScore =
                 game.score_us !== undefined &&
                 game.score_them !== undefined &&
                 game.score_us !== null &&
                 game.score_them !== null;
 
-              return (
-                <div
-                  key={game.game_id}
-                  className='bg-white rounded-lg shadow p-6 hover:shadow-md transition'
-                >
-                  <div className='flex justify-between items-start'>
-                    <div className='flex-1'>
-                      <div className='flex items-center space-x-3 mb-2'>
-                        <span
-                          className={`px-3 py-1 text-sm rounded font-medium ${
-                            isHome
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-gray-100 text-gray-800"
-                          }`}
-                        >
-                          {isHome ? "HOME" : "AWAY"}
+              // Game header with date, time, and home/away badge
+              const gameHeader = (
+                <div className='flex items-center gap-3 flex-wrap'>
+                  <span
+                    className={`px-3 py-1 text-sm font-medium rounded-md ${
+                      isHome
+                        ? "bg-primary/10 text-primary"
+                        : "bg-muted/20 text-muted"
+                    }`}
+                  >
+                    {isHome ? "HOME" : "AWAY"}
+                  </span>
+                  <span className='text-muted text-sm'>
+                    {new Date(game.start_date).toLocaleDateString("en-US", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </span>
+                  {game.start_time && (
+                    <span className='text-muted text-sm'>
+                      • {formatTime(game.start_time)} {game.timezone_label}
+                    </span>
+                  )}
+                </div>
+              );
+
+              // Game body with opponent and location
+              const gameBody = (
+                <div className='flex justify-between items-start gap-4'>
+                  <div className='flex-1 min-w-0'>
+                    <h3 className='text-lg  text-text '>vs {opponentClub}</h3>
+
+                    {opponentClub !== opponent && <p>{opponent}</p>}
+
+                    {game.location_name && (
+                      <p className='text-muted text-sm mt-2 flex items-center gap-1'>
+                        <span>📍</span>
+                        <span>
+                          {game.location_name}
+                          {game.sublocation_name &&
+                            ` - ${game.sublocation_name}`}
                         </span>
-                        <span className='text-gray-600'>
-                          {new Date(game.start_date).toLocaleDateString(
-                            "en-US",
-                            {
-                              weekday: "short",
-                              month: "short",
-                              day: "numeric",
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Score Display / Status */}
+                  <div className='text-right flex-shrink-0'>
+                    {hasScore ? (
+                      <div>
+                        <div className='text-3xl font-bold'>
+                          <span
+                            className={
+                              game.score_us > game.score_them
+                                ? "text-success"
+                                : game.score_us < game.score_them
+                                ? "text-danger"
+                                : "text-muted"
                             }
-                          )}
-                        </span>
-                        {game.start_time && (
-                          <span className='text-gray-600'>
-                            • {formatTime(game.start_time)}{" "}
-                            {game.timezone_label}
+                          >
+                            {game.score_us}
                           </span>
-                        )}
-                      </div>
-
-                      <h3 className='text-xl font-semibold mb-1'>
-                        vs {opponent}
-                      </h3>
-
-                      {opponentClub && opponentClub !== opponent && (
-                        <p className='text-gray-500 text-sm mb-1'>
-                          {opponentClub}
-                        </p>
-                      )}
-
-                      {game.location_name && (
-                        <p className='text-gray-600 text-sm'>
-                          📍 {game.location_name}
-                          {game.sulocation_name && ` - ${game.sulocation_name}`}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Score Display / Status */}
-                    <div className='text-right ml-4'>
-                      {hasScore ? (
-                        <div>
-                          <div className='text-3xl font-bold'>
-                            <span
-                              className={
-                                game.score_us > game.score_them
-                                  ? "text-green-600"
-                                  : game.score_us < game.score_them
-                                  ? "text-red-600"
-                                  : "text-gray-900"
-                              }
-                            >
-                              {game.score_us}
-                            </span>
-                            <span className='text-gray-400 mx-2'>-</span>
-                            <span className='text-gray-900'>
-                              {game.score_them}
-                            </span>
-                          </div>
-                          <div className='text-xs text-gray-500 mt-1'>
-                            {game.score_us > game.score_them
-                              ? "Win"
-                              : game.score_us < game.score_them
-                              ? "Loss"
-                              : "Draw"}
-                          </div>
+                          <span className='text-muted mx-2'>-</span>
+                          <span className='text-text'>{game.score_them}</span>
                         </div>
-                      ) : (
-                        <span
-                          className={`text-sm font-medium px-2 py-1 rounded ${
-                            game.status === "scheduled"
-                              ? "text-primary bg-blue-50"
-                              : game.status === "canceled"
-                              ? "text-accent bg-red-50"
-                              : "text-muted bg-gray-50"
-                          }`}
-                        >
-                          {game.status?.charAt(0).toUpperCase() +
-                            game.status?.slice(1)}
-                        </span>
-                      )}
-                    </div>
+                        <div className='text-xs text-muted mt-1'>
+                          {game.score_us > game.score_them
+                            ? "Win"
+                            : game.score_us < game.score_them
+                            ? "Loss"
+                            : "Draw"}
+                        </div>
+                      </div>
+                    ) : (
+                      <span
+                        className={`text-sm font-medium px-3 py-1 rounded-md ${
+                          game.status === "scheduled"
+                            ? "text-primary bg-primary/10"
+                            : game.status === "canceled"
+                            ? "text-accent bg-accent/10"
+                            : "text-muted bg-muted/10"
+                        }`}
+                      >
+                        {game.status?.charAt(0).toUpperCase() +
+                          game.status?.slice(1)}
+                      </span>
+                    )}
                   </div>
                 </div>
+              );
+
+              return (
+                <Card
+                  key={game.game_id}
+                  header={gameHeader}
+                  subTitle={game.league_names}
+                  variant='hover'
+                >
+                  {gameBody}
+                </Card>
               );
             })}
           </div>
