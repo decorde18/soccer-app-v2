@@ -1,29 +1,20 @@
 "use client";
-
 import { useMemo, useState } from "react";
 import Table from "./Table";
 
-// TableContainer with optional sorting, filtering, and pagination
 const TableContainer = ({
   columns,
   data,
-  // Filtering options
   enableFiltering = false,
   filterPlaceholder = "Search...",
-  filterKeys = [], // Array of keys to filter on, e.g., ['name', 'email']
-  customFilter, // Custom filter function: (row, searchTerm) => boolean
-
-  // Sorting options
+  filterKeys = [],
+  customFilter,
   enableSorting = false,
   defaultSortKey = null,
   defaultSortDirection = "asc",
-
-  // Pagination options
   enablePagination = false,
   pageSize = 10,
   pageSizeOptions = [10, 25, 50, 100],
-
-  // Table props
   size = "md",
   onRowClick,
   rowClassName,
@@ -33,9 +24,7 @@ const TableContainer = ({
   actions,
   actionsLabel = "Actions",
   actionsWidth = "100px",
-
-  // Additional controls
-  children, // For custom controls above the table
+  children,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -163,7 +152,7 @@ const TableContainer = ({
   };
 
   return (
-    <div className='flex flex-col gap-4 w-full p-5'>
+    <div className='flex flex-col gap-4 w-full'>
       {/* Controls Bar */}
       {(enableFiltering || children) && (
         <div className='flex gap-4 items-center flex-wrap'>
@@ -176,7 +165,7 @@ const TableContainer = ({
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              className='flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+              className='flex-1 min-w-[200px] px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-surface text-text'
             />
           )}
           {children}
@@ -201,14 +190,14 @@ const TableContainer = ({
       {enablePagination && sortedData.length > 0 && (
         <div className='flex justify-between items-center py-3 flex-wrap gap-3'>
           <div className='flex items-center gap-3'>
-            <span className='text-sm text-gray-600'>
+            <span className='text-sm text-muted'>
               Showing {startRecord} to {endRecord} of {sortedData.length}{" "}
               results
             </span>
             <select
               value={currentPageSize}
               onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-              className='px-3 py-1.5 border border-gray-300 rounded-md text-sm bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500'
+              className='px-3 py-1.5 border border-border rounded-md text-sm bg-surface text-text cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary'
             >
               {pageSizeOptions.map((size) => (
                 <option key={size} value={size}>
@@ -222,7 +211,7 @@ const TableContainer = ({
             <button
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className='px-3 py-1.5 border border-gray-300 rounded-md bg-white text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+              className='px-3 py-1.5 border border-border rounded-md bg-surface text-sm hover:bg-background disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
             >
               Previous
             </button>
@@ -231,7 +220,7 @@ const TableContainer = ({
               page === "..." ? (
                 <span
                   key={`ellipsis-${index}`}
-                  className='px-3 py-1.5 text-gray-400'
+                  className='px-3 py-1.5 text-muted'
                 >
                   ...
                 </span>
@@ -241,8 +230,8 @@ const TableContainer = ({
                   onClick={() => handlePageChange(page)}
                   className={`px-3 py-1.5 border rounded-md text-sm transition-colors ${
                     currentPage === page
-                      ? "bg-blue-500 text-white border-blue-500"
-                      : "bg-white border-gray-300 hover:bg-gray-50"
+                      ? "bg-primary text-white border-primary"
+                      : "bg-surface border-border hover:bg-background"
                   }`}
                 >
                   {page}
@@ -253,7 +242,7 @@ const TableContainer = ({
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className='px-3 py-1.5 border border-gray-300 rounded-md bg-white text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+              className='px-3 py-1.5 border border-border rounded-md bg-surface text-sm hover:bg-background disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
             >
               Next
             </button>

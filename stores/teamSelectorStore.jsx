@@ -71,6 +71,21 @@ export const useTeamSelectorStore = create(
        * @param {number} currentTeamSeasonId - Optional: restore this context
        */
       loadTeamsView: async (currentTeamSeasonId = null) => {
+        const currentState = get();
+
+        // Prevent loading if already loading
+        if (currentState.isLoading) {
+          console.log("[TeamSelectorStore] Already loading, skipping...");
+          return;
+        }
+
+        // If data exists and no specific team season requested, skip loading
+        if (currentState.rawData.length > 0 && !currentTeamSeasonId) {
+          console.log("[TeamSelectorStore] Data already loaded, skipping...");
+          return;
+        }
+
+        console.log("[TeamSelectorStore] Loading teams view...");
         set({ isLoading: true, error: null });
 
         try {
@@ -89,12 +104,10 @@ export const useTeamSelectorStore = create(
           }
 
           const rawData = await response.json();
+          console.log("[TeamSelectorStore] Loaded", rawData.length, "records");
 
           // Normalize the data
           const { clubs, teams } = normalizeTeamsView(rawData);
-
-          // Get current state for potential restoration
-          const currentState = get();
 
           // Attempt to restore context from the loaded data
           let initialSeason = currentState.selectedSeason;
@@ -199,18 +212,20 @@ export const useTeamSelectorStore = create(
       },
 
       /**
-       * Get all available clubs - ALWAYS shows all clubs within selected type
+       * Get all available clubs - shows clubs based on selected type OR all clubs with teams
        */
       getAvailableClubs: () => {
         const { rawData, selectedType } = get();
-        if (!selectedType) return [];
 
-        // Filter by selected type and show ALL clubs in that type
-        const filteredData = rawData.filter((row) => row.type === selectedType);
+        // Filter by selected type if one is chosen
+        const filteredData = selectedType
+          ? rawData.filter((row) => row.type === selectedType)
+          : rawData;
 
         const clubsMap = new Map();
         filteredData.forEach((row) => {
-          if (!clubsMap.has(row.club_id)) {
+          // Only include clubs that have teams (team_id is not null)
+          if (row.team_id && !clubsMap.has(row.club_id)) {
             clubsMap.set(row.club_id, {
               id: row.club_id,
               name: row.club_name,
@@ -225,20 +240,20 @@ export const useTeamSelectorStore = create(
       },
 
       /**
-       * Get all available teams - ALWAYS shows all teams within selected club
+       * Get all available teams - shows teams based on selected club OR all teams with seasons
        */
       getAvailableTeams: () => {
         const { rawData, selectedClub } = get();
-        if (!selectedClub) return [];
 
-        // Show ALL teams in the selected club
-        const filteredData = rawData.filter(
-          (row) => row.club_id === selectedClub.id
-        );
+        // Filter by selected club if one is chosen
+        const filteredData = selectedClub
+          ? rawData.filter((row) => row.club_id === selectedClub.id)
+          : rawData;
 
         const teamsMap = new Map();
         filteredData.forEach((row) => {
-          if (!teamsMap.has(row.team_id)) {
+          // Only include teams that have seasons (season_id is not null)
+          if (row.team_id && row.season_id && !teamsMap.has(row.team_id)) {
             teamsMap.set(row.team_id, {
               id: row.team_id,
               name: row.team_name,

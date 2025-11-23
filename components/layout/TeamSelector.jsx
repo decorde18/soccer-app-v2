@@ -1,10 +1,14 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import Select from "../ui/Select";
 import { useTeamSelectorStore } from "@/stores/teamSelectorStore";
 import useAuthStore from "@/stores/authStore";
 
 function TeamSelector({ type, onContextChange }) {
+  const router = useRouter();
+  const pathname = usePathname();
+
   const {
     selectedType,
     selectedClub,
@@ -36,6 +40,7 @@ function TeamSelector({ type, onContextChange }) {
   const previousSeasonRef = useRef(null);
   const [windowWidth, setWindowWidth] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const hasLoadedRef = useRef(false); // Prevent multiple loads
 
   // Handle window resize
   useEffect(() => {
@@ -50,31 +55,66 @@ function TeamSelector({ type, onContextChange }) {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Load data on mount
+  // Load data on mount - ONLY ONCE and only if rawData is empty
   useEffect(() => {
-    // Priority order:
-    // 1. Currently selected team season (from persisted state)
-    // 2. User's favorite team season (if authenticated)
-    // 3. null (no selection)
-    const currentTeamSeasonId =
-      selectedTeamSeasonId ||
-      (isAuthenticated ? user?.favorite_team_season_id : null);
+    // Skip loading if type is "header" to prevent interference with page-specific routing
+    if (type === "header" && hasLoadedRef.current) return;
 
-    loadTeamsView(currentTeamSeasonId);
-  }, []); // Only run once on mount
+    // Prevent multiple loads
+    if (hasLoadedRef.current) return;
 
-  // Notify parent when context changes
-  useEffect(() => {
-    if (onContextChange) {
-      const context = {
-        type: selectedType,
-        club: selectedClub,
-        team: selectedTeam,
-        season: selectedSeason,
-        teamSeasonId: selectedTeamSeasonId,
-      };
-      onContextChange(context);
+    const loadData = async () => {
+      const store = useTeamSelectorStore.getState();
+
+      // Only load if we don't have data yet
+      if (store.rawData.length === 0) {
+        hasLoadedRef.current = true;
+
+        // Priority order:
+        // 1. Currently selected team season (from persisted state)
+        // 2. User's favorite team season (if authenticated)
+        // 3. null (no selection)
+        const currentTeamSeasonId =
+          selectedTeamSeasonId ||
+          (isAuthenticated ? user?.favorite_team_season_id : null);
+
+        await loadTeamsView(currentTeamSeasonId);
+      } else {
+        // Data already exists, just mark as loaded
+        hasLoadedRef.current = true;
+      }
+    };
+
+    // Add a small delay for header instances to let page finish loading
+    if (type === "header") {
+      const timer = setTimeout(loadData, 100);
+      return () => clearTimeout(timer);
+    } else {
+      loadData();
     }
+  }, []); // Empty deps - truly only once
+
+  // Notify parent when context changes - with safety check
+  useEffect(() => {
+    if (!onContextChange || !mounted) return;
+
+    // Don't trigger during initial load
+    if (!hasLoadedRef.current) return;
+
+    const context = {
+      type: selectedType,
+      club: selectedClub,
+      team: selectedTeam,
+      season: selectedSeason,
+      teamSeasonId: selectedTeamSeasonId,
+    };
+
+    // Use setTimeout to prevent blocking navigation
+    const timer = setTimeout(() => {
+      onContextChange(context);
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [
     selectedType,
     selectedClub,
@@ -82,6 +122,7 @@ function TeamSelector({ type, onContextChange }) {
     selectedSeason,
     selectedTeamSeasonId,
     onContextChange,
+    mounted,
   ]);
 
   // Season persistence logic

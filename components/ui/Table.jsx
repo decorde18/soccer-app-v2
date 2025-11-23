@@ -11,7 +11,6 @@ const Table = ({
   onRowClick,
   rowClassName,
   emptyMessage = "No data available",
-
   actions,
   actionsLabel = "Actions",
   actionsWidth = "120px",
@@ -34,21 +33,20 @@ const Table = ({
     <div className='overflow-x-auto w-full'>
       <table className={`w-full border-collapse ${sizeClasses[size]}`}>
         {caption && (
-          <caption className='text-left p-3 font-semibold text-gray-700'>
+          <caption className='text-left p-3 font-semibold text-text'>
             {caption}
           </caption>
         )}
 
         <thead>
-          <tr className='bg-gray-50 border-b-2 border-gray-200'>
+          <tr className='bg-background border-b-2 border-border'>
             {columns.map((column) => (
               <th
                 key={column.name}
-                className={`${cellPadding[size]} text-left font-semibold text-gray-700`}
+                className={`${cellPadding[size]} text-left font-semibold text-text`}
               >
                 <div className='flex items-center gap-1'>
                   {column.label}
-                  {/* Sorting UI preserved if container injected sortable props */}
                   {column.sortable && column.onSort && (
                     <Button
                       size='xs'
@@ -67,10 +65,9 @@ const Table = ({
               </th>
             ))}
 
-            {/* ACTIONS COLUMN (not sortable/filterable) */}
             {actions && (
               <th
-                className={`${cellPadding[size]} font-semibold text-gray-700 text-left`}
+                className={`${cellPadding[size]} font-semibold text-text text-left`}
                 style={{ width: actionsWidth }}
               >
                 {actionsLabel}
@@ -84,7 +81,7 @@ const Table = ({
             <tr>
               <td
                 colSpan={columns.length + (actions ? 1 : 0)}
-                className={`${cellPadding[size]} text-center text-gray-400 italic`}
+                className={`${cellPadding[size]} text-center text-muted italic`}
               >
                 {emptyMessage}
               </td>
@@ -99,8 +96,8 @@ const Table = ({
                   key={row.id || index}
                   onClick={() => onRowClick?.(row)}
                   className={`${customRowClass} ${
-                    hoverable ? "hover:bg-gray-50" : ""
-                  } border-b border-gray-200 transition-colors ${
+                    hoverable ? "hover:bg-background" : ""
+                  } border-b border-border transition-colors ${
                     onRowClick ? "cursor-pointer" : ""
                   }`}
                 >
@@ -112,7 +109,6 @@ const Table = ({
                     </td>
                   ))}
 
-                  {/* ACTION CELL */}
                   {actions && (
                     <td className={`${cellPadding[size]}`}>{actions(row)}</td>
                   )}

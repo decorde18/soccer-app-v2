@@ -6,33 +6,31 @@ export default function Toggle({
   label,
   checked,
   disabled = false,
-  // onChange,
+  onChange,
   className = "",
 }) {
   return (
-    <div className='flex items-center gap-3 mb-2'>
+    <div className='flex items-center gap-3'>
       <button
         type='button'
-        onClick={() => !disabled && onChange(!checked)}
+        onClick={() => !disabled && onChange && onChange(!checked)}
         disabled={disabled}
         className={cn(
-          "relative w-12 h-6 rounded-full transition-colors duration-300",
+          "relative w-12 p-0 px-1 m-2 h-[24px] rounded-full transition-colors duration-300",
           checked ? "bg-primary" : "bg-border",
           disabled && "opacity-60 cursor-not-allowed",
           className
         )}
-        aria-label={label || "Toggle"}
-        role='switch'
-        aria-checked={checked}
       >
         <span
           className={cn(
-            "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-surface transition-transform duration-300 shadow-sm",
-            checked && "translate-x-6"
+            "absolute top-[1px] left-[1px] h-5 w-5 rounded-full bg-surface transition-transform duration-300 shadow-sm",
+            checked && "translate-x-[24px]"
           )}
         />
       </button>
-      {label && <span className='text-small text-text-label'>{label}</span>}
+
+      {label && <span className='text-sm text-text-label'>{label}</span>}
     </div>
   );
 }

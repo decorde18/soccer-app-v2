@@ -61,7 +61,6 @@ export default function TeamLayoutClient({
     const currentPage = pathname.split("/").pop();
     router.push(`/teams/${newTeamSeasonId}/${currentPage}`);
   };
-
   return (
     <div className='min-h-screen bg-gray-50'>
       {/* Team Header */}

@@ -1,6 +1,6 @@
 "use client";
 import { format } from "date-fns";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import useAuthStore from "@/stores/authStore";
@@ -17,6 +17,7 @@ function Header() {
   const pathname = usePathname();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [windowWidth, setWindowWidth] = useState(0);
+  const previousTeamSeasonIdRef = useRef(null);
 
   // Get team context from store
   const { selectedTeam, selectedTeamSeasonId } = useTeamSelectorStore();
@@ -44,9 +45,23 @@ function Header() {
     (context) => {
       if (!context?.teamSeasonId) return;
 
-      // If on a team page, navigate to the newly selected team
+      // Only navigate if the team actually changed (user manually selected a new team)
+      if (previousTeamSeasonIdRef.current === context.teamSeasonId) {
+        return; // Same team, don't navigate
+      }
+
+      // Update the ref to track the current team
+      previousTeamSeasonIdRef.current = context.teamSeasonId;
+
+      // Extract the current sub-route if on a team page
       if (pathname?.startsWith("/teams/")) {
-        router.push(`/teams/${context.teamSeasonId}`);
+        // Get the sub-route (e.g., "/schedule", "/roster", etc.)
+        const pathParts = pathname.split("/");
+        const subRoute =
+          pathParts.length > 3 ? `/${pathParts.slice(3).join("/")}` : "";
+
+        // Navigate to the same sub-route but with the new team
+        router.push(`/teams/${context.teamSeasonId}${subRoute}`);
       }
 
       // If on a league/standings page, update with new league if available
