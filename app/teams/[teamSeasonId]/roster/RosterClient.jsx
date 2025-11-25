@@ -2,95 +2,131 @@
 "use client";
 
 import { useState } from "react";
-import { Permissions } from "@/lib/clientPermissions";
-import { Plus, Edit, Trash2, Lock } from "lucide-react";
-import Link from "next/link";
+import ViewWrapper from "@/components/ui/ViewWrapper";
+import RosterGrid from "@/components/ui/roster/RosterGrid";
+import RosterTable from "@/components/ui/roster/RosterTable";
+import Button from "@/components/ui/Button";
+import PlayerModal from "./PlayerModal";
+import { useApiData } from "@/hooks/useApiData";
 
-export default function RosterClient({
-  roster,
-  access,
-  isAuthenticated,
-  teamSeasonId,
-}) {
-  const [players, setPlayers] = useState(roster);
+export default function RosterClient({ teamSeasonId, canEdit }) {
+  const {
+    data: players,
+    loading,
+    error,
+    setData: setPlayers,
+    create,
+    update,
+    remove,
+  } = useApiData("players_view", {
+    filters: { team_season_id: teamSeasonId },
+  });
 
-  // ✅ Safe permission checks
-  const canManage = access ? Permissions.canManageRoster(access) : false;
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingPlayer, setEditingPlayer] = useState(null);
+
+  // Add new player
+  const handleAddPlayer = () => {
+    setEditingPlayer(null);
+    setIsModalOpen(true);
+  };
+
+  // Edit existing player
+  const handleEditPlayer = (player) => {
+    setEditingPlayer(player);
+    setIsModalOpen(true);
+  };
+
+  // Delete player
+  const handleDeletePlayer = async (playerId) => {
+    if (
+      !confirm("Are you sure you want to remove this player from the roster?")
+    )
+      return;
+
+    try {
+      await remove(playerId);
+    } catch (error) {
+      console.error("Delete failed:", error);
+      alert("Error deleting player");
+    }
+  };
+
+  // Save player (create or update)
+  const handleSavePlayer = async (playerData) => {
+    try {
+      if (editingPlayer) {
+        // Update existing player
+        const playerId = editingPlayer.id || editingPlayer.player_id;
+        await update(playerId, playerData);
+      } else {
+        // Create new player
+        await create(playerData);
+      }
+
+      // Close modal on success
+      setIsModalOpen(false);
+      setEditingPlayer(null);
+    } catch (error) {
+      console.error("Save failed:", error);
+      alert("Error saving player");
+    }
+  };
 
   return (
-    <div className='p-8'>
-      <div className='flex justify-between items-center mb-6'>
-        <h2 className='text-2xl font-bold'>Team Roster</h2>
+    <>
+      <ViewWrapper
+        title='Roster'
+        defaultView='table'
+        loading={loading}
+        error={error}
+        gridView={
+          <RosterGrid
+            players={players}
+            teamSeasonId={teamSeasonId}
+            showActions={canEdit}
+            onEdit={handleEditPlayer}
+            onDelete={handleDeletePlayer}
+          />
+        }
+        tableView={
+          <RosterTable
+            players={players}
+            teamSeasonId={teamSeasonId}
+            showActions={canEdit}
+            onEdit={handleEditPlayer}
+            onDelete={handleDeletePlayer}
+          />
+        }
+      >
+        {/* Only show buttons if user can edit */}
+        {canEdit && (
+          <div className='flex gap-2'>
+            <Button
+              variant='secondary'
+              href={`/teams/${teamSeasonId}/roster/upload`}
+            >
+              Upload Roster
+            </Button>
+            <Button variant='primary' onClick={handleAddPlayer}>
+              + Add Player
+            </Button>
+          </div>
+        )}
+      </ViewWrapper>
 
-        {/* ✅ Show different UI based on auth state */}
-        {canManage ? (
-          <button className='flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700'>
-            <Plus className='w-4 h-4' />
-            <span>Add Player</span>
-          </button>
-        ) : !isAuthenticated ? (
-          <Link
-            href={`/auth/login?redirect=/teams/${teamSeasonId}/roster`}
-            className='flex items-center space-x-2 text-gray-500 text-sm'
-          >
-            <Lock className='w-4 h-4' />
-            <span>Sign in to manage roster</span>
-          </Link>
-        ) : null}
-      </div>
-
-      {/* Roster Table */}
-      <div className='bg-white rounded-lg border overflow-hidden'>
-        <table className='w-full'>
-          <thead className='bg-gray-50'>
-            <tr>
-              <th className='px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase'>
-                #
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase'>
-                Name
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase'>
-                Position
-              </th>
-              {canManage && (
-                <th className='px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase'>
-                  Actions
-                </th>
-              )}
-            </tr>
-          </thead>
-          <tbody className='divide-y'>
-            {players.map((player) => (
-              <tr key={player.id} className='hover:bg-gray-50'>
-                <td className='px-6 py-4 font-semibold'>
-                  {player.jersey_number}
-                </td>
-                <td className='px-6 py-4'>
-                  {player.first_name} {player.last_name}
-                </td>
-                <td className='px-6 py-4 text-gray-600'>{player.position}</td>
-                {canManage && (
-                  <td className='px-6 py-4 text-right space-x-2'>
-                    <button className='text-blue-600 hover:text-blue-800'>
-                      <Edit className='w-4 h-4' />
-                    </button>
-                    <button className='text-red-600 hover:text-red-800'>
-                      <Trash2 className='w-4 h-4' />
-                    </button>
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {players.length === 0 && (
-        <div className='text-center py-12 text-gray-500'>
-          No players on the roster yet.
-        </div>
+      {/* Only render modal if user can edit */}
+      {canEdit && (
+        <PlayerModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingPlayer(null);
+          }}
+          onSave={handleSavePlayer}
+          player={editingPlayer}
+        />
       )}
-    </div>
+    </>
   );
 }

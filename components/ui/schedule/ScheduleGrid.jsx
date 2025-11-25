@@ -22,46 +22,28 @@ export default function ScheduleGrid({
   return (
     <div className='space-y-4'>
       {games.map((game) => {
-        // Handle both data structures (API view vs direct DB)
-        const isHome = game.home_team_season_id
-          ? game.home_team_season_id === parseInt(teamSeasonId)
-          : game.home_away === "home";
-
-        const opponent =
-          game.away_team_name || game.home_team_name || game.opponent;
-        const opponentClub =
-          game.away_club_name || game.home_club_name || game.opponent;
-        const gameDate = game.start_date || game.game_date;
-        const gameTime = game.start_time || game.game_time;
-        const location = game.location_name || game.location;
-        const sublocation = game.sublocation_name;
-
-        const hasScore =
-          game.score_us !== undefined &&
-          game.score_them !== undefined &&
-          game.score_us !== null &&
-          game.score_them !== null;
-
         // Game header with date, time, and home/away badge
         const gameHeader = (
           <div className='flex items-center gap-3 flex-wrap'>
             <span
               className={`px-3 py-1 text-sm font-medium rounded-md ${
-                isHome ? "bg-primary/10 text-primary" : "bg-muted/20 text-muted"
+                game.isHome
+                  ? "bg-primary/10 text-primary"
+                  : "bg-muted/20 text-muted"
               }`}
             >
-              {isHome ? "HOME" : "AWAY"}
+              {game.isHome ? "HOME" : "AWAY"}
             </span>
             <span className='text-muted text-sm'>
-              {new Date(gameDate).toLocaleDateString("en-US", {
+              {new Date(game.date).toLocaleDateString("en-US", {
                 weekday: "short",
                 month: "short",
                 day: "numeric",
               })}
             </span>
-            {gameTime && (
+            {game.time && (
               <span className='text-muted text-sm'>
-                • {formatMySqlTime(gameTime)} {game.timezone_label}
+                • {formatMySqlTime(game.time)} {game.timezone_label}
               </span>
             )}
           </div>
@@ -71,18 +53,18 @@ export default function ScheduleGrid({
         const gameBody = (
           <div className='flex justify-between items-start gap-4'>
             <div className='flex-1 min-w-0'>
-              <h3 className='text-lg text-text'>vs {opponentClub}</h3>
+              <h3 className='text-lg text-text'>vs {game.opponentClub}</h3>
 
-              {opponentClub !== opponent && (
-                <p className='text-sm text-muted mt-1'>{opponent}</p>
+              {game.opponentClub !== game.opponent && (
+                <p className='text-sm text-muted mt-1'>{game.opponent}</p>
               )}
 
-              {location && (
+              {game.location && (
                 <p className='text-muted text-sm mt-2 flex items-center gap-1'>
                   <span>📍</span>
                   <span>
-                    {location}
-                    {sublocation && ` - ${sublocation}`}
+                    {game.location}
+                    {game.sublocation && ` - ${game.sublocation}`}
                   </span>
                 </p>
               )}
@@ -90,27 +72,27 @@ export default function ScheduleGrid({
 
             {/* Score Display / Status */}
             <div className='text-right flex-shrink-0'>
-              {hasScore ? (
+              {game.hasScore ? (
                 <div>
                   <div className='text-3xl font-bold'>
                     <span
                       className={
-                        game.score_us > game.score_them
+                        game.scoreUs > game.scoreThem
                           ? "text-success"
-                          : game.score_us < game.score_them
+                          : game.scoreUs < game.scoreThem
                           ? "text-danger"
                           : "text-muted"
                       }
                     >
-                      {game.score_us}
+                      {game.scoreUs}
                     </span>
                     <span className='text-muted mx-2'>-</span>
-                    <span className='text-text'>{game.score_them}</span>
+                    <span className='text-text'>{game.scoreThem}</span>
                   </div>
                   <div className='text-xs text-muted mt-1'>
-                    {game.score_us > game.score_them
+                    {game.scoreUs > game.scoreThem
                       ? "Win"
-                      : game.score_us < game.score_them
+                      : game.scoreUs < game.scoreThem
                       ? "Loss"
                       : "Draw"}
                   </div>
@@ -136,7 +118,11 @@ export default function ScheduleGrid({
         const gameFooter =
           showActions && onEdit && onDelete ? (
             <div className='flex gap-2'>
-              <Button variant='outline' size='sm' onClick={() => onEdit(game)}>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => onEdit(game.rawGame)}
+              >
                 Edit
               </Button>
               <Button

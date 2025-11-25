@@ -11,59 +11,6 @@ export default function ScheduleTable({
   onDelete,
   showActions = false,
 }) {
-  // Transform games data for table
-  const tableData = games.map((game) => {
-    // Handle both data structures (API view vs direct DB)
-    const isHome = game.home_team_season_id
-      ? game.home_team_season_id === parseInt(teamSeasonId)
-      : game.home_away === "home";
-
-    const opponent =
-      game.away_team_name || game.home_team_name || game.opponent;
-    const opponentClub =
-      game.away_club_name || game.home_club_name || game.opponent;
-    const gameDate = game.start_date || game.game_date;
-    const gameTime = game.start_time || game.game_time;
-    const location = game.location_name || game.location;
-    const sublocation = game.sublocation_name;
-
-    const hasScore =
-      game.score_us !== undefined &&
-      game.score_them !== undefined &&
-      game.score_us !== null &&
-      game.score_them !== null;
-
-    const result = hasScore
-      ? game.score_us > game.score_them
-        ? "W"
-        : game.score_us < game.score_them
-        ? "L"
-        : "D"
-      : "-";
-
-    return {
-      id: game.id || game.game_id,
-      date: gameDate,
-      time: gameTime,
-      timezone: game.timezone_label,
-      homeAway: isHome ? "HOME" : "AWAY",
-      opponent:
-        opponentClub !== opponent
-          ? `${opponentClub} (${opponent})`
-          : opponentClub,
-      location: location || "-",
-      sublocation: sublocation || "",
-      league: game.league_names || "-",
-      score_us: game.score_us ?? "-",
-      score_them: game.score_them ?? "-",
-      result,
-      status: game.status,
-      isHome,
-      hasScore,
-      rawGame: game, // Keep original for edit
-    };
-  });
-
   const columns = [
     {
       name: "date",
@@ -135,17 +82,17 @@ export default function ScheduleTable({
           <div className='flex items-center gap-2'>
             <span
               className={`font-bold ${
-                row.score_us > row.score_them
+                row.scoreUs > row.scoreThem
                   ? "text-success"
-                  : row.score_us < row.score_them
+                  : row.scoreUs < row.scoreThem
                   ? "text-danger"
                   : "text-muted"
               }`}
             >
-              {row.score_us}
+              {row.scoreUs}
             </span>
             <span className='text-muted'>-</span>
-            <span className='font-bold text-text'>{row.score_them}</span>
+            <span className='font-bold text-text'>{row.scoreThem}</span>
           </div>
         ) : (
           <span
@@ -187,7 +134,7 @@ export default function ScheduleTable({
   return (
     <TableContainer
       columns={columns}
-      data={tableData}
+      data={games}
       enableSorting={true}
       defaultSortKey='date'
       defaultSortDirection='asc'

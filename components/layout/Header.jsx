@@ -57,14 +57,19 @@ function Header() {
       // Extract the current sub-route if on a team page
       if (pathname?.startsWith("/teams/")) {
         const pathParts = pathname.split("/");
-        const currentRoute = pathParts[3] || ""; // Empty string for overview
+        // The teamSeasonId is pathParts[2]. The rest is the sub-route.
+        const routeSegments = pathParts.slice(3);
+        const mainRoute = routeSegments[0] || ""; // e.g., "roster"
 
-        // ✅ Check if current route is valid using shared config
-        if (isValidTeamRoute(currentRoute)) {
-          // Navigate to the same valid sub-route with the new team
-          router.push(getTeamRoutePath(context.teamSeasonId, currentRoute));
+        // Get the full path segment after /teams/[teamSeasonId]/
+        const fullSubRoute = routeSegments.join("/"); // e.g., "roster/upload" or "roster"
+
+        // ✅ Check if the main route is valid using shared config
+        if (isValidTeamRoute(mainRoute)) {
+          // Navigate to the same valid sub-route with the new team, preserving deep segments
+          router.push(getTeamRoutePath(context.teamSeasonId, fullSubRoute));
         } else {
-          // Invalid route - go to team overview
+          // Invalid main route - go to team overview
           router.push(getTeamRoutePath(context.teamSeasonId));
         }
         return;

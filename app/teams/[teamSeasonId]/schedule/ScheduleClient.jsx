@@ -9,7 +9,8 @@ import GameModal from "./GameModal";
 import { useTeamSeasonGames } from "@/hooks/useTeamSeasonGames";
 
 export default function ScheduleClient({ teamSeasonId, canEdit }) {
-  const { games, loading, error, setGames } = useTeamSeasonGames(teamSeasonId);
+  const { games, loading, error, setGames, updateGame, deleteGame, addGame } =
+    useTeamSeasonGames(teamSeasonId);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGame, setEditingGame] = useState(null);
@@ -31,16 +32,7 @@ export default function ScheduleClient({ teamSeasonId, canEdit }) {
     if (!confirm("Are you sure you want to delete this game?")) return;
 
     try {
-      const res = await fetch(`/api/games/${gameId}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        // Optimistically update UI
-        setGames((prev) => prev.filter((g) => (g.id || g.game_id) !== gameId));
-      } else {
-        alert("Failed to delete game");
-      }
+      await deleteGame(gameId);
     } catch (error) {
       console.error("Delete failed:", error);
       alert("Error deleting game");
@@ -53,38 +45,10 @@ export default function ScheduleClient({ teamSeasonId, canEdit }) {
       if (editingGame) {
         // Update existing game
         const gameId = editingGame.id || editingGame.game_id;
-        const res = await fetch(`/api/games/${gameId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(gameData),
-        });
-
-        if (res.ok) {
-          const updatedGame = await res.json();
-          setGames((prev) =>
-            prev.map((g) =>
-              (g.id || g.game_id) === gameId ? { ...g, ...updatedGame } : g
-            )
-          );
-        } else {
-          alert("Failed to update game");
-          return;
-        }
+        await updateGame(gameId, gameData);
       } else {
         // Create new game
-        const res = await fetch(`/api/teams/${teamSeasonId}/games`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(gameData),
-        });
-
-        if (res.ok) {
-          const newGame = await res.json();
-          setGames((prev) => [...prev, newGame]);
-        } else {
-          alert("Failed to add game");
-          return;
-        }
+        await addGame(gameData);
       }
 
       // Close modal on success
@@ -96,6 +60,63 @@ export default function ScheduleClient({ teamSeasonId, canEdit }) {
     }
   };
 
+  // Transform games data for display
+  const gamesData = games.map((game) => {
+    // Handle both data structures (API view vs direct DB)
+    const isHome = game.home_team_season_id
+      ? game.home_team_season_id === parseInt(teamSeasonId)
+      : game.home_away === "home";
+
+    const opponent = isHome ? game.away_team_name : game.home_team_name;
+    const opponentClub = isHome ? game.away_club_name : game.home_club_name;
+
+    // Score logic
+    const scoreUs = isHome ? game.home_score : game.away_score;
+    const scoreThem = isHome ? game.away_score : game.home_score;
+
+    const gameDate = game.start_date || game.game_date;
+    const gameTime = game.start_time || game.game_time;
+    const location = game.location_name || game.location;
+    const sublocation = game.sublocation_name;
+
+    const hasScore =
+      scoreUs !== undefined &&
+      scoreThem !== undefined &&
+      scoreUs !== null &&
+      scoreThem !== null;
+
+    const result = hasScore
+      ? scoreUs > scoreThem
+        ? "W"
+        : scoreUs < scoreThem
+        ? "L"
+        : "D"
+      : "-";
+
+    return {
+      id: game.id || game.game_id,
+      date: gameDate,
+      time: gameTime,
+      timezone: game.timezone_label,
+      homeAway: isHome ? "HOME" : "AWAY",
+      opponent:
+        opponentClub !== opponent
+          ? `${opponentClub} (${opponent})`
+          : opponentClub,
+      opponentClub,
+      location: location || "-",
+      sublocation: sublocation || "",
+      league: game.league_names || "-",
+      scoreUs: scoreUs ?? "-",
+      scoreThem: scoreThem ?? "-",
+      result,
+      status: game.status,
+      isHome,
+      hasScore,
+      rawGame: game, // Keep original for edit
+    };
+  });
+
   return (
     <>
       <ViewWrapper
@@ -105,7 +126,7 @@ export default function ScheduleClient({ teamSeasonId, canEdit }) {
         error={error}
         gridView={
           <ScheduleGrid
-            games={games}
+            games={gamesData}
             teamSeasonId={teamSeasonId}
             showActions={canEdit}
             onEdit={handleEditGame}
@@ -114,7 +135,7 @@ export default function ScheduleClient({ teamSeasonId, canEdit }) {
         }
         tableView={
           <ScheduleTable
-            games={games}
+            games={gamesData}
             teamSeasonId={teamSeasonId}
             showActions={canEdit}
             onEdit={handleEditGame}
