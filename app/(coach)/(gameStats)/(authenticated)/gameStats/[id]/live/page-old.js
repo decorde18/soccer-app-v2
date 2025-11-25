@@ -1,4 +1,5 @@
 "use client";
+import { formatSecondsToMmss } from "@/lib/dateTimeUtils";
 import React, { useState, useEffect, useRef } from "react";
 
 const LiveGame = () => {
@@ -271,12 +272,6 @@ const LiveGame = () => {
     };
   }, [isClockRunning, gameSettings.clockDirection]);
 
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
-
   const getCurrentShiftTime = (shiftStart) => {
     return clockTime - shiftStart;
   };
@@ -458,7 +453,7 @@ const LiveGame = () => {
 
           <div className='text-center px-8'>
             <div className='text-7xl font-black tabular-nums'>
-              {formatTime(clockTime)}
+              {formatSecondsToMmss(clockTime)}
             </div>
             <div className='flex gap-2 mt-4'>
               <button
@@ -531,10 +526,12 @@ const LiveGame = () => {
                       </td>
                       <td className='p-2 font-medium'>{player.name}</td>
                       <td className='p-2 text-center tabular-nums text-xs'>
-                        {formatTime(getCurrentShiftTime(player.shiftStart))}
+                        {formatSecondsToMmss(
+                          getCurrentShiftTime(player.shiftStart)
+                        )}
                       </td>
                       <td className='p-2 text-center tabular-nums text-xs'>
-                        {formatTime(
+                        {formatSecondsToMmss(
                           player.totalPlayed +
                             getCurrentShiftTime(player.shiftStart)
                         )}
@@ -692,8 +689,8 @@ const LiveGame = () => {
                     <div>
                       <div className='font-medium text-sm'>{player.name}</div>
                       <div className='text-xs text-gray-500'>
-                        Played: {formatTime(player.totalPlayed)} | Off:{" "}
-                        {formatTime(clockTime - player.timeOffBench)}
+                        Played: {formatSecondsToMmss(player.totalPlayed)} | Off:{" "}
+                        {formatSecondsToMmss(clockTime - player.timeOffBench)}
                       </div>
                     </div>
                   </div>
@@ -840,8 +837,8 @@ const LiveGame = () => {
               Stoppage: {stoppageType}
             </h2>
             <p className='text-gray-600 mb-6'>
-              Clock stopped at {formatTime(clockTime)}. Player times continue
-              running.
+              Clock stopped at {formatSecondsToMmss(clockTime)}. Player times
+              continue running.
               {stoppageType === "weather" &&
                 " If this is a weather delay requiring suspension, proceed to suspension screen."}
             </p>

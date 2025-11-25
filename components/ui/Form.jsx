@@ -61,15 +61,15 @@ const Form = ({
     const fieldId = `field-${name}`;
 
     const commonClasses =
-      "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed";
+      "w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-surface text-text disabled:bg-muted/10 disabled:cursor-not-allowed";
 
     return (
       <div key={name} className='mb-4'>
         <label
           htmlFor={fieldId}
-          className='block text-sm font-medium text-gray-700 mb-1'
+          className='block text-sm font-medium text-text mb-1'
         >
-          {label} {required && <span className='text-red-500'>*</span>}
+          {label} {required && <span className='text-accent'>*</span>}
         </label>
 
         {/* Text Input */}
@@ -187,9 +187,9 @@ const Form = ({
               checked={!!fieldValue}
               onChange={(e) => handleFieldChange(name, e.target.checked)}
               disabled={disabled}
-              className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+              className='h-4 w-4 text-primary focus:ring-primary border-border rounded'
             />
-            <label htmlFor={fieldId} className='ml-2 text-sm text-gray-700'>
+            <label htmlFor={fieldId} className='ml-2 text-sm text-text'>
               {helperText}
             </label>
           </div>
@@ -208,11 +208,11 @@ const Form = ({
                   checked={fieldValue === option.value}
                   onChange={(e) => handleFieldChange(name, e.target.value)}
                   disabled={disabled}
-                  className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300'
+                  className='h-4 w-4 text-primary focus:ring-primary border-border'
                 />
                 <label
                   htmlFor={`${fieldId}-${option.value}`}
-                  className='ml-2 text-sm text-gray-700'
+                  className='ml-2 text-sm text-text'
                 >
                   {option.label}
                 </label>
@@ -235,13 +235,13 @@ const Form = ({
             accept={accept}
             multiple={multiple}
             disabled={disabled}
-            className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100'
+            className='w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20'
           />
         )}
 
         {/* Helper Text */}
         {helperText && type !== "checkbox" && (
-          <p className='mt-1 text-xs text-gray-500'>{helperText}</p>
+          <p className='mt-1 text-xs text-muted'>{helperText}</p>
         )}
       </div>
     );
@@ -256,12 +256,12 @@ const Form = ({
       <div className='space-y-4'>{fields.map(renderField)}</div>
 
       {/* Form Actions */}
-      <div className='flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200'>
+      <div className='flex justify-end space-x-3 mt-6 pt-4 border-t border-border'>
         {onCancel && (
           <Button
             type='button'
             onClick={onCancel}
-            variant='secondary'
+            variant='outline'
             disabled={loading}
           >
             {cancelText}

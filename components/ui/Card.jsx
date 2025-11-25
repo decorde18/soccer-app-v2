@@ -95,7 +95,9 @@ export function Card({
                 <div className='flex-1'>
                   <h3 className='font-semibold text-lg text-text'>{title}</h3>
                   {subTitle && (
-                    <p className='text-sm text-muted mt-0.5'>{subTitle}</p>
+                    <p className='text-sm text-muted mt-0.5'>
+                      HEREEE{subTitle}
+                    </p>
                   )}
                 </div>
               )}

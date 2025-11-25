@@ -2,7 +2,7 @@
 "use client";
 
 import { apiFetch } from "@/app/api/fetcher";
-import { changeSecondsToMmss } from "@/lib/dateUtils";
+
 import { mockGame } from "@/mockData";
 import { useParams, useRouter } from "next/navigation";
 
@@ -355,9 +355,6 @@ export function GameLiveProvider({ children }) {
       throw error;
     }
   }, [game.currentPeriodIndex, game.periods]);
-  // ============================================
-  // FORMATTING UTILITIES
-  // ============================================
 
   const value = {
     game,
@@ -368,8 +365,6 @@ export function GameLiveProvider({ children }) {
     startGame,
     startNextPeriod,
     endPeriod,
-
-    formatTime: changeSecondsToMmss,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

@@ -11,7 +11,6 @@ import { useGame } from "@/contexts/GameLiveContext";
 
 const PeriodLineup = () => {
   const { players, updateGameStatus } = usePlayers();
-  // const { game, formatTime, toggleGameClock } = useGame();
 
   const gameDetails = { periodNumber: 1 };
 

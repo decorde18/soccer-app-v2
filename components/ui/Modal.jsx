@@ -71,7 +71,7 @@ const Modal = ({
     >
       <div
         className={cn(
-          "relative bg-[hsl(var(--color-surface))] rounded-[var(--radius-default)] shadow-xl max-h-[90vh] overflow-y-auto w-full",
+          "relative bg-surface rounded-xl shadow-xl max-h-[90vh] overflow-y-auto w-full",
           modalSizes[size],
           className
         )}
@@ -80,19 +80,17 @@ const Modal = ({
         {(title || showCloseButton) && (
           <div
             className={cn(
-              "flex items-center justify-between px-6 py-4 border-b border-[hsl(var(--color-border))]",
+              "flex items-center justify-between px-6 py-4 border-b border-border",
               headerClassName
             )}
           >
             {title && (
-              <h3 className='text-xl font-semibold text-[hsl(var(--color-text))] pr-8'>
-                {title}
-              </h3>
+              <h3 className='text-xl font-semibold text-text pr-8'>{title}</h3>
             )}
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className='absolute top-4 right-4 text-[hsl(var(--color-text-muted))] hover:text-[hsl(var(--color-text))] transition-colors duration-200 w-6 h-6 flex items-center justify-center rounded hover:bg-[hsl(var(--color-muted))] hover:bg-opacity-20'
+                className='absolute top-4 right-4 text-muted hover:text-text transition-colors duration-200 w-6 h-6 flex items-center justify-center rounded hover:bg-muted/20'
                 aria-label='Close modal'
               >
                 <span className='text-xl leading-none'>×</span>
@@ -101,19 +99,14 @@ const Modal = ({
           </div>
         )}
 
-        <div
-          className={cn(
-            "px-6 py-4 text-[hsl(var(--color-text))]",
-            bodyClassName
-          )}
-        >
+        <div className={cn("px-6 py-4 text-text", bodyClassName)}>
           {children}
         </div>
 
         {footer && (
           <div
             className={cn(
-              "px-6 py-4 border-t border-[hsl(var(--color-border))] flex justify-end gap-2",
+              "px-6 py-4 border-t border-border flex justify-end gap-2",
               footerClassName
             )}
           >

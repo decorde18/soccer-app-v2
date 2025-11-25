@@ -10,6 +10,7 @@ import LoginButton from "@/app/(public)/auth/LoginButton";
 import LogoutButton from "@/app/(public)/auth/LogoutButton";
 import Button from "../ui/Button";
 import { ChevronDown, Settings, User } from "lucide-react";
+import { getTeamRoutePath, isValidTeamRoute } from "@/lib/config/teamRoutes";
 
 function Header() {
   const user = useAuthStore((s) => s.user);
@@ -55,13 +56,18 @@ function Header() {
 
       // Extract the current sub-route if on a team page
       if (pathname?.startsWith("/teams/")) {
-        // Get the sub-route (e.g., "/schedule", "/roster", etc.)
         const pathParts = pathname.split("/");
-        const subRoute =
-          pathParts.length > 3 ? `/${pathParts.slice(3).join("/")}` : "";
+        const currentRoute = pathParts[3] || ""; // Empty string for overview
 
-        // Navigate to the same sub-route but with the new team
-        router.push(`/teams/${context.teamSeasonId}${subRoute}`);
+        // ✅ Check if current route is valid using shared config
+        if (isValidTeamRoute(currentRoute)) {
+          // Navigate to the same valid sub-route with the new team
+          router.push(getTeamRoutePath(context.teamSeasonId, currentRoute));
+        } else {
+          // Invalid route - go to team overview
+          router.push(getTeamRoutePath(context.teamSeasonId));
+        }
+        return;
       }
 
       // If on a league/standings page, update with new league if available

@@ -1,22 +1,31 @@
 "use client";
 import TableContainer from "@/components/ui/TableContainer";
+import Button from "@/components/ui/Button";
+import { formatMySqlTime } from "@/lib/dateTimeUtils";
 
-export default function ScheduleTable({ games, teamSeasonId }) {
-  // Helper to format time
-  const formatTime = (timeStr) => {
-    if (!timeStr) return "";
-    const [hours, minutes] = timeStr.split(":");
-    const h = parseInt(hours);
-    const ampm = h >= 12 ? "PM" : "AM";
-    const hour12 = h % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
-  };
-
+export default function ScheduleTable({
+  games,
+  teamSeasonId,
+  // Optional admin props
+  onEdit,
+  onDelete,
+  showActions = false,
+}) {
   // Transform games data for table
   const tableData = games.map((game) => {
-    const isHome = game.home_team_season_id === parseInt(teamSeasonId);
-    const opponent = isHome ? game.away_team_name : game.home_team_name;
-    const opponentClub = isHome ? game.away_club_name : game.home_club_name;
+    // Handle both data structures (API view vs direct DB)
+    const isHome = game.home_team_season_id
+      ? game.home_team_season_id === parseInt(teamSeasonId)
+      : game.home_away === "home";
+
+    const opponent =
+      game.away_team_name || game.home_team_name || game.opponent;
+    const opponentClub =
+      game.away_club_name || game.home_club_name || game.opponent;
+    const gameDate = game.start_date || game.game_date;
+    const gameTime = game.start_time || game.game_time;
+    const location = game.location_name || game.location;
+    const sublocation = game.sublocation_name;
 
     const hasScore =
       game.score_us !== undefined &&
@@ -33,17 +42,17 @@ export default function ScheduleTable({ games, teamSeasonId }) {
       : "-";
 
     return {
-      id: game.game_id,
-      date: game.start_date,
-      time: game.start_time,
+      id: game.id || game.game_id,
+      date: gameDate,
+      time: gameTime,
       timezone: game.timezone_label,
       homeAway: isHome ? "HOME" : "AWAY",
       opponent:
         opponentClub !== opponent
           ? `${opponentClub} (${opponent})`
           : opponentClub,
-      location: game.location_name || "-",
-      sublocation: game.sublocation_name || "",
+      location: location || "-",
+      sublocation: sublocation || "",
       league: game.league_names || "-",
       score_us: game.score_us ?? "-",
       score_them: game.score_them ?? "-",
@@ -51,6 +60,7 @@ export default function ScheduleTable({ games, teamSeasonId }) {
       status: game.status,
       isHome,
       hasScore,
+      rawGame: game, // Keep original for edit
     };
   });
 
@@ -75,7 +85,7 @@ export default function ScheduleTable({ games, teamSeasonId }) {
       key: "time",
       render: (value, row) => (
         <span className='text-sm text-muted'>
-          {value ? `${formatTime(value)} ${row.timezone}` : "-"}
+          {value ? `${formatMySqlTime(value)} ${row.timezone || ""}` : "-"}
         </span>
       ),
     },
@@ -189,6 +199,32 @@ export default function ScheduleTable({ games, teamSeasonId }) {
       size='sm'
       hoverable={true}
       emptyMessage='No games scheduled yet.'
+      // Conditionally add actions column if showActions is true
+      actions={
+        showActions && onEdit && onDelete
+          ? (row) => (
+              <div className='flex gap-2'>
+                <Button
+                  variant='outline'
+                  size='xs'
+                  onClick={() => onEdit(row.rawGame)}
+                >
+                  Edit
+                </Button>
+                <Button
+                  variant='outline'
+                  size='xs'
+                  onClick={() => onDelete(row.id)}
+                  className='text-danger hover:bg-danger/10'
+                >
+                  Delete
+                </Button>
+              </div>
+            )
+          : undefined
+      }
+      actionsLabel='Actions'
+      actionsWidth='140px'
     />
   );
 }

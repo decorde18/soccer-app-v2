@@ -17,11 +17,9 @@ export function middleware(req) {
   const isAuthRoute = pathname.startsWith("/auth");
   const isRoot = pathname === "/";
 
-  // Root redirects to dashboard (if logged in) or landing page
+  // Root redirects to dashboard /landing page
   if (isRoot) {
-    return NextResponse.redirect(
-      new URL(token ? "/dashboard" : "/about", req.url)
-    );
+    return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
   // No token - allow public routes, block protected routes

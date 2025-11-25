@@ -1,6 +1,5 @@
 // app/teams/[teamSeasonId]/(teamAccess)/events/page.jsx
 import { getCurrentUser, checkServerTeamAccess } from "@/lib/serverAuth";
-import { getPool } from "@/lib/db";
 
 export default async function EventsPage({ params }) {
   const { teamSeasonId } = await params;
@@ -9,8 +8,6 @@ export default async function EventsPage({ params }) {
   const user = await getCurrentUser();
   const access = await checkServerTeamAccess(teamSeasonId, user);
 
-  // Fetch events from database
-  const db = getPool();
   const events = [
     {
       id: 101,
@@ -113,23 +110,6 @@ export default async function EventsPage({ params }) {
       notes: "Discuss spring tournament schedule",
     },
   ];
-
-  // const [events] = await db.query(
-  //   `SELECT
-  //     id,
-  //     event_name,
-  //     event_type,
-  //     event_date,
-  //     start_time,
-  //     end_time,
-  //     location,
-  //     notes
-  //   FROM team_events
-  //   WHERE team_season_id = ?
-  //   ORDER BY event_date DESC, start_time DESC
-  //   LIMIT 50`,
-  //   [teamSeasonId]
-  // );
 
   return (
     <div className='p-8'>

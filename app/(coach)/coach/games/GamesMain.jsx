@@ -1,7 +1,7 @@
 "use client";
 import Button from "@/components/ui/Button";
 import Table from "@/components/ui/Table";
-import { formatMySqlDate } from "@/lib/dateUtils";
+import { formatMySqlDate } from "@/lib/dateTimeUtils";
 import { gamesFields } from "@/lib/pageColumns";
 import { mockGame } from "@/mockData";
 import { useRouter } from "next/navigation";

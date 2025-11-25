@@ -1,7 +1,8 @@
+import { formatMySqlTime } from "@/lib/dateTimeUtils";
 import { Card } from "../Card";
 
 // Upcoming Games Card Component
-function UpcomingGamesCard({ upcomingGames }) {
+function UpcomingGamesCard({ upcomingGames, team }) {
   if (!upcomingGames || upcomingGames.length === 0) {
     return (
       <Card variant='outlined' padding='md' className='h-full'>
@@ -34,27 +35,33 @@ function UpcomingGamesCard({ upcomingGames }) {
             <div className='flex items-start justify-between mb-2'>
               <div className='flex-1'>
                 <div className='font-medium text-text mb-1'>
-                  {game.home_team_id === game.team_id ? "vs" : "@"}{" "}
-                  <span className='text-primary'>{game.opponent_name}</span>
+                  {game.home_team_season_id === team ? "vs" : "@"}{" "}
+                  <span className='text-primary'>
+                    {game.home_team_season_id === team
+                      ? `${game.away_club_name} ${game.away_team_name}`
+                      : `${game.home_club_name} ${game.home_team_name}`}
+                  </span>
                 </div>
-                {game.location && (
+                {game.location_id && (
                   <div className='text-xs text-muted flex items-center gap-1'>
                     <span>📍</span>
-                    <span className='truncate'>{game.location}</span>
+                    <span className='truncate'>{`${game.location_name} ${game.sublocation_name}`}</span>
                   </div>
                 )}
               </div>
             </div>
             <div className='flex items-center justify-between text-xs'>
               <span className='text-muted'>
-                {new Date(game.date).toLocaleDateString("en-US", {
+                {new Date(game.start_date).toLocaleDateString("en-US", {
                   weekday: "short",
                   month: "short",
                   day: "numeric",
                 })}
               </span>
-              {game.time && (
-                <span className='font-medium text-text'>{game.time}</span>
+              {game.start_time && (
+                <span className='font-medium text-text'>
+                  {formatMySqlTime(game.start_time)}
+                </span>
               )}
             </div>
           </div>

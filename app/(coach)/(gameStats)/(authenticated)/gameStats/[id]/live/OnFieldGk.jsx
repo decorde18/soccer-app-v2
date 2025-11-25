@@ -8,6 +8,7 @@ import { useMemo, useState, useEffect } from "react";
 import OnFieldGk from "./OnFieldGk";
 import { useGame } from "@/contexts/GameLiveContext";
 import { usePlayers } from "@/contexts/GamePlayersContext";
+import { formatSecondsToMmss } from "@/lib/dateTimeUtils";
 
 function OnFieldPlayers() {
   const {
@@ -26,16 +27,6 @@ function OnFieldPlayers() {
     }, 1000);
     return () => clearInterval(interval);
   }, []);
-
-  // Helper function to format seconds as MM:SS
-  const formatTime = (seconds) => {
-    if (!seconds || seconds < 0) return "00:00";
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs
-      .toString()
-      .padStart(2, "0")}`;
-  };
 
   // Columns definition
   const columns = [
@@ -80,8 +71,8 @@ function OnFieldPlayers() {
 
           return {
             ...player,
-            timeIn: formatTime(totalTime),
-            timeInRecent: formatTime(currentTime),
+            timeIn: formatSecondsToMmss(totalTime),
+            timeInRecent: formatSecondsToMmss(currentTime),
           };
         }),
     [players, gameTime, calculateTotalTimeOnField, calculateCurrentTimeOnField]

@@ -1,8 +1,22 @@
-import { mockUpcomingGames } from "@/mockData";
+import { NextResponse } from "next/server";
+import { getTeamSchedule } from "@/lib/queries/teams";
 
-// app/api/teams/[teamSeasonId]/schedule/route.js
 export async function GET(request, { params }) {
-  const { searchParams } = new URL(request.url);
-  const limit = parseInt(searchParams.get("limit")) || 3;
-  return Response.json(mockUpcomingGames.slice(0, limit));
+  try {
+    const { teamSeasonId } = await params;
+
+    const search = request.nextUrl.searchParams;
+    const type = search.get("type") || "all";
+    const limit = search.get("limit") ? parseInt(search.get("limit")) : null;
+
+    const rows = await getTeamSchedule(teamSeasonId, { type, limit });
+
+    return NextResponse.json(rows);
+  } catch (err) {
+    console.error("Error:", err);
+    return NextResponse.json(
+      { error: "Failed to fetch team schedule" },
+      { status: 500 }
+    );
+  }
 }

@@ -299,18 +299,6 @@ export function GameLiveProvider({ children }) {
     }
   }, [game.currentPeriodIndex, game.periods]);
 
-  // ============================================
-  // FORMATTING UTILITIES
-  // ============================================
-
-  const formatTime = useCallback((seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs
-      .toString()
-      .padStart(2, "0")}`;
-  }, []);
-
   // Memoize the context value to prevent unnecessary re-renders
   const value = useMemo(
     () => ({
@@ -322,7 +310,6 @@ export function GameLiveProvider({ children }) {
       startGame,
       startNextPeriod,
       endPeriod,
-      formatTime,
     }),
     [
       game,
@@ -332,7 +319,6 @@ export function GameLiveProvider({ children }) {
       startGame,
       startNextPeriod,
       endPeriod,
-      formatTime,
     ]
   );
 

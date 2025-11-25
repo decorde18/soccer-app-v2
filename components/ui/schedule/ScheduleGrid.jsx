@@ -1,17 +1,16 @@
 "use client";
 import { Card } from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import { formatMySqlTime } from "@/lib/dateTimeUtils";
 
-export default function ScheduleGrid({ games, teamSeasonId }) {
-  // Helper to format time (13:00:00 -> 1:00 PM)
-  const formatTime = (timeStr) => {
-    if (!timeStr) return null;
-    const [hours, minutes] = timeStr.split(":");
-    const h = parseInt(hours);
-    const ampm = h >= 12 ? "PM" : "AM";
-    const hour12 = h % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
-  };
-
+export default function ScheduleGrid({
+  games,
+  teamSeasonId,
+  // Optional admin props
+  onEdit,
+  onDelete,
+  showActions = false,
+}) {
   if (!games || games.length === 0) {
     return (
       <Card className='text-center'>
@@ -23,9 +22,19 @@ export default function ScheduleGrid({ games, teamSeasonId }) {
   return (
     <div className='space-y-4'>
       {games.map((game) => {
-        const isHome = game.home_team_season_id === parseInt(teamSeasonId);
-        const opponent = isHome ? game.away_team_name : game.home_team_name;
-        const opponentClub = isHome ? game.away_club_name : game.home_club_name;
+        // Handle both data structures (API view vs direct DB)
+        const isHome = game.home_team_season_id
+          ? game.home_team_season_id === parseInt(teamSeasonId)
+          : game.home_away === "home";
+
+        const opponent =
+          game.away_team_name || game.home_team_name || game.opponent;
+        const opponentClub =
+          game.away_club_name || game.home_club_name || game.opponent;
+        const gameDate = game.start_date || game.game_date;
+        const gameTime = game.start_time || game.game_time;
+        const location = game.location_name || game.location;
+        const sublocation = game.sublocation_name;
 
         const hasScore =
           game.score_us !== undefined &&
@@ -44,15 +53,15 @@ export default function ScheduleGrid({ games, teamSeasonId }) {
               {isHome ? "HOME" : "AWAY"}
             </span>
             <span className='text-muted text-sm'>
-              {new Date(game.start_date).toLocaleDateString("en-US", {
+              {new Date(gameDate).toLocaleDateString("en-US", {
                 weekday: "short",
                 month: "short",
                 day: "numeric",
               })}
             </span>
-            {game.start_time && (
+            {gameTime && (
               <span className='text-muted text-sm'>
-                • {formatTime(game.start_time)} {game.timezone_label}
+                • {formatMySqlTime(gameTime)} {game.timezone_label}
               </span>
             )}
           </div>
@@ -68,12 +77,12 @@ export default function ScheduleGrid({ games, teamSeasonId }) {
                 <p className='text-sm text-muted mt-1'>{opponent}</p>
               )}
 
-              {game.location_name && (
+              {location && (
                 <p className='text-muted text-sm mt-2 flex items-center gap-1'>
                   <span>📍</span>
                   <span>
-                    {game.location_name}
-                    {game.sublocation_name && ` - ${game.sublocation_name}`}
+                    {location}
+                    {sublocation && ` - ${sublocation}`}
                   </span>
                 </p>
               )}
@@ -123,11 +132,30 @@ export default function ScheduleGrid({ games, teamSeasonId }) {
           </div>
         );
 
+        // Optional admin actions footer
+        const gameFooter =
+          showActions && onEdit && onDelete ? (
+            <div className='flex gap-2'>
+              <Button variant='outline' size='sm' onClick={() => onEdit(game)}>
+                Edit
+              </Button>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => onDelete(game.id || game.game_id)}
+                className='text-danger hover:bg-danger/10'
+              >
+                Delete
+              </Button>
+            </div>
+          ) : undefined;
+
         return (
           <Card
-            key={game.game_id}
+            key={game.id || game.game_id}
             header={gameHeader}
             subTitle={game.league_names}
+            footer={gameFooter}
             variant='hover'
           >
             {gameBody}

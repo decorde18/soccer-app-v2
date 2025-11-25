@@ -1,5 +1,5 @@
 function page() {
-  return <div>Events Page</div>;
+  return <div>Settings Page</div>;
 }
 
 export default page;

@@ -1,64 +1,147 @@
 "use client";
-import { useState, useEffect } from "react";
-import { useApiData } from "@/hooks/useApiData";
+
+import { useState } from "react";
 import ViewWrapper from "@/components/ui/ViewWrapper";
-import ScheduleGrid from "./ScheduleGrid";
-import ScheduleTable from "./ScheduleTable";
+import ScheduleGrid from "@/components/ui/schedule/ScheduleGrid";
+import ScheduleTable from "@/components/ui/schedule/ScheduleTable";
+import Button from "@/components/ui/Button";
+import GameModal from "./GameModal";
+import { useTeamSeasonGames } from "@/hooks/useTeamSeasonGames";
 
-export default function ScheduleClient({ teamSeasonId }) {
-  const [games, setGames] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+export default function ScheduleClient({ teamSeasonId, canEdit }) {
+  const { games, loading, error, setGames } = useTeamSeasonGames(teamSeasonId);
 
-  const {
-    loading: loadingHome,
-    error: errorHome,
-    data: homeGames,
-  } = useApiData("games_summary_view", {
-    filters: { home_team_season_id: teamSeasonId },
-    sortBy: "start_date",
-    order: "asc",
-  });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingGame, setEditingGame] = useState(null);
 
-  const {
-    loading: loadingAway,
-    error: errorAway,
-    data: awayGames,
-  } = useApiData("games_summary_view", {
-    filters: { away_team_season_id: teamSeasonId },
-    sortBy: "start_date",
-    order: "asc",
-  });
+  // Add new game
+  const handleAddGame = () => {
+    setEditingGame(null);
+    setIsModalOpen(true);
+  };
 
-  useEffect(() => {
-    loadingHome || loadingAway ? setLoading(true) : setLoading(false);
-    errorHome || errorAway ? setError(errorHome || errorAway) : setError(null);
+  // Edit existing game
+  const handleEditGame = (game) => {
+    setEditingGame(game);
+    setIsModalOpen(true);
+  };
 
-    const allGames = [...homeGames, ...awayGames];
-    const uniqueGames = Array.from(
-      new Map(allGames.map((g) => [g.game_id, g])).values()
-    );
-    uniqueGames.sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
+  // Delete game
+  const handleDeleteGame = async (gameId) => {
+    if (!confirm("Are you sure you want to delete this game?")) return;
 
-    setGames(uniqueGames);
-  }, [
-    teamSeasonId,
-    loadingHome,
-    loadingAway,
-    homeGames,
-    awayGames,
-    errorHome,
-    errorAway,
-  ]);
+    try {
+      const res = await fetch(`/api/games/${gameId}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        // Optimistically update UI
+        setGames((prev) => prev.filter((g) => (g.id || g.game_id) !== gameId));
+      } else {
+        alert("Failed to delete game");
+      }
+    } catch (error) {
+      console.error("Delete failed:", error);
+      alert("Error deleting game");
+    }
+  };
+
+  // Save game (create or update)
+  const handleSaveGame = async (gameData) => {
+    try {
+      if (editingGame) {
+        // Update existing game
+        const gameId = editingGame.id || editingGame.game_id;
+        const res = await fetch(`/api/games/${gameId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(gameData),
+        });
+
+        if (res.ok) {
+          const updatedGame = await res.json();
+          setGames((prev) =>
+            prev.map((g) =>
+              (g.id || g.game_id) === gameId ? { ...g, ...updatedGame } : g
+            )
+          );
+        } else {
+          alert("Failed to update game");
+          return;
+        }
+      } else {
+        // Create new game
+        const res = await fetch(`/api/teams/${teamSeasonId}/games`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(gameData),
+        });
+
+        if (res.ok) {
+          const newGame = await res.json();
+          setGames((prev) => [...prev, newGame]);
+        } else {
+          alert("Failed to add game");
+          return;
+        }
+      }
+
+      // Close modal on success
+      setIsModalOpen(false);
+      setEditingGame(null);
+    } catch (error) {
+      console.error("Save failed:", error);
+      alert("Error saving game");
+    }
+  };
 
   return (
-    <ViewWrapper
-      title='Schedule'
-      defaultView='grid'
-      loading={loading}
-      error={error}
-      gridView={<ScheduleGrid games={games} teamSeasonId={teamSeasonId} />}
-      tableView={<ScheduleTable games={games} teamSeasonId={teamSeasonId} />}
-    />
+    <>
+      <ViewWrapper
+        title='Schedule'
+        defaultView='grid'
+        loading={loading}
+        error={error}
+        gridView={
+          <ScheduleGrid
+            games={games}
+            teamSeasonId={teamSeasonId}
+            showActions={canEdit}
+            onEdit={handleEditGame}
+            onDelete={handleDeleteGame}
+          />
+        }
+        tableView={
+          <ScheduleTable
+            games={games}
+            teamSeasonId={teamSeasonId}
+            showActions={canEdit}
+            onEdit={handleEditGame}
+            onDelete={handleDeleteGame}
+          />
+        }
+      >
+        {/* Only show Add button if user can edit */}
+        {canEdit && (
+          <Button variant='primary' onClick={handleAddGame}>
+            + Add Game
+          </Button>
+        )}
+      </ViewWrapper>
+
+      {/* Only render modal if user can edit */}
+      {canEdit && (
+        <GameModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingGame(null);
+          }}
+          onSave={handleSaveGame}
+          game={editingGame}
+        />
+      )}
+    </>
   );
 }
