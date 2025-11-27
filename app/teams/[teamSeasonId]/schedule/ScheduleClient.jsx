@@ -41,6 +41,21 @@ export default function ScheduleClient({ teamSeasonId, canEdit }) {
 
   // Save game (create or update)
   const handleSaveGame = async (gameData) => {
+    console.log(gameData);
+    /*club_id: 5
+game_type: "league"
+home_away: "home"
+league_node_id: null
+location_id: 30
+opponent: 32
+score_them: null
+score_us: null
+start_date: "2025-09-13"
+start_time: "09:40"
+status: "scheduled"
+sublocation_id: 50
+timezone_label: "CDT"
+*/
     try {
       if (editingGame) {
         // Update existing game
@@ -161,6 +176,7 @@ export default function ScheduleClient({ teamSeasonId, canEdit }) {
           }}
           onSave={handleSaveGame}
           game={editingGame}
+          teamSeasonId={teamSeasonId}
         />
       )}
     </>

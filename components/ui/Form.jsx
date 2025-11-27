@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import Button from "@/components/ui/Button";
+import Toggle from "@/components/ui/Toggle";
 
 /**
  * Reusable Form Component
@@ -10,6 +11,7 @@ import Button from "@/components/ui/Button";
  * @param {Function} props.onChange - Handler for field changes
  * @param {Function} props.onSubmit - Handler for form submission
  * @param {Function} props.onCancel - Handler for cancel action
+ * @param {Function} props.onAddOption - Handler for adding new select options (optional)
  * @param {Boolean} props.isEditing - Whether in edit mode (vs create mode)
  * @param {Boolean} props.loading - Show loading state on submit button
  * @param {String} props.submitText - Custom submit button text
@@ -21,12 +23,16 @@ const Form = ({
   onChange,
   onSubmit,
   onCancel,
+  onAddOption,
   isEditing = false,
   loading = false,
   submitText,
   cancelText = "Cancel",
   className = "",
 }) => {
+  const [newOptions, setNewOptions] = useState({});
+  const [showingOther, setShowingOther] = useState({});
+
   const handleSubmit = (e) => {
     e.preventDefault();
     onSubmit?.(data);
@@ -34,6 +40,24 @@ const Form = ({
 
   const handleFieldChange = (fieldName, value) => {
     onChange?.(fieldName, value);
+  };
+
+  const handleAddOption = async (fieldName) => {
+    const newValue = newOptions[fieldName]?.trim();
+    if (!newValue) return;
+
+    // If onAddOption handler provided, call it (for server creation)
+    if (onAddOption) {
+      const success = await onAddOption(fieldName, newValue);
+      if (!success) return;
+    }
+
+    // Set the new value as selected
+    handleFieldChange(fieldName, newValue);
+
+    // Clear the input and hide the "other" section
+    setNewOptions((prev) => ({ ...prev, [fieldName]: "" }));
+    setShowingOther((prev) => ({ ...prev, [fieldName]: false }));
   };
 
   const renderField = (field) => {
@@ -53,6 +77,7 @@ const Form = ({
       accept,
       multiple = false,
       helperText = "",
+      allowOther = false, // New prop for select fields
     } = field;
 
     if (hidden) return null;
@@ -86,11 +111,53 @@ const Form = ({
           />
         )}
 
+        {/* Password Input */}
+        {type === "password" && (
+          <input
+            id={fieldId}
+            type='password'
+            value={fieldValue}
+            onChange={(e) => handleFieldChange(name, e.target.value)}
+            placeholder={placeholder}
+            required={required}
+            disabled={disabled}
+            className={commonClasses}
+          />
+        )}
+
         {/* Email Input */}
         {type === "email" && (
           <input
             id={fieldId}
             type='email'
+            value={fieldValue}
+            onChange={(e) => handleFieldChange(name, e.target.value)}
+            placeholder={placeholder}
+            required={required}
+            disabled={disabled}
+            className={commonClasses}
+          />
+        )}
+
+        {/* URL Input */}
+        {type === "url" && (
+          <input
+            id={fieldId}
+            type='url'
+            value={fieldValue}
+            onChange={(e) => handleFieldChange(name, e.target.value)}
+            placeholder={placeholder}
+            required={required}
+            disabled={disabled}
+            className={commonClasses}
+          />
+        )}
+
+        {/* Tel Input */}
+        {type === "tel" && (
+          <input
+            id={fieldId}
+            type='tel'
             value={fieldValue}
             onChange={(e) => handleFieldChange(name, e.target.value)}
             placeholder={placeholder}
@@ -132,6 +199,21 @@ const Form = ({
           />
         )}
 
+        {/* DateTime-Local Input */}
+        {type === "datetime-local" && (
+          <input
+            id={fieldId}
+            type='datetime-local'
+            value={fieldValue}
+            onChange={(e) => handleFieldChange(name, e.target.value)}
+            required={required}
+            disabled={disabled}
+            min={min}
+            max={max}
+            className={commonClasses}
+          />
+        )}
+
         {/* Time Input */}
         {type === "time" && (
           <input
@@ -142,6 +224,19 @@ const Form = ({
             required={required}
             disabled={disabled}
             className={commonClasses}
+          />
+        )}
+
+        {/* Color Picker */}
+        {type === "color" && (
+          <input
+            id={fieldId}
+            type='color'
+            value={fieldValue}
+            onChange={(e) => handleFieldChange(name, e.target.value)}
+            required={required}
+            disabled={disabled}
+            className='h-10 w-full border border-border rounded-md cursor-pointer disabled:cursor-not-allowed'
           />
         )}
 
@@ -159,23 +254,77 @@ const Form = ({
           />
         )}
 
-        {/* Select Dropdown */}
+        {/* Select Dropdown with "Other" option */}
         {type === "select" && (
-          <select
-            id={fieldId}
-            value={fieldValue}
-            onChange={(e) => handleFieldChange(name, e.target.value)}
-            required={required}
+          <>
+            <select
+              id={fieldId}
+              value={fieldValue}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "__other__" && allowOther) {
+                  setShowingOther((prev) => ({ ...prev, [name]: true }));
+                  handleFieldChange(name, "");
+                } else {
+                  handleFieldChange(name, val);
+                  setShowingOther((prev) => ({ ...prev, [name]: false }));
+                }
+              }}
+              required={required}
+              disabled={disabled}
+              className={commonClasses}
+            >
+              <option value=''>{placeholder || "Select an option..."}</option>
+              {options.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+              {allowOther && <option value='__other__'>Other...</option>}
+            </select>
+
+            {/* Show "Other" input when selected */}
+            {allowOther && showingOther[name] && (
+              <div className='mt-2 flex gap-2'>
+                <input
+                  type='text'
+                  value={newOptions[name] || ""}
+                  onChange={(e) =>
+                    setNewOptions((prev) => ({
+                      ...prev,
+                      [name]: e.target.value,
+                    }))
+                  }
+                  placeholder='Enter new option...'
+                  className={commonClasses}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddOption(name);
+                    }
+                  }}
+                />
+                <Button
+                  type='button'
+                  onClick={() => handleAddOption(name)}
+                  variant='outline'
+                  disabled={!newOptions[name]?.trim()}
+                >
+                  Add
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Toggle */}
+        {type === "toggle" && (
+          <Toggle
+            checked={!!fieldValue}
+            onChange={(checked) => handleFieldChange(name, checked)}
             disabled={disabled}
-            className={commonClasses}
-          >
-            <option value=''>{placeholder || "Select an option..."}</option>
-            {options.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            label={helperText}
+          />
         )}
 
         {/* Checkbox */}
@@ -221,6 +370,28 @@ const Form = ({
           </div>
         )}
 
+        {/* Range Slider */}
+        {type === "range" && (
+          <div>
+            <input
+              id={fieldId}
+              type='range'
+              value={fieldValue}
+              onChange={(e) => handleFieldChange(name, e.target.value)}
+              min={min}
+              max={max}
+              step={step}
+              disabled={disabled}
+              className='w-full h-2 bg-border rounded-lg appearance-none cursor-pointer accent-primary'
+            />
+            <div className='flex justify-between text-xs text-muted mt-1'>
+              <span>{min}</span>
+              <span className='font-medium text-text'>{fieldValue}</span>
+              <span>{max}</span>
+            </div>
+          </div>
+        )}
+
         {/* File Input */}
         {type === "file" && (
           <input
@@ -240,7 +411,7 @@ const Form = ({
         )}
 
         {/* Helper Text */}
-        {helperText && type !== "checkbox" && (
+        {helperText && type !== "checkbox" && type !== "toggle" && (
           <p className='mt-1 text-xs text-muted'>{helperText}</p>
         )}
       </div>

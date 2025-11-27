@@ -14,7 +14,7 @@ const TableContainer = ({
   defaultSortDirection = "asc",
   enablePagination = false,
   pageSize = 10,
-  pageSizeOptions = [10, 25, 50, 100],
+  pageSizeOptions = [Math.max(pageSize, 10), 25, 50, 100],
   size = "md",
   onRowClick,
   rowClassName,

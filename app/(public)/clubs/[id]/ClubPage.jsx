@@ -25,7 +25,7 @@ function ClubPage({
     loading: teamsLoading,
     error: teamsError,
     data: fetchedTeamsData,
-  } = useApiData("all_viewable_teams_view", { filters: { club_id: id } });
+  } = useApiData("v_teams_all", { filters: { club_id: id } });
 
   const [teams, setTeams] = useState(externalData);
   const [club, setClub] = useState(null);

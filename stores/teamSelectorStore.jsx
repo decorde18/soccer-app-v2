@@ -66,7 +66,7 @@ export const useTeamSelectorStore = create(
       // ACTIONS
 
       /**
-       * Load team data from all_viewable_teams_view
+       * Load team data from v_teams_all
        * Works for both public and authenticated users - same view, no filtering needed!
        * @param {number} currentTeamSeasonId - Optional: restore this context
        */
@@ -90,7 +90,7 @@ export const useTeamSelectorStore = create(
 
         try {
           // Fetch from the universal view - works for everyone!
-          const response = await fetch("/api/views/all_viewable_teams_view", {
+          const response = await fetch("/api/v_teams_all", {
             method: "GET",
             headers: {
               "Content-Type": "application/json",

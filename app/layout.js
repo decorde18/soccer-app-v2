@@ -9,6 +9,7 @@ import Header from "@/components/layout/Header";
 import NavBar from "@/components/layout/NavBar";
 import HeaderSkeleton from "@/components/layout/HeaderSkeleton";
 import NavBarSkeleton from "@/components/layout/NavBarSkeleton";
+import DataProvider from "@/components/DataProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,20 +34,22 @@ export default function RootLayout({ children }) {
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <AuthProvider>
-          <div className='layout'>
-            <div className='main-body'>
-              <Suspense fallback={<NavBarSkeleton />}>
-                <NavBar />
-              </Suspense>
-              <div className='main-content'>
-                <Suspense fallback={<HeaderSkeleton />}>
-                  <Header />
+          <DataProvider>
+            <div className='layout'>
+              <div className='main-body'>
+                <Suspense fallback={<NavBarSkeleton />}>
+                  <NavBar />
                 </Suspense>
-                {children}
+                <div className='main-content'>
+                  <Suspense fallback={<HeaderSkeleton />}>
+                    <Header />
+                  </Suspense>
+                  {children}
+                </div>
               </div>
+              <Footer />
             </div>
-            <Footer />
-          </div>
+          </DataProvider>
         </AuthProvider>
       </body>
     </html>

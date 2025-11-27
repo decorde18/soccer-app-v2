@@ -18,7 +18,7 @@ export default function RosterClient({ teamSeasonId, canEdit }) {
     create,
     update,
     remove,
-  } = useApiData("players_view", {
+  } = useApiData("v_players", {
     filters: { team_season_id: teamSeasonId },
   });
 

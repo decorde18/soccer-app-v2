@@ -71,7 +71,16 @@ export default function ScheduleTable({
       name: "league",
       label: "League",
       key: "league",
-      render: (value) => <span className='text-sm text-muted'>{value}</span>,
+      render: (value, row) => {
+        // Format leagues to show abbreviations if available
+        const leagueDisplay = row.leagues_array
+          ? JSON.parse(row.leagues_array)
+              .map((l) => l.league_abbreviation || l.league_name)
+              .join(", ")
+          : value;
+
+        return <span className='text-sm text-muted'>{leagueDisplay}</span>;
+      },
     },
     {
       name: "score",

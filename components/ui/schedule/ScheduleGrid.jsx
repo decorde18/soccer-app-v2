@@ -22,30 +22,125 @@ export default function ScheduleGrid({
   return (
     <div className='space-y-4'>
       {games.map((game) => {
-        // Game header with date, time, and home/away badge
+        // Get game type badge info
+        const getGameTypeBadge = () => {
+          const gameType =
+            game.rawGame?.game_type || game.game_type || "league";
+
+          let colorClass = "";
+
+          // Color coding for different game types
+          switch (gameType) {
+            // case "tournament":
+            //   colorClass =
+            //     "bg-purple-500 text-white dark:bg-purple-600 dark:text-white";
+            //   break;
+            case "friendly":
+              colorClass =
+                "bg-green-500 text-white dark:bg-green-600 dark:text-white";
+              break;
+            case "scrimmage":
+              colorClass =
+                "bg-amber-500 text-white dark:bg-amber-600 dark:text-white";
+              break;
+            case "playoff":
+              colorClass =
+                "bg-red-500 text-white dark:bg-red-600 dark:text-white";
+              break;
+            case "exhibition":
+              colorClass =
+                "bg-orange-500 text-white dark:bg-orange-600 dark:text-white";
+              break;
+            default:
+              colorClass =
+                "bg-gray-500 text-white dark:bg-gray-600 dark:text-white";
+          }
+
+          return { type: gameType, colorClass };
+        };
+
+        const gameTypeInfo = getGameTypeBadge();
+
+        // Get leagues array for multiple badges
+        const leaguesArray = game.rawGame?.leagues_array || [];
+        const hasLeagues = leaguesArray.length > 0;
+
+        // Game header with date, time, home/away badge, and game type
         const gameHeader = (
-          <div className='flex items-center gap-3 flex-wrap'>
-            <span
-              className={`px-3 py-1 text-sm font-medium rounded-md ${
-                game.isHome
-                  ? "bg-primary/10 text-primary"
-                  : "bg-muted/20 text-muted"
-              }`}
-            >
-              {game.isHome ? "HOME" : "AWAY"}
-            </span>
-            <span className='text-muted text-sm'>
-              {new Date(game.date).toLocaleDateString("en-US", {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-              })}
-            </span>
-            {game.time && (
-              <span className='text-muted text-sm'>
-                • {formatMySqlTime(game.time)} {game.timezone_label}
+          <div className='flex items-center justify-between gap-3 flex-wrap'>
+            <div className='flex items-center gap-3 flex-wrap'>
+              <span
+                className={`px-3 py-1 text-sm font-medium rounded-md ${
+                  game.isHome
+                    ? "bg-primary/10 text-primary"
+                    : "bg-muted/20 text-muted"
+                }`}
+              >
+                {game.isHome ? "HOME" : "AWAY"}
               </span>
-            )}
+              <span className='text-muted text-sm'>
+                {new Date(game.date).toLocaleDateString("en-US", {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                })}
+              </span>
+              {game.time && (
+                <span className='text-muted text-sm'>
+                  • {formatMySqlTime(game.time)} {game.timezone_label}
+                </span>
+              )}
+            </div>
+            <div className='flex gap-2 flex-wrap items-center'>
+              {/* League / Tournament / Other Game-Type Badges */}
+
+              {hasLeagues &&
+                leaguesArray.map((league) => {
+                  const isTournament = league.is_tournament === 1;
+
+                  let colorClass = "";
+                  if (isTournament) {
+                    // Tournament color
+                    colorClass =
+                      "bg-violet-500 text-white dark:bg-violet-600 dark:text-white";
+                  } else {
+                    // League color
+                    colorClass =
+                      "bg-blue-500 text-white dark:bg-blue-600 dark:text-white";
+                  }
+
+                  return (
+                    <span
+                      key={league.league_id}
+                      className={`px-3 py-1 text-xs font-semibold rounded-full ${colorClass}`}
+                      title={`${league.league_name}${
+                        league.league_node_name
+                          ? ` - ${league.league_node_name}`
+                          : ""
+                      }`}
+                    >
+                      {league.league_abbreviation || league.league_name}
+                      {league.league_node_name && (
+                        <span className='ml-1 opacity-90'>
+                          ({league.league_node_name})
+                        </span>
+                      )}
+                    </span>
+                  );
+                })}
+
+              {/* Game type badge for non-league games */}
+              {!hasLeagues &&
+                gameTypeInfo.type !== "league" &&
+                gameTypeInfo.type !== "tournament" && (
+                  <span
+                    className={`px-3 py-1 text-xs font-semibold rounded-full ${gameTypeInfo.colorClass}`}
+                  >
+                    {gameTypeInfo.type.charAt(0).toUpperCase() +
+                      gameTypeInfo.type.slice(1)}
+                  </span>
+                )}
+            </div>
           </div>
         );
 
@@ -140,7 +235,6 @@ export default function ScheduleGrid({
           <Card
             key={game.id || game.game_id}
             header={gameHeader}
-            subTitle={game.league_names}
             footer={gameFooter}
             variant='hover'
           >

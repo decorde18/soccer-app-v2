@@ -37,38 +37,6 @@ export default function RosterTable({
         <span className='text-sm text-muted'>{value || "-"}</span>
       ),
     },
-    {
-      name: "email",
-      label: "Email",
-      key: "email",
-      render: (value) => (
-        <span className='text-sm text-muted'>{value || "-"}</span>
-      ),
-    },
-    {
-      name: "phone",
-      label: "Phone",
-      key: "phone",
-      render: (value) => (
-        <span className='text-sm text-muted'>{value || "-"}</span>
-      ),
-    },
-    {
-      name: "grade",
-      label: "Grade",
-      key: "grade",
-      render: (value) => (
-        <span className='text-sm text-muted'>{value || "-"}</span>
-      ),
-    },
-    {
-      name: "school",
-      label: "School",
-      key: "school",
-      render: (value) => (
-        <span className='text-sm text-muted'>{value || "-"}</span>
-      ),
-    },
   ];
 
   return (
@@ -82,7 +50,7 @@ export default function RosterTable({
       filterPlaceholder='Search players...'
       filterKeys={["first_name", "last_name", "position", "email", "school"]}
       enablePagination={true}
-      pageSize={20}
+      pageSize={players.length < 25 ? players.length : 25}
       size='sm'
       hoverable={true}
       emptyMessage='No players on the roster yet.'
