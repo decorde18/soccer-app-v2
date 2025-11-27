@@ -69,9 +69,9 @@ function PlayerRow({ player, handleStatus, section, starterLength }) {
     >
       <div className='flex items-center gap-3'>
         <div className='w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white font-bold text-sm'>
-          {player.number}
+          {player.jerseyNumber}
         </div>
-        <div className='font-medium'>{player.name}</div>
+        <div className='font-medium'>{player.fullName}</div>
         {section === "unavailable" && (
           <div
             className={`text-xs font-semibold ${

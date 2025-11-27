@@ -9,6 +9,7 @@ export default function ScheduleGrid({
   // Optional admin props
   onEdit,
   onDelete,
+  onSelect,
   showActions = false,
 }) {
   if (!games || games.length === 0) {
@@ -212,19 +213,28 @@ export default function ScheduleGrid({
         // Optional admin actions footer
         const gameFooter =
           showActions && onEdit && onDelete ? (
-            <div className='flex gap-2'>
+            <div className='flex gap-2 justify-center items-center'>
               <Button
                 variant='outline'
-                size='sm'
+                size='md'
+                className='w-48'
                 onClick={() => onEdit(game.rawGame)}
               >
                 Edit
               </Button>
               <Button
                 variant='outline'
-                size='sm'
+                size='md'
+                className='w-48'
+                onClick={() => onSelect(game.rawGame)}
+              >
+                Enter Game Stats
+              </Button>
+              <Button
+                variant='outline'
+                size='md'
                 onClick={() => onDelete(game.id || game.game_id)}
-                className='text-danger hover:bg-danger/10'
+                className='text-danger hover:bg-danger/10 w-48'
               >
                 Delete
               </Button>

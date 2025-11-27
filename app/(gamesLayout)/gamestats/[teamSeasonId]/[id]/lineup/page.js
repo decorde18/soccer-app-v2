@@ -3,14 +3,14 @@ import React, { useState, useEffect } from "react";
 import GameHeader from "./GameHeader";
 import GameFooter from "./GameFooter";
 import PlayerStatusSections from "./PlayerStatusSections";
-import { usePlayers } from "@/contexts/GamePlayersContext";
-import { useGame } from "@/contexts/GameLiveContext";
+import useGamePlayersStore from "@/stores/gamePlayersStore";
 
 //todo game status so we know where to go from click return start etc butt.
 //todo add to settings -allows mistake from starters or unavailable etc
 
 const PeriodLineup = () => {
-  const { players, updateGameStatus } = usePlayers();
+  const players = useGamePlayersStore((s) => s.players);
+  const updateGameStatus = useGamePlayersStore((s) => s.updateGameStatus);
 
   const gameDetails = { periodNumber: 1 };
 

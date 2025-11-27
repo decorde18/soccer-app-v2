@@ -34,22 +34,7 @@ export default function RootLayout({ children }) {
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <AuthProvider>
-          <DataProvider>
-            <div className='layout'>
-              <div className='main-body'>
-                <Suspense fallback={<NavBarSkeleton />}>
-                  <NavBar />
-                </Suspense>
-                <div className='main-content'>
-                  <Suspense fallback={<HeaderSkeleton />}>
-                    <Header />
-                  </Suspense>
-                  {children}
-                </div>
-              </div>
-              <Footer />
-            </div>
-          </DataProvider>
+          <DataProvider>{children}</DataProvider>
         </AuthProvider>
       </body>
     </html>
