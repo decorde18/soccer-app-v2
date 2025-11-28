@@ -11,9 +11,10 @@ const GAME_STAGES = {
 };
 
 const DEFAULT_GAME_SETTINGS = {
+  playersOnField: 11,
   periodCount: 2,
   periodDuration: 2400,
-  hasOvertime: true,
+  hasOvertime: false,
   overtimePeriods: 2,
   overtimeDuration: 600,
   hasShootout: true,
@@ -52,7 +53,7 @@ const useGameStore = create((set, get) => {
 
     // ==================== INITIALIZATION ====================
 
-    initializeGame: async (gameId) => {
+    initializeGame: async (gameId, teamSeasonId) => {
       set({ isLoading: true, error: null });
 
       try {
@@ -98,9 +99,25 @@ const useGameStore = create((set, get) => {
         const finalGame = isLocalGameCurrent
           ? { ...localGame, settings }
           : { ...dbGame, settings };
+        const { home_team_season_id, away_team_season_id } = dbGame;
+        const isHome = teamSeasonId == home_team_season_id;
+
+        const opponentClub = isHome
+          ? dbGame.away_club_name
+          : dbGame.home_club_name;
+        const opponentTeamName = isHome
+          ? dbGame.away_team_name
+          : dbGame.home_team_name;
+
+        const opponent = {
+          opponentId: isHome ? away_team_season_id : home_team_season_id,
+          opponentClub,
+          opponentTeamName,
+          opponentName: `${opponentClub} ${opponentTeamName}`,
+        };
 
         set({
-          game: finalGame,
+          game: { ...finalGame, ...opponent, homeScore: 0, awayScore: 0 },
           otConfig,
           isLoading: false,
         });

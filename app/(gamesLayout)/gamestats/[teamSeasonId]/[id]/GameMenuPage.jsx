@@ -3,6 +3,7 @@
 import { useRouter, useParams } from "next/navigation";
 import Button from "@/components/ui/Button";
 import useGameStore from "@/stores/gameStore";
+import GameHeader from "@/components/layout/gameLayout/GameHeader";
 
 export default function GameMenuPage() {
   const router = useRouter();
@@ -174,19 +175,11 @@ export default function GameMenuPage() {
   return (
     <div className='min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4'>
       <div className='max-w-2xl mx-auto'>
-        {/* Header Card */}
-        <div
-          className={`bg-gradient-to-r ${stageInfo.color} rounded-2xl shadow-xl p-8 mb-8 text-white`}
-        >
-          <div className='text-center'>
-            <h1 className='text-4xl font-bold mb-2'>{stageInfo.title}</h1>
-            <p className='text-white/90 text-lg mb-4'>{stageInfo.subtitle}</p>
-            <div className='inline-block px-4 py-2 bg-white/20 rounded-full text-sm backdrop-blur-sm'>
-              {isHome
-                ? `${game.home_club_name} ${game.home_team_name}`
-                : `${game.away_club_name} ${game.away_team_name}`}
-            </div>
-          </div>
+        <div className='text-center'>
+          {/* Header Card */}
+          <h1 className='text-4xl font-bold mb-2'>{stageInfo.title}</h1>
+          <p className='text-muted text-lg mb-4'>{stageInfo.subtitle}</p>
+          <GameHeader gameDetails={game} />
         </div>
 
         {/* Action Buttons Card */}

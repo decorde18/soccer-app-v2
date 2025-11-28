@@ -1,6 +1,5 @@
-// ============================================
-// FILE 2: PlayerStatusSections.jsx
-// ============================================
+"use client";
+import useGamePlayersStore from "@/stores/gamePlayersStore";
 import PlayerRow from "./PlayerRow";
 
 const statusArray = [
@@ -33,7 +32,11 @@ const statusArray = [
   },
 ];
 
-function PlayerStatusSections({ roster, handleStatus }) {
+function PlayerStatusSections() {
+  const roster = useGamePlayersStore((s) => s.players);
+  const updateGameStatus = useGamePlayersStore((s) => s.updateGameStatus);
+  const handleStatus = (playerId, action) => updateGameStatus(playerId, action);
+
   const starterLength = roster.filter(
     (player) =>
       player.gameStatus === "starter" || player.gameStatus === "goalkeeper"

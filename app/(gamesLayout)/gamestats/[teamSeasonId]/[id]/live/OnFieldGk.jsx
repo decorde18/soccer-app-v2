@@ -1,113 +1,122 @@
-// OnFieldPlayers.jsx
-
+// OnFieldGk.jsx
 "use client";
 import Button from "@/components/ui/Button";
 import Table from "@/components/ui/Table";
-
-import { useMemo, useState, useEffect } from "react";
-import OnFieldGk from "./OnFieldGk";
-import { useGame } from "@/contexts/GameLiveContext";
-import { usePlayers } from "@/contexts/GamePlayersContext";
 import { formatSecondsToMmss } from "@/lib/dateTimeUtils";
+import useGamePlayersStore from "@/stores/gamePlayersStore";
+import useGameStore from "@/stores/gameStore";
+import { useMemo, useState, useEffect } from "react";
 
-function OnFieldPlayers() {
-  const {
-    players,
-    updateFieldStatus,
-    calculateTotalTimeOnField,
-    calculateCurrentTimeOnField,
-  } = usePlayers();
-  const gameTime = useGame(); // Auto-updates every second
+function OnFieldGk() {
+  const players = useGamePlayersStore((s) => s.players);
+  const cancelSub = useGamePlayersStore((s) => s.cancelSub);
+  const calculateTotalTimeOnField = useGamePlayersStore(
+    (s) => s.calculateTotalTimeOnField
+  );
+  const calculateCurrentTimeOnField = useGamePlayersStore(
+    (s) => s.calculateCurrentTimeOnField
+  );
+  const getGameTime = useGameStore((s) => s.getGameTime);
+  const gameStage = useGameStore((s) => s.getGameStage());
+
+  const isGameLive = gameStage === "during_period";
 
   // Force re-render every second to update time displays
   const [, setTick] = useState(0);
   useEffect(() => {
+    if (!isGameLive) return;
     const interval = setInterval(() => {
       setTick((tick) => tick + 1);
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isGameLive]);
 
-  // Columns definition
+  const gameTime = getGameTime();
+
   const columns = [
-    { key: "number", label: "#" },
-    { key: "name", label: "Name", width: "30%" },
-    { key: "shots", label: "Sh" },
-    { key: "goals", label: "G" },
-    { key: "assists", label: "A" },
-    { key: "timeIn", label: "Time" },
-    { key: "timeInRecent", label: "Last In" },
+    { name: "number", label: "#" },
+    { name: "name", label: "Name", width: "30%" },
+    { name: "saves", label: "Sv", cellClassName: "text-end" },
+    { name: "goals", label: "G", cellClassName: "text-end" },
+    { name: "assists", label: "A", cellClassName: "text-end" },
+    { name: "timeIn", label: "Time", cellClassName: "text-end" },
+    { name: "timeInRecent", label: "Last In", cellClassName: "text-end" },
   ];
 
-  // Helper function to get button text based on field status
   const getButtonText = (fieldStatus) => {
-    if (fieldStatus === "subbingOut") {
-      return "Subbing...";
-    }
-    return "Sub";
+    if (fieldStatus === "subbingOutGk") return "Cancel Sub";
+    return "Sub Out";
   };
 
-  // Helper function to get row styling based on field status
   const getRowClassName = (row) => {
-    const { fieldStatus } = row;
-    if (fieldStatus === "subbingOut") {
-      return "bg-red-100";
-    }
-    return "";
+    if (row.fieldStatus === "subbingOutGk") return "bg-red-100";
+    return "bg-green-50";
   };
 
-  // Prepare player data with calculated times
-  const currentPlayers = useMemo(
+  const goalkeepers = useMemo(
     () =>
       players
         .filter(
           (player) =>
-            player.fieldStatus === "onField" ||
-            player.fieldStatus === "subbingOut"
+            player.gameStatus === "goalkeeper" &&
+            (player.fieldStatus === "onFieldGk" ||
+              player.fieldStatus === "subbingOutGk")
         )
         .map((player) => {
           const totalTime = calculateTotalTimeOnField(player, gameTime);
           const currentTime = calculateCurrentTimeOnField(player, gameTime);
 
           return {
-            ...player,
+            id: player.id,
+            number: player.jerseyNumber || "—",
+            name: player.fullName || `${player.firstName} ${player.lastName}`,
+            saves: player.saves || 0,
+            goals: player.goals || 0,
+            assists: player.assists || 0,
             timeIn: formatSecondsToMmss(totalTime),
             timeInRecent: formatSecondsToMmss(currentTime),
+            fieldStatus: player.fieldStatus,
+            pendingSubId: player.outs?.find((out) => out.gameTime === null)
+              ?.subId,
           };
         }),
     [players, gameTime, calculateTotalTimeOnField, calculateCurrentTimeOnField]
   );
 
-  return (
-    <div className='row-start-2 flex flex-col justify-between shadow-lg overflow-hidden'>
-      {/* Table 1: On Field Players */}
-      <Table
-        columns={columns}
-        data={currentPlayers}
-        size='xs'
-        hoverable
-        caption={<span className='text-2xl font-bold'>On Field Players</span>}
-        onRowClick={(row) => console.log("Clicked:", row)}
-        rowClassName={getRowClassName}
-        actions={(row) => (
-          <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              updateFieldStatus(row);
-            }}
-            className='px-3 py-0 text-white rounded hover:bg-secondary'
-          >
-            {getButtonText(row.fieldStatus)}
-          </Button>
-        )}
-        actionsLabel='Status'
-        actionsWidth='100px'
-      />
+  const handleSubClick = async (row) => {
+    if (row.fieldStatus === "subbingOutGk" && row.pendingSubId) {
+      await cancelSub(row.pendingSubId);
+    } else {
+      console.log("Select bench player to sub in GK for:", row.name);
+    }
+  };
 
-      {/* Table 2: Goalkeeper */}
-      <OnFieldGk />
-    </div>
+  return (
+    <Table
+      columns={columns}
+      data={goalkeepers}
+      size='xxs'
+      hoverable
+      caption={
+        <span className='text-xl font-bold text-green-700'>Goalkeeper</span>
+      }
+      onRowClick={(row) => console.log("GK Clicked:", row)}
+      rowClassName={getRowClassName}
+      actions={(row) => (
+        <Button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleSubClick(row);
+          }}
+          size='sm'
+        >
+          {getButtonText(row.fieldStatus)}
+        </Button>
+      )}
+      actionsLabel='Status'
+      actionsWidth='100px'
+    />
   );
 }
 
-export default OnFieldPlayers;
+export default OnFieldGk;

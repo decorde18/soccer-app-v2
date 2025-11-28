@@ -1,15 +1,15 @@
 "use client";
-import { useGame } from "@/contexts/GameLiveContext";
+
 import { formatSecondsToMmss } from "@/lib/dateTimeUtils";
+import useGameStore from "@/stores/gameStore";
 import { useEffect, useState } from "react";
 
 // Scoreboard.jsx
 function LiveGameHeaderClock() {
-  const { getPeriodTime, gameStage } = useGame();
+  const getPeriodTime = useGameStore((s) => s.getPeriodTime);
 
   const [displayTime, setDisplayTime] = useState(0);
   useEffect(() => {
-    if (gameStage !== "during_period") return;
     const interval = setInterval(() => {
       setDisplayTime(getPeriodTime());
     }, 1000);

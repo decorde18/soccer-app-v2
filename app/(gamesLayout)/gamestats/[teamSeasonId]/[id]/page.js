@@ -1,5 +1,5 @@
 import GameMenuPage from "./GameMenuPage";
 
-export default async function Page() {
+export default async function page() {
   return <GameMenuPage />;
 }

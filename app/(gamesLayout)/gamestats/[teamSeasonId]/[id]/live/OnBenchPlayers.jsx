@@ -1,35 +1,58 @@
+// OnBenchPlayers.jsx
 "use client";
 import Button from "@/components/ui/Button";
 import Table from "@/components/ui/Table";
-import { usePlayers } from "@/contexts/GamePlayersContext";
-import { useMemo } from "react";
+import { formatSecondsToMmss } from "@/lib/dateTimeUtils";
+import useGamePlayersStore from "@/stores/gamePlayersStore";
+import useGameStore from "@/stores/gameStore";
+import { useMemo, useState, useEffect } from "react";
 
 function OnBenchPlayers() {
-  const { players, updateFieldStatus, calculateTotalTimeOnField } =
-    usePlayers();
+  const players = useGamePlayersStore((s) => s.players);
+  const cancelSub = useGamePlayersStore((s) => s.cancelSub);
+  const calculateTotalTimeOnField = useGamePlayersStore(
+    (s) => s.calculateTotalTimeOnField
+  );
+  const calculateCurrentTimeOffField = useGamePlayersStore(
+    (s) => s.calculateCurrentTimeOffField
+  );
+  const getGameTime = useGameStore((s) => s.getGameTime);
+  const gameStage = useGameStore((s) => s.getGameStage());
+
+  const isGameLive = gameStage === "during_period";
+
+  // Force re-render every second to update time displays
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!isGameLive) return;
+    const interval = setInterval(() => {
+      setTick((tick) => tick + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isGameLive]);
+
+  const gameTime = getGameTime();
+
   const columns = [
-    { key: "number", label: "#" },
-    { key: "name", label: "Name", width: "30%" },
-    { key: "shots", label: "Sh", cellClassName: "text-end" },
-    { key: "goals", label: "G", cellClassName: "text-end" },
-    { key: "assists", label: "A", cellClassName: "text-end" },
-    { key: "timeIn", label: "Time", cellClassName: "text-end" },
-    { key: "timeInRecent", label: "Last In", cellClassName: "text-end" },
+    { name: "number", label: "#" },
+    { name: "name", label: "Name", width: "30%" },
+    { name: "shots", label: "Sh", cellClassName: "text-end" },
+    { name: "goals", label: "G", cellClassName: "text-end" },
+    { name: "assists", label: "A", cellClassName: "text-end" },
+    { name: "timeIn", label: "Time", cellClassName: "text-end" },
+    { name: "timeOffBench", label: "Off Bench", cellClassName: "text-end" },
   ];
 
   const getButtonText = (fieldStatus) => {
-    if (fieldStatus === "subbingOut") return "Subbing...";
-    if (fieldStatus === "subbingIn") return "Subbing...";
-    return "Sub";
+    if (fieldStatus === "subbingIn") return "Cancel Sub";
+    return "Sub In";
   };
-  // Helper function to get row styling based on field status
+
   const getRowClassName = (row) => {
-    const { fieldStatus } = row;
-    if (fieldStatus === "subbingIn" || fieldStatus === "subbingInGk") {
-      return "bg-green-100"; // Table will convert this to inline style
-    }
+    if (row.fieldStatus === "subbingIn") return "bg-green-100";
     return "";
   };
+
   const currentPlayers = useMemo(
     () =>
       players
@@ -38,28 +61,53 @@ function OnBenchPlayers() {
             player.fieldStatus === "onBench" ||
             player.fieldStatus === "subbingIn"
         )
-        .map((player) => ({ ...player })),
-    [players]
-  ).map((player) => ({ ...player, timeIn: calculateTotalTimeOnField() }));
+        .map((player) => {
+          const totalTime = calculateTotalTimeOnField(player, gameTime);
+          const timeOffBench = calculateCurrentTimeOffField(player, gameTime);
+
+          return {
+            id: player.id,
+            number: player.jerseyNumber || "—",
+            name: player.fullName || `${player.firstName} ${player.lastName}`,
+            shots: player.shots || 0,
+            goals: player.goals || 0,
+            assists: player.assists || 0,
+            timeIn: formatSecondsToMmss(totalTime),
+            timeOffBench: formatSecondsToMmss(timeOffBench),
+            fieldStatus: player.fieldStatus,
+            pendingSubId: player.ins?.find((sub) => sub.gameTime === null)
+              ?.subId,
+          };
+        }),
+    [players, gameTime, calculateTotalTimeOnField, calculateCurrentTimeOffField]
+  );
+
+  const handleSubClick = async (row) => {
+    if (row.fieldStatus === "subbingIn" && row.pendingSubId) {
+      await cancelSub(row.pendingSubId);
+    } else {
+      console.log("Select on-field player to sub out for:", row.name);
+    }
+  };
+
   return (
     <div className='row-start-3 shadow-lg overflow-hidden flex flex-col'>
       <Table
         columns={columns}
         data={currentPlayers}
-        size='xs'
+        size='xxs'
         hoverable
-        // Use caption prop for header
         caption={<span className='text-2xl font-bold'>On Bench</span>}
         onRowClick={(row) => console.log("Clicked:", row)}
         rowClassName={getRowClassName}
         actions={(row) => (
           <Button
+            size='sm'
             onClick={(e) => {
-              // FIX 2: Add e.stopPropagation()
               e.stopPropagation();
-              updateFieldStatus(row);
+              handleSubClick(row);
             }}
-            className='px-3 py-0 text-white rounded hover:bg-secondary'
+            // className='px-3 py-0 text-white rounded hover:bg-secondary'
           >
             {getButtonText(row.fieldStatus)}
           </Button>

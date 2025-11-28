@@ -1,183 +1,114 @@
 "use client";
-
 import Button from "@/components/ui/Button";
-import Modal from "@/components/ui/Modal";
-import { useGame } from "@/contexts/GameLiveContext";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import Table from "@/components/ui/Table";
+import { formatSecondsToMmss } from "@/lib/dateTimeUtils";
+import useGamePlayersStore from "@/stores/gamePlayersStore";
+import useGameStore from "@/stores/gameStore";
+import { useMemo, useState, useEffect } from "react";
 
 function LiveGameModal() {
-  const router = useRouter();
-  const {
-    game,
-    startGame,
-    endPeriod,
-    startNextPeriod,
-    startStoppage,
-    endStoppage,
-    gameStage,
-  } = useGame();
+  const players = useGamePlayersStore((s) => s.players);
+  const updateFieldStatus = useGamePlayersStore((s) => s.updateFieldStatus);
+  const calculateTotalTimeOnField = useGamePlayersStore(
+    (s) => s.calculateTotalTimeOnField
+  );
+  const calculateCurrentTimeOffField = useGamePlayersStore(
+    (s) => s.calculateCurrentTimeOffField
+  );
+  const getGameTime = useGameStore((s) => s.getGameTime);
 
-  const [isOpen, setIsOpen] = useState("empty");
-  //   BEFORE_START: "before_start",
-  // DURING_PERIOD: "during_period",
-  // BETWEEN_PERIODS: "between_periods",
-  // IN_STOPPAGE: "in_stoppage",
-  // END_GAME: "end_game",
-  const modalType = [
-    {
-      id: "empty",
-      title: "Loading Game",
-      caption: "Please Wait While Game Loads",
-      buttons: [],
-    },
-    {
-      id: "before_start",
-      title: "Game Start",
-      caption: "Press start when game starts",
-      size: "lg",
-      buttons: [
-        {
-          variant: "primary",
-          caption: "Start Game",
-          action: () => {
-            startGame();
-            setIsOpen(false);
-          },
-        },
-        {
-          variant: "success",
-          caption: "Change Lineup",
-          action: () => console.log("Change Lineup"),
-        },
-      ],
-    },
-    {
-      id: "between_periods",
-      title: "Begin Period",
-      caption: "Press start when period stats",
-      size: "lg",
-      buttons: [
-        {
-          variant: "primary",
-          caption: "Start Period",
-          action: () => {
-            startNextPeriod();
-            setIsOpen(false);
-          },
-        },
-        {
-          variant: "muted",
-          caption: "Postpone Game",
-          action: () => console.log("Postpone Game"),
-        },
-        {
-          variant: "danger",
-          caption: "End Game",
-          action: () => console.log("End Game"),
-        },
-      ],
-    },
-    {
-      id: "in_stoppage",
-      title: "Stoppage",
-      caption: "Press resume when the stoppage is over",
-      size: "full",
-
-      buttons: [
-        {
-          variant: "primary",
-          caption: "Resume Game",
-          action: () => console.log("Resume Game"),
-        },
-        {
-          variant: "muted",
-          caption: "Postpone Game",
-          action: () => console.log("Postpone Game"),
-        },
-        {
-          variant: "danger",
-          caption: "End Game",
-          action: () => console.log("End Game"),
-        },
-      ],
-    },
-
-    {
-      id: "in_stoppage",
-      title: "Stoppage",
-      caption: "Press resume when the stoppage is over",
-      size: "full",
-
-      buttons: [
-        {
-          variant: "primary",
-          caption: "Resume Game",
-          action: () => console.log("Resume Game"),
-        },
-        {
-          variant: "muted",
-          caption: "Postpone Game",
-          action: () => console.log("Postpone Game"),
-        },
-        {
-          variant: "danger",
-          caption: "End Game",
-          action: () => console.log("End Game"),
-        },
-      ],
-    },
-    {
-      id: 4,
-      title: "Substitution Holding Area",
-      caption: "THIS IS WHERE THE CURRENT SUBS WILL GO",
-      size: "full",
-
-      buttons: [
-        {
-          variant: "primary",
-          caption: "Enter All Subs",
-          action: () => console.log("Enter All Subs"),
-        },
-        {
-          variant: "danger",
-          caption: "Cancel All Sub",
-          action: () => console.log("Cancel All Sub"),
-        },
-      ],
-    },
-  ];
+  // Force re-render every second to update time displays
+  const [, setTick] = useState(0);
   useEffect(() => {
-    if (gameStage === "end_game") {
-      // Navigate away when game ends
-      router.push(`/gameStats/${game.id}/summary`);
-      setIsOpen("empty");
-      return;
-    }
+    const interval = setInterval(() => {
+      setTick((tick) => tick + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
-    // Update modal state for all other stages
-    const shouldBeOpen = gameStage !== "during_period" ? gameStage : null;
-    setIsOpen(shouldBeOpen);
-  }, [gameStage, game.id, router]);
+  // Get current game time
+  const gameTime = getGameTime();
+
+  const columns = [
+    { name: "number", label: "#" },
+    { name: "name", label: "Name", width: "30%" },
+    { name: "shots", label: "Sh", cellClassName: "text-end" },
+    { name: "goals", label: "G", cellClassName: "text-end" },
+    { name: "assists", label: "A", cellClassName: "text-end" },
+    { name: "timeIn", label: "Time", cellClassName: "text-end" },
+    { name: "timeOffBench", label: "Off Bench", cellClassName: "text-end" },
+  ];
+
+  const getButtonText = (fieldStatus) => {
+    if (fieldStatus === "subbingIn") return "Subbing...";
+    return "Sub";
+  };
+
+  // Helper function to get row styling based on field status
+  const getRowClassName = (row) => {
+    const { fieldStatus } = row;
+    if (fieldStatus === "subbingIn") {
+      return "bg-green-100";
+    }
+    return "";
+  };
+
+  const currentPlayers = useMemo(
+    () =>
+      players
+        .filter(
+          (player) =>
+            player.fieldStatus === "onBench" ||
+            player.fieldStatus === "subbingIn"
+        )
+        .map((player) => {
+          const totalTime = calculateTotalTimeOnField(player, gameTime);
+          const timeOffBench = calculateCurrentTimeOffField(player, gameTime);
+
+          return {
+            id: player.id,
+            number: player.jerseyNumber,
+            name: player.fullName,
+            shots: player.shots || 0,
+            goals: player.goals || 0,
+            assists: player.assists || 0,
+            timeIn: formatSecondsToMmss(totalTime),
+            timeOffBench: formatSecondsToMmss(timeOffBench),
+            fieldStatus: player.fieldStatus,
+          };
+        }),
+    [players, gameTime, calculateTotalTimeOnField, calculateCurrentTimeOffField]
+  );
 
   return (
-    isOpen && (
-      <Modal
-        isOpen={isOpen}
-        onClose={() => setIsOpen(false)}
-        title={modalType.find((type) => type.id === isOpen).title}
-        size={modalType.find((type) => type.id === isOpen).size}
-        footer={modalType
-          .find((type) => type.id === isOpen)
-          .buttons.map((btn, id) => (
-            <Button key={id} variant={btn.variant} onClick={btn.action}>
-              {btn.caption}
-            </Button>
-          ))}
-      >
-        <p>{modalType.find((type) => type.id === isOpen).caption}</p>
-      </Modal>
-    )
+    <div className='row-start-3 shadow-lg overflow-hidden flex flex-col'>
+      <Table
+        columns={columns}
+        data={currentPlayers}
+        size='xs'
+        hoverable
+        caption={<span className='text-2xl font-bold'>On Bench</span>}
+        onRowClick={(row) => console.log("Clicked:", row)}
+        rowClassName={getRowClassName}
+        actions={(row) => (
+          <Button
+            onClick={(e) => {
+              e.stopPropagation();
+              // Find the full player object by id
+              const player = players.find((p) => p.id === row.id);
+              if (player) {
+                updateFieldStatus(player.id);
+              }
+            }}
+            className='px-3 py-0 text-white rounded hover:bg-secondary'
+          >
+            {getButtonText(row.fieldStatus)}
+          </Button>
+        )}
+        actionsLabel='Status'
+        actionsWidth='100px'
+      />
+    </div>
   );
 }
 
