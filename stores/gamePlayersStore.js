@@ -30,7 +30,18 @@ const useGamePlayersStore = create((set, get) => ({
           filters: { game_id: gameId },
         });
 
-        // Transform to store format with subs data
+        // Fetch stats for all players in this game
+        const allStats = await apiFetch(
+          "v_player_game_stats",
+          "GET",
+          null,
+          null,
+          {
+            filters: { game_id: gameId },
+          }
+        );
+
+        // Transform to store format with subs data and stats
         const players = existingPlayerGames.map((pg) => {
           // Get this player's ins and outs from game_subs
           const playerIns = allSubs
@@ -49,6 +60,11 @@ const useGamePlayersStore = create((set, get) => ({
               gkSub: sub.gk_sub === 1,
             }));
 
+          // Get this player's stats
+          const playerStats = allStats.find(
+            (s) => s.player_game_id === pg.player_game_id
+          );
+
           const player = {
             id: pg.player_id,
             playerGameId: pg.player_game_id,
@@ -66,6 +82,15 @@ const useGamePlayersStore = create((set, get) => ({
             homeAway: pg.home_away,
             ins: playerIns,
             outs: playerOuts,
+            // Stats from game_events
+            goals: playerStats?.goals || 0,
+            assists: playerStats?.assists || 0,
+            shots: playerStats?.shots || 0,
+            shotsOnTarget: playerStats?.shots_on_target || 0,
+            saves: playerStats?.saves || 0,
+            yellowCards: playerStats?.yellow_cards || 0,
+            redCards: playerStats?.red_cards || 0,
+            corners: playerStats?.corners || 0,
           };
 
           // Calculate initial field status

@@ -8,11 +8,17 @@ function LiveGameHeader() {
   const game = useGameStore((s) => s.game);
   const gameStage = useGameStore((s) => s.getGameStage());
   const endPeriod = useGameStore((s) => s.endPeriod);
-  const startPeriod = useGameStore((s) => s.startPeriod);
+  const startPeriod = useGameStore((s) => s.startNextPeriod);
+  const startGame = useGameStore((s) => s.startGame);
   const periodNumber = useGameStore((s) => s.getCurrentPeriodNumber());
 
   const isGameLive = gameStage === "during_period";
 
+  function handleStartPeriod() {
+    if (gameStage === "before_start") {
+      startGame();
+    } else startPeriod();
+  }
   return (
     <header className=' relative col-span-2 row-start-1 flex items-center justify-between px-4 py-3 shadow-lg bg-secondary text-background m-0 rounded'>
       {/* Left Section — Hamburger */}
@@ -65,11 +71,11 @@ function LiveGameHeader() {
       {/* Right Section — Fixed Width */}
       <div className='flex-shrink-0 w-[120px] flex justify-end'>
         {isGameLive ? (
-          <Button variant='danger' className='text-sm' onClick={endPeriod}>
+          <Button variant='danger' onClick={endPeriod}>
             END PERIOD
           </Button>
         ) : (
-          <Button onClick={startPeriod}>START</Button>
+          <Button onClick={handleStartPeriod}>START</Button>
         )}
       </div>
     </header>

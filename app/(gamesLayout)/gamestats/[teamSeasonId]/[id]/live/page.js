@@ -3,6 +3,8 @@ import LiveGameModal from "./LiveGameModal";
 
 import OnBenchPlayers from "./OnBenchPlayers";
 import OnFieldPlayers from "./OnFieldPlayers";
+import PendingSubs from "./PendingSubs";
+import TeamStats from "./TeamStats";
 
 function page() {
   return (
@@ -18,14 +20,8 @@ function page() {
         - The inner divs are placed inside this container.
       */}
       <div className='row-start-2 row-span-2 grid grid-rows-2 gap-4 h-full'>
-        <div className='bg-yellow-500 flex items-center justify-center text-white text-xl shadow-lg overflow-hidden'>
-          Component 4: Right Column Top (1/2 Height, No Scroll)
-        </div>
-
-        {/* Component 5 is the second row of the nested grid */}
-        <div className='bg-yellow-700 flex items-center justify-center text-white text-xl shadow-lg overflow-hidden'>
-          Component 5: Right Column Bottom (1/2 Height, No Scroll)
-        </div>
+        <TeamStats />
+        <PendingSubs />
       </div>
     </>
   );

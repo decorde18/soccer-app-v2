@@ -78,6 +78,17 @@ const useGameStore = create((set, get) => {
           }
         );
 
+        // Fetch existing periods from DB
+        const existingPeriods = await apiFetch(
+          "game_periods",
+          "GET",
+          null,
+          null,
+          {
+            filters: { game_id: gameId },
+          }
+        );
+
         // Build game settings from DB and OT config
         const settings = {
           ...DEFAULT_GAME_SETTINGS,
@@ -96,9 +107,31 @@ const useGameStore = create((set, get) => {
         const localGame = get().loadFromStorage();
         const isLocalGameCurrent = localGame?.id === gameId;
 
+        // Build periods array from DB
+        const periods = existingPeriods.map((p) => ({
+          id: p.id,
+          index: p.period_number - 1,
+          startTime: new Date(p.start_time).getTime(),
+          endTime: p.end_time ? new Date(p.end_time).getTime() : null,
+        }));
+
         const finalGame = isLocalGameCurrent
-          ? { ...localGame, settings }
-          : { ...dbGame, settings };
+          ? {
+              ...localGame,
+              settings,
+              periods: periods.length > 0 ? periods : localGame.periods,
+            }
+          : {
+              ...dbGame,
+              settings,
+              periods: periods,
+              currentPeriodIndex: periods.length > 0 ? periods.length - 1 : -1,
+              firstPeriodStartTime:
+                periods.length > 0 ? periods[0].startTime : null,
+              stoppages: [],
+              currentStoppageIndex: -1,
+            };
+
         const { home_team_season_id, away_team_season_id } = dbGame;
         const isHome = teamSeasonId == home_team_season_id;
 
@@ -134,23 +167,6 @@ const useGameStore = create((set, get) => {
         set({ error: error.message, isLoading: false });
         return null;
       }
-    },
-
-    createNewGame: (settings = {}) => {
-      const newGame = {
-        id: `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        settings: { ...DEFAULT_GAME_SETTINGS, ...settings },
-        stage: GAME_STAGES.BEFORE_START,
-        periods: [],
-        stoppages: [],
-        currentPeriodIndex: -1,
-        currentStoppageIndex: -1,
-        firstPeriodStartTime: null,
-      };
-
-      set({ game: newGame });
-      get().saveToStorage(newGame);
-      return newGame;
     },
 
     // ==================== PERSISTENCE ====================
@@ -303,54 +319,102 @@ const useGameStore = create((set, get) => {
       const game = get().game;
       if (!game) return;
 
-      const now = Date.now();
-      const updates = {
-        firstPeriodStartTime: now,
-        currentPeriodIndex: 0,
-        periods: [
-          {
-            index: 0,
-            startTime: now,
-            endTime: null,
-          },
-        ],
-        stage: GAME_STAGES.DURING_PERIOD,
-      };
+      const now = new Date();
 
-      get().updateGame(updates);
+      try {
+        // Create period in DB
+        const periodData = await apiFetch("game_periods", "POST", {
+          game_id: game.game_id,
+          period_number: 1,
+          start_time: now.toISOString(),
+          end_time: null,
+          added_time: 0,
+        });
+
+        const updates = {
+          firstPeriodStartTime: now.getTime(),
+          currentPeriodIndex: 0,
+          periods: [
+            {
+              id: periodData.id,
+              index: 0,
+              startTime: now.getTime(),
+              endTime: null,
+            },
+          ],
+          stage: GAME_STAGES.DURING_PERIOD,
+          stoppages: [],
+          currentStoppageIndex: -1,
+        };
+
+        get().updateGame(updates);
+
+        // Update game status in DB
+        await apiFetch(`games?id=${game.game_id}`, "PUT", {
+          status: "in_progress",
+        });
+      } catch (error) {
+        console.error("Error starting game:", error);
+      }
     },
 
     endPeriod: async () => {
       const game = get().game;
       if (!game) return;
 
-      const now = Date.now();
-      const updatedPeriods = [...game.periods];
-      updatedPeriods[game.currentPeriodIndex] = {
-        ...updatedPeriods[game.currentPeriodIndex],
-        endTime: now,
-      };
+      const now = new Date();
+      const currentPeriod = game.periods[game.currentPeriodIndex];
 
-      get().updateGame({ periods: updatedPeriods });
+      try {
+        // Update period in DB
+        await apiFetch(`game_periods?id=${currentPeriod.id}`, "PUT", {
+          end_time: now.toISOString(),
+          added_time: 0, // TODO: Calculate added time from stoppages
+        });
+
+        const updatedPeriods = [...game.periods];
+        updatedPeriods[game.currentPeriodIndex] = {
+          ...updatedPeriods[game.currentPeriodIndex],
+          endTime: now.getTime(),
+        };
+
+        get().updateGame({ periods: updatedPeriods });
+      } catch (error) {
+        console.error("Error ending period:", error);
+      }
     },
 
     startNextPeriod: async () => {
       const game = get().game;
       if (!game) return;
 
-      const now = Date.now();
+      const now = new Date();
       const nextIndex = game.currentPeriodIndex + 1;
 
-      const newPeriod = {
-        index: nextIndex,
-        startTime: now,
-        endTime: null,
-      };
+      try {
+        // Create new period in DB
+        const periodData = await apiFetch("game_periods", "POST", {
+          game_id: game.id,
+          period_number: nextIndex + 1,
+          start_time: now.toISOString(),
+          end_time: null,
+          added_time: 0,
+        });
 
-      get().updateGame({
-        currentPeriodIndex: nextIndex,
-        periods: [...game.periods, newPeriod],
-      });
+        const newPeriod = {
+          id: periodData.id,
+          index: nextIndex,
+          startTime: now.getTime(),
+          endTime: null,
+        };
+
+        get().updateGame({
+          currentPeriodIndex: nextIndex,
+          periods: [...game.periods, newPeriod],
+        });
+      } catch (error) {
+        console.error("Error starting next period:", error);
+      }
     },
 
     startStoppage: async (shouldPausePeriodClock = true, reason = "") => {
@@ -388,6 +452,24 @@ const useGameStore = create((set, get) => {
         stoppages: updatedStoppages,
         currentStoppageIndex: -1,
       });
+    },
+
+    endGame: async () => {
+      const game = get().game;
+      if (!game) return;
+
+      try {
+        // Update game status in DB
+        await apiFetch(`games?id=${game.id}`, "PUT", {
+          status: "completed",
+        });
+
+        get().updateGame({
+          stage: GAME_STAGES.END_GAME,
+        });
+      } catch (error) {
+        console.error("Error ending game:", error);
+      }
     },
 
     // ==================== HELPER FUNCTIONS ====================

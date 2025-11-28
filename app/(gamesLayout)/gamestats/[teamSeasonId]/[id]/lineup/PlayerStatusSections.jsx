@@ -43,7 +43,7 @@ function PlayerStatusSections() {
   ).length;
 
   return (
-    <div className='h-full flex flex-col lg:flex-row gap-4'>
+    <div className='flex flex-col lg:flex-row gap-4'>
       {/* TOP/LEFT: Starters + Game Changers (PROMINENT) */}
       <div className='flex-1 flex flex-col sm:flex-row gap-4 lg:min-h-0'>
         {statusArray

@@ -7,6 +7,8 @@ import useGameStore from "@/stores/gameStore";
 import { useMemo, useState, useEffect } from "react";
 
 function LiveGameModal() {
+  const gameStage = useGameStore((s) => s.getGameStage());
+
   const players = useGamePlayersStore((s) => s.players);
   const updateFieldStatus = useGamePlayersStore((s) => s.updateFieldStatus);
   const calculateTotalTimeOnField = useGamePlayersStore(
@@ -16,7 +18,13 @@ function LiveGameModal() {
     (s) => s.calculateCurrentTimeOffField
   );
   const getGameTime = useGameStore((s) => s.getGameTime);
+  const [isOpen, setIsOpen] = useState(false);
 
+  useEffect(() => {
+    const status =
+      gameStage === "in_stoppage" || gameStage === "between_periods";
+    setIsOpen(status);
+  }, [gameStage]);
   // Force re-render every second to update time displays
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -81,34 +89,36 @@ function LiveGameModal() {
   );
 
   return (
-    <div className='row-start-3 shadow-lg overflow-hidden flex flex-col'>
-      <Table
-        columns={columns}
-        data={currentPlayers}
-        size='xs'
-        hoverable
-        caption={<span className='text-2xl font-bold'>On Bench</span>}
-        onRowClick={(row) => console.log("Clicked:", row)}
-        rowClassName={getRowClassName}
-        actions={(row) => (
-          <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              // Find the full player object by id
-              const player = players.find((p) => p.id === row.id);
-              if (player) {
-                updateFieldStatus(player.id);
-              }
-            }}
-            className='px-3 py-0 text-white rounded hover:bg-secondary'
-          >
-            {getButtonText(row.fieldStatus)}
-          </Button>
-        )}
-        actionsLabel='Status'
-        actionsWidth='100px'
-      />
-    </div>
+    isOpen && (
+      <div className='row-start-3 shadow-lg overflow-hidden flex flex-col'>
+        <Table
+          columns={columns}
+          data={currentPlayers}
+          size='xs'
+          hoverable
+          caption={<span className='text-2xl font-bold'>On Bench</span>}
+          onRowClick={(row) => console.log("Clicked:", row)}
+          rowClassName={getRowClassName}
+          actions={(row) => (
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                // Find the full player object by id
+                const player = players.find((p) => p.id === row.id);
+                if (player) {
+                  updateFieldStatus(player.id);
+                }
+              }}
+              className='px-3 py-0 text-white rounded hover:bg-secondary'
+            >
+              {getButtonText(row.fieldStatus)}
+            </Button>
+          )}
+          actionsLabel='Status'
+          actionsWidth='100px'
+        />
+      </div>
+    )
   );
 }
 

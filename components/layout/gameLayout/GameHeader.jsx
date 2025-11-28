@@ -5,10 +5,10 @@ import useGameStore from "@/stores/gameStore";
 function GameHeader() {
   const game = useGameStore((s) => s.game);
   return (
-    <div className='bg-white flex justify-center align-middle max-w-lg p-6 rounded-xl mb-6 shadow-md mx-auto mt-2'>
-      <h1 className='text-3xl font-bold text-primary mb-2 text-center'>
+    <div className='bg-white flex justify-center align-middle max-w-lg px-6 pt-2 rounded-xl shadow-md mx-auto my-2'>
+      <h2 className='text-2xl font-bold text-primary  text-center'>
         {game.opponentName}
-      </h1>
+      </h2>
     </div>
   );
 }

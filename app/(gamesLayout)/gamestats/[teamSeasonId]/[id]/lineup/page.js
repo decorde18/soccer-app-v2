@@ -8,9 +8,6 @@ function page() {
     <div className='flex flex-col h-screen max-w-7xl mx-auto bg-gray-50'>
       {/* Header */}
       <GameHeader />
-      <div className='text-muted text-sm'>
-        Set the starting lineup for the game
-      </div>
 
       {/* Scrollable Main Content */}
       <div className='flex-1 overflow-y-auto p-4'>
