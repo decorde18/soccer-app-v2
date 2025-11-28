@@ -165,7 +165,11 @@ const useGamePlayersStore = create((set, get) => ({
         if (updates.started !== undefined)
           dbUpdates.started = updates.started ? 1 : 0;
 
-        await apiFetch(`player_games/${player.playerGameId}`, "PUT", dbUpdates);
+        await apiFetch(
+          `player_games?id=${player.playerGameId}`,
+          "PUT",
+          dbUpdates
+        );
       } catch (error) {
         console.error("Error updating player_game:", error);
       }
@@ -214,50 +218,51 @@ const useGamePlayersStore = create((set, get) => ({
 
     let updatedStatus = action;
 
+    // Handle toggle between unavailable/injured states
     if (action === "toggle") {
       const cycle = {
+        // From dressed states -> injured
         goalkeeper: "injured",
         starter: "injured",
         bench: "injured",
         available: "injured",
-        unavailable: "available",
+        // From injured -> unavailable
         injured: "unavailable",
+        // From unavailable -> bench (back to dressed)
+        unavailable: "bench",
       };
       updatedStatus =
         cycle[currentPlayer.gameStatus] || currentPlayer.gameStatus;
+
+      await get().updatePlayer(playerId, { gameStatus: updatedStatus });
+      return;
     }
 
+    // Handle goalkeeper toggle
     if (action === "goalkeeper") {
       updatedStatus =
         currentPlayer.gameStatus === "goalkeeper" ? "starter" : "goalkeeper";
 
-      // Remove goalkeeper status from other players
-      set((state) => ({
-        players: state.players.map((p) => {
-          if (p.id !== playerId && p.gameStatus === "goalkeeper") {
-            return { ...p, gameStatus: "starter" };
-          }
-          if (p.id === playerId) {
-            return { ...p, gameStatus: updatedStatus };
-          }
-          return p;
-        }),
-      }));
+      // Remove goalkeeper status from other players and update current player
+      const updates = [];
 
-      // Sync to DB for all affected players
+      // First, update all other goalkeepers to starter
       for (const p of players) {
-        if (p.gameStatus === "goalkeeper" || p.id === playerId) {
-          await get().updatePlayer(p.id, {
-            gameStatus: p.id === playerId ? updatedStatus : "starter",
-          });
+        if (p.id !== playerId && p.gameStatus === "goalkeeper") {
+          updates.push(get().updatePlayer(p.id, { gameStatus: "starter" }));
         }
       }
+
+      // Then update current player
+      updates.push(get().updatePlayer(playerId, { gameStatus: updatedStatus }));
+
+      await Promise.all(updates);
       return;
     }
 
+    // Standard status updates (starter, bench, available, unavailable, injured)
     await get().updatePlayer(playerId, { gameStatus: updatedStatus });
   },
-
   // ==================== SUBSTITUTION TRACKING ====================
 
   recordSubIn: async (playerId) => {
