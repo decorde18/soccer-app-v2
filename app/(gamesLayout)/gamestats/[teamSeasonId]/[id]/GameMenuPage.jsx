@@ -93,6 +93,11 @@ export default function GameMenuPage() {
               path: `/gamestats/${teamSeasonId}/${id}/settings`,
               variant: "secondary",
             },
+            {
+              label: "Manual Game Management",
+              path: `/gamestats/${teamSeasonId}/${id}/manage`,
+              variant: "secondary",
+            },
           ],
         };
       case GAME_STAGES.BETWEEN_PERIODS:
@@ -116,6 +121,11 @@ export default function GameMenuPage() {
               path: `/games/${id}/live`,
               variant: "success",
             },
+            {
+              label: "Manual Game Management",
+              path: `/gamestats/${teamSeasonId}/${id}/manage`,
+              variant: "secondary",
+            },
           ],
         };
       case GAME_STAGES.IN_STOPPAGE:
@@ -132,6 +142,11 @@ export default function GameMenuPage() {
             {
               label: "Live Stats",
               path: `/games/${id}/stats`,
+              variant: "secondary",
+            },
+            {
+              label: "Manual Game Management",
+              path: `/gamestats/${teamSeasonId}/${id}/manage`,
               variant: "secondary",
             },
           ],
@@ -155,6 +170,11 @@ export default function GameMenuPage() {
             {
               label: "Highlights",
               path: `/games/${id}/highlights`,
+              variant: "secondary",
+            },
+            {
+              label: "Manual Game Management",
+              path: `/gamestats/${teamSeasonId}/${id}/manage`,
               variant: "secondary",
             },
           ],

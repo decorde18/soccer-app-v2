@@ -1,6 +1,12 @@
 // stores/gameStore.js
 import { create } from "zustand";
 import { apiFetch } from "@/app/api/fetcher";
+import {
+  toMySqlDateTime,
+  fromMySqlDateTime,
+  calculateGameTime,
+  calculatePeriodTime,
+} from "@/lib/dateTimeUtils";
 
 const GAME_STAGES = {
   BEFORE_START: "before_start",
@@ -13,37 +19,15 @@ const GAME_STAGES = {
 const DEFAULT_GAME_SETTINGS = {
   playersOnField: 11,
   periodCount: 2,
-  periodDuration: 2400,
+  periodDuration: 2400, // 40 minutes in seconds
   hasOvertime: false,
   overtimePeriods: 2,
-  overtimeDuration: 600,
+  overtimeDuration: 600, // 10 minutes in seconds
   hasShootout: true,
   clockDirection: "up",
 };
 
-// Debounce utility
-const debounce = (func, delay) => {
-  let timeoutId;
-  const debounced = (...args) => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => func(...args), delay);
-  };
-  debounced.cancel = () => clearTimeout(timeoutId);
-  return debounced;
-};
-
 const useGameStore = create((set, get) => {
-  // Create debounced save function
-  const debouncedSave = debounce(async (gameData) => {
-    if (!gameData?.id) return;
-    try {
-      console.log(`Auto-saving game ${gameData.id} to DB...`);
-      await apiFetch("games", "PUT", gameData);
-    } catch (error) {
-      console.error("Failed to auto-save game to DB:", error);
-    }
-  }, 2000);
-
   return {
     // State
     game: null,
@@ -78,7 +62,7 @@ const useGameStore = create((set, get) => {
           }
         );
 
-        // Fetch existing periods from DB
+        // Fetch existing periods (start_time and end_time are BIGINT Unix ms)
         const existingPeriods = await apiFetch(
           "game_periods",
           "GET",
@@ -89,7 +73,18 @@ const useGameStore = create((set, get) => {
           }
         );
 
-        // Build game settings from DB and OT config
+        // Fetch stoppages (stored as game seconds in INT columns)
+        const stoppageEvents = await apiFetch(
+          "game_events",
+          "GET",
+          null,
+          null,
+          {
+            filters: { game_id: gameId, is_stoppage: 1, clock_should_run: 0 },
+          }
+        );
+
+        // Build game settings
         const settings = {
           ...DEFAULT_GAME_SETTINGS,
           periodCount: parseInt(dbGame.default_reg_periods) || 2,
@@ -103,95 +98,74 @@ const useGameStore = create((set, get) => {
           hasShootout: otConfig?.so_if_tied === 1,
         };
 
-        // Check localStorage for live game state
-        const localGame = get().loadFromStorage();
-        const isLocalGameCurrent = localGame?.id === gameId;
+        // Build periods array (all timestamps are Unix ms from DB BIGINT)
+        const periods = existingPeriods
+          .sort((a, b) => a.period_number - b.period_number)
+          .map((p) => ({
+            id: p.id,
+            periodNumber: p.period_number,
+            index: p.period_number - 1,
+            startTime: p.start_time, // Unix ms
+            endTime: p.end_time || null, // Unix ms or null
+            addedTime: p.added_time || 0,
+          }));
 
-        // Build periods array from DB
-        const periods = existingPeriods.map((p) => ({
-          id: p.id,
-          index: p.period_number - 1,
-          startTime: new Date(p.start_time).getTime(),
-          endTime: p.end_time ? new Date(p.end_time).getTime() : null,
+        // Build stoppages array (times are game seconds)
+        const stoppages = stoppageEvents.map((e) => ({
+          id: e.id,
+          startTime: e.stoppage_start_time, // game seconds
+          endTime: e.stoppage_end_time, // game seconds or null
+          reason: e.details || "",
+          periodNumber: e.period,
         }));
 
-        const finalGame = isLocalGameCurrent
-          ? {
-              ...localGame,
-              settings,
-              periods: periods.length > 0 ? periods : localGame.periods,
-            }
-          : {
-              ...dbGame,
-              settings,
-              periods: periods,
-              currentPeriodIndex: periods.length > 0 ? periods.length - 1 : -1,
-              firstPeriodStartTime:
-                periods.length > 0 ? periods[0].startTime : null,
-              stoppages: [],
-              currentStoppageIndex: -1,
-            };
+        // Determine current state
+        const firstPeriodStartTime =
+          periods.length > 0 ? periods[0].startTime : null;
+        const currentPeriodIndex = periods.length > 0 ? periods.length - 1 : -1;
 
+        // Build opponent info
         const { home_team_season_id, away_team_season_id } = dbGame;
         const isHome = teamSeasonId == home_team_season_id;
 
-        const opponentClub = isHome
-          ? dbGame.away_club_name
-          : dbGame.home_club_name;
-        const opponentTeamName = isHome
-          ? dbGame.away_team_name
-          : dbGame.home_team_name;
-
         const opponent = {
           opponentId: isHome ? away_team_season_id : home_team_season_id,
-          opponentClub,
-          opponentTeamName,
-          opponentName: `${opponentClub} ${opponentTeamName}`,
+          opponentClub: isHome ? dbGame.away_club_name : dbGame.home_club_name,
+          opponentTeamName: isHome
+            ? dbGame.away_team_name
+            : dbGame.home_team_name,
+          opponentName: isHome
+            ? `${dbGame.away_club_name} ${dbGame.away_team_name}`
+            : `${dbGame.home_club_name} ${dbGame.home_team_name}`,
+        };
+
+        const finalGame = {
+          ...dbGame,
+          ...opponent,
+          isHome,
+          settings,
+          periods,
+          stoppages,
+          currentPeriodIndex,
+          firstPeriodStartTime, // Unix ms
+          homeScore: dbGame.home_score || 0,
+          awayScore: dbGame.away_score || 0,
         };
 
         set({
-          game: { ...finalGame, ...opponent, homeScore: 0, awayScore: 0 },
+          game: finalGame,
           otConfig,
           isLoading: false,
         });
 
-        get().saveToStorage(finalGame);
+        // Calculate and sync game stage/status
+        await get().syncGameStatus();
+
         return finalGame;
       } catch (error) {
-        if (error.message.includes("404")) {
-          set({ error: "Game not found", isLoading: false });
-          return { notFound: true };
-        }
-
         console.error("Error loading game:", error);
         set({ error: error.message, isLoading: false });
         return null;
-      }
-    },
-
-    // ==================== PERSISTENCE ====================
-
-    loadFromStorage: () => {
-      if (typeof window === "undefined") return null;
-
-      try {
-        const stored = window.localStorage.getItem("game");
-        return stored ? JSON.parse(stored) : null;
-      } catch (error) {
-        console.error("Error loading game from storage:", error);
-        return null;
-      }
-    },
-
-    saveToStorage: (gameData) => {
-      if (typeof window === "undefined" || !gameData) return;
-
-      try {
-        window.localStorage.setItem("game", JSON.stringify(gameData));
-        // Trigger debounced DB save
-        debouncedSave(gameData);
-      } catch (error) {
-        console.error("Error saving game to storage:", error);
       }
     },
 
@@ -201,7 +175,6 @@ const useGameStore = create((set, get) => {
 
       const updatedGame = { ...currentGame, ...updates };
       set({ game: updatedGame });
-      get().saveToStorage(updatedGame);
     },
 
     // ==================== GAME STAGE CALCULATION ====================
@@ -212,61 +185,130 @@ const useGameStore = create((set, get) => {
 
       const currentPeriod = game.periods[game.currentPeriodIndex];
 
-      // Check active stoppage
-      if (game.currentStoppageIndex >= 0) {
-        const currentStoppage = game.stoppages[game.currentStoppageIndex];
-        if (!currentStoppage.endTime) return GAME_STAGES.IN_STOPPAGE;
+      // Check for active stoppage
+      const activeStoppage = game.stoppages.find(
+        (s) =>
+          s.endTime === null && s.periodNumber === game.currentPeriodIndex + 1
+      );
+      if (activeStoppage && currentPeriod && !currentPeriod.endTime) {
+        return GAME_STAGES.IN_STOPPAGE;
       }
 
-      // Check current period
+      // Check if currently in a period
       if (currentPeriod && !currentPeriod.endTime) {
         return GAME_STAGES.DURING_PERIOD;
       }
 
-      // Check if game is over
-      const totalPeriods =
-        game.settings.periodCount +
+      // Calculate total periods including overtime
+      const regularPeriods = game.settings.periodCount;
+      const maxPeriods =
+        regularPeriods +
         (game.settings.hasOvertime ? game.settings.overtimePeriods : 0);
 
-      if (
-        game.currentPeriodIndex >= totalPeriods - 1 &&
-        currentPeriod?.endTime
-      ) {
+      // Check if game should be over
+      const allRegularPeriodsComplete =
+        game.currentPeriodIndex >= regularPeriods - 1 && currentPeriod?.endTime;
+
+      if (allRegularPeriodsComplete) {
+        const isTied = game.homeScore === game.awayScore;
+
+        if (isTied && game.settings.hasOvertime) {
+          if (game.currentPeriodIndex >= maxPeriods - 1) {
+            return GAME_STAGES.END_GAME;
+          }
+          return GAME_STAGES.BETWEEN_PERIODS;
+        }
+
         return GAME_STAGES.END_GAME;
       }
 
       return GAME_STAGES.BETWEEN_PERIODS;
     },
 
-    // ==================== TIME CALCULATIONS ====================
-
-    getGameTime: () => {
+    syncGameStatus: async () => {
       const game = get().game;
-      if (!game?.firstPeriodStartTime) return 0;
-      return Math.floor((Date.now() - game.firstPeriodStartTime) / 1000);
+      if (!game) return;
+
+      const stage = get().getGameStage();
+      let newStatus = game.status;
+
+      if (stage === GAME_STAGES.BEFORE_START) {
+        newStatus = "scheduled";
+      } else if (stage === GAME_STAGES.END_GAME) {
+        newStatus = "completed";
+      } else {
+        newStatus = "in_progress";
+      }
+
+      // Update game stage in state
+      get().updateGame({ gameStage: stage });
+
+      // Update DB if status changed
+      if (newStatus !== game.status) {
+        try {
+          await apiFetch(`games?id=${game.game_id}`, "PUT", {
+            status: newStatus,
+          });
+          get().updateGame({ status: newStatus });
+        } catch (error) {
+          console.error("Error syncing game status:", error);
+        }
+      }
     },
 
+    // ==================== TIME CALCULATIONS ====================
+
+    /**
+     * Gets current game time in seconds (wall clock time since game started).
+     * Game time NEVER pauses.
+     */
+    getGameTime: () => {
+      const game = get().game;
+      if (!game || !game.firstPeriodStartTime) return 0;
+
+      let currentMs;
+
+      // If game ended, use the last period's end time
+      if (game.gameStage === GAME_STAGES.END_GAME && game.periods.length > 0) {
+        const latestPeriod = game.periods.reduce((latest, current) => {
+          return !latest || current.periodNumber > latest.periodNumber
+            ? current
+            : latest;
+        }, null);
+
+        if (latestPeriod?.endTime) {
+          currentMs = latestPeriod.endTime;
+        }
+      }
+
+      // Otherwise use current time
+      if (!currentMs) {
+        currentMs = Date.now();
+      }
+
+      return calculateGameTime(game.firstPeriodStartTime, currentMs);
+    },
+
+    /**
+     * Gets current period time (playing time, excluding stoppages).
+     */
     getPeriodTime: () => {
       const game = get().game;
-      const currentPeriod = game?.periods[game.currentPeriodIndex];
+      if (!game) return 0;
+
+      const currentPeriod = game.periods[game.currentPeriodIndex];
       if (!currentPeriod?.startTime) return 0;
 
-      const now = currentPeriod.endTime || Date.now();
-      const elapsedRealTime = Math.floor(
-        (now - currentPeriod.startTime) / 1000
+      const currentMs = currentPeriod.endTime || Date.now();
+      const periodStoppages = game.stoppages.filter(
+        (s) => s.periodNumber === currentPeriod.periodNumber
       );
 
-      const stoppageTime = get().calculateStoppageTimeForPeriod(
-        game.currentPeriodIndex
+      return calculatePeriodTime(
+        currentPeriod.startTime,
+        currentMs,
+        periodStoppages
       );
-
-      if (game.settings.clockDirection === "up") {
-        return elapsedRealTime - stoppageTime;
-      } else {
-        const netElapsed = elapsedRealTime - stoppageTime;
-        const periodDuration = get().getPeriodDuration(game.currentPeriodIndex);
-        return Math.max(0, periodDuration - netElapsed);
-      }
     },
 
     getPeriodDuration: (periodIndex) => {
@@ -279,82 +321,50 @@ const useGameStore = create((set, get) => {
         : game.settings.overtimeDuration;
     },
 
-    calculateStoppageTimeForPeriod: (periodIndex) => {
-      const game = get().game;
-      const period = game?.periods[periodIndex];
-      if (!period) return 0;
-
-      const periodStartGameTime = get().calculateGameTimeAtTimestamp(
-        period.startTime
-      );
-      const periodEndGameTime = period.endTime
-        ? get().calculateGameTimeAtTimestamp(period.endTime)
-        : get().getGameTime();
-
-      return game.stoppages
-        .filter((s) => {
-          const stoppageStart = s.startTime;
-          const stoppageEnd = s.endTime || get().getGameTime();
-          return (
-            s.shouldPausePeriodClock &&
-            stoppageStart >= periodStartGameTime &&
-            stoppageStart < periodEndGameTime
-          );
-        })
-        .reduce((total, s) => {
-          const duration = (s.endTime || get().getGameTime()) - s.startTime;
-          return total + duration;
-        }, 0);
-    },
-
-    calculateGameTimeAtTimestamp: (timestamp) => {
-      const game = get().game;
-      if (!game?.firstPeriodStartTime) return 0;
-      return Math.floor((timestamp - game.firstPeriodStartTime) / 1000);
-    },
-
     // ==================== GAME ACTIONS ====================
 
-    startGame: async () => {
+    startNextPeriod: async () => {
       const game = get().game;
       if (!game) return;
 
-      const now = new Date();
+      const nowMs = Date.now();
+      const isFirstPeriod = game.periods.length === 0;
+      const nextIndex = isFirstPeriod ? 0 : game.currentPeriodIndex + 1;
+      const nextNumber = nextIndex + 1;
 
       try {
-        // Create period in DB
+        // Create new period in DB (store Unix ms as BIGINT)
         const periodData = await apiFetch("game_periods", "POST", {
           game_id: game.game_id,
-          period_number: 1,
-          start_time: now.toISOString(),
+          period_number: nextNumber,
+          start_time: nowMs, // BIGINT Unix ms
           end_time: null,
           added_time: 0,
         });
 
-        const updates = {
-          firstPeriodStartTime: now.getTime(),
-          currentPeriodIndex: 0,
-          periods: [
-            {
-              id: periodData.id,
-              index: 0,
-              startTime: now.getTime(),
-              endTime: null,
-            },
-          ],
-          stage: GAME_STAGES.DURING_PERIOD,
-          stoppages: [],
-          currentStoppageIndex: -1,
+        const newPeriod = {
+          id: periodData.id,
+          periodNumber: nextNumber,
+          index: nextIndex,
+          startTime: nowMs,
+          endTime: null,
+          addedTime: 0,
         };
 
-        get().updateGame(updates);
-
-        // Update game status in DB
-        await apiFetch(`games?id=${game.game_id}`, "PUT", {
-          status: "in_progress",
+        get().updateGame({
+          ...(isFirstPeriod && {
+            firstPeriodStartTime: nowMs,
+            stoppages: [],
+          }),
+          currentPeriodIndex: nextIndex,
+          periods: [...game.periods, newPeriod],
         });
+
+        if (isFirstPeriod) {
+          await get().syncGameStatus();
+        }
       } catch (error) {
-        console.error("Error starting game:", error);
+        console.error("Error starting next period:", error);
       }
     },
 
@@ -362,96 +372,87 @@ const useGameStore = create((set, get) => {
       const game = get().game;
       if (!game) return;
 
-      const now = new Date();
+      const nowMs = Date.now();
       const currentPeriod = game.periods[game.currentPeriodIndex];
 
       try {
-        // Update period in DB
+        // Update period in DB (store Unix ms as BIGINT)
         await apiFetch(`game_periods?id=${currentPeriod.id}`, "PUT", {
-          end_time: now.toISOString(),
-          added_time: 0, // TODO: Calculate added time from stoppages
+          end_time: nowMs, // BIGINT Unix ms
+          added_time: 0,
         });
 
         const updatedPeriods = [...game.periods];
         updatedPeriods[game.currentPeriodIndex] = {
           ...updatedPeriods[game.currentPeriodIndex],
-          endTime: now.getTime(),
+          endTime: nowMs,
         };
 
         get().updateGame({ periods: updatedPeriods });
+        await get().syncGameStatus();
       } catch (error) {
         console.error("Error ending period:", error);
       }
     },
 
-    startNextPeriod: async () => {
+    startStoppage: async (reason = "") => {
       const game = get().game;
       if (!game) return;
 
-      const now = new Date();
-      const nextIndex = game.currentPeriodIndex + 1;
+      const gameTime = get().getGameTime();
+      const period = get().getCurrentPeriodNumber();
 
       try {
-        // Create new period in DB
-        const periodData = await apiFetch("game_periods", "POST", {
-          game_id: game.id,
-          period_number: nextIndex + 1,
-          start_time: now.toISOString(),
-          end_time: null,
-          added_time: 0,
+        // Create stoppage event (times stored as game seconds)
+        const stoppageEvent = await apiFetch("game_events", "POST", {
+          game_id: game.game_id,
+          player_game_id: null,
+          event_category: "major",
+          event_type: "stoppage",
+          game_time: gameTime, // INT game seconds
+          period: period,
+          is_stoppage: 1,
+          stoppage_start_time: gameTime, // INT game seconds
+          stoppage_end_time: null,
+          clock_should_run: 0,
+          details: reason,
         });
 
-        const newPeriod = {
-          id: periodData.id,
-          index: nextIndex,
-          startTime: now.getTime(),
+        const newStoppage = {
+          id: stoppageEvent.id,
+          startTime: gameTime,
           endTime: null,
+          reason,
+          periodNumber: period,
         };
 
         get().updateGame({
-          currentPeriodIndex: nextIndex,
-          periods: [...game.periods, newPeriod],
+          stoppages: [...game.stoppages, newStoppage],
         });
       } catch (error) {
-        console.error("Error starting next period:", error);
+        console.error("Error starting stoppage:", error);
       }
     },
 
-    startStoppage: async (shouldPausePeriodClock = true, reason = "") => {
+    endStoppage: async (stoppageId) => {
       const game = get().game;
       if (!game) return;
 
       const gameTime = get().getGameTime();
-      const newStoppage = {
-        id: `stoppage_${Date.now()}`,
-        startTime: gameTime,
-        endTime: null,
-        shouldPausePeriodClock,
-        reason,
-        periodIndex: game.currentPeriodIndex,
-      };
 
-      get().updateGame({
-        stoppages: [...game.stoppages, newStoppage],
-        currentStoppageIndex: game.stoppages.length,
-      });
-    },
+      try {
+        await apiFetch(`game_events?id=${stoppageId}`, "PUT", {
+          stoppage_end_time: gameTime, // INT game seconds
+        });
 
-    endStoppage: async () => {
-      const game = get().game;
-      if (!game || game.currentStoppageIndex < 0) return;
+        const updatedStoppages = game.stoppages.map((s) =>
+          s.id === stoppageId ? { ...s, endTime: gameTime } : s
+        );
 
-      const gameTime = get().getGameTime();
-      const updatedStoppages = [...game.stoppages];
-      updatedStoppages[game.currentStoppageIndex] = {
-        ...updatedStoppages[game.currentStoppageIndex],
-        endTime: gameTime,
-      };
-
-      get().updateGame({
-        stoppages: updatedStoppages,
-        currentStoppageIndex: -1,
-      });
+        get().updateGame({ stoppages: updatedStoppages });
+      } catch (error) {
+        console.error("Error ending stoppage:", error);
+      }
     },
 
     endGame: async () => {
@@ -459,16 +460,105 @@ const useGameStore = create((set, get) => {
       if (!game) return;
 
       try {
-        // Update game status in DB
-        await apiFetch(`games?id=${game.id}`, "PUT", {
+        await apiFetch(`games?id=${game.game_id}`, "PUT", {
           status: "completed",
         });
 
-        get().updateGame({
-          stage: GAME_STAGES.END_GAME,
-        });
+        get().updateGame({ status: "completed" });
       } catch (error) {
         console.error("Error ending game:", error);
+      }
+    },
+
+    // ==================== MANUAL MANAGEMENT ====================
+
+    deletePeriod: async (periodId) => {
+      try {
+        await apiFetch(`game_periods?id=${periodId}`, "DELETE");
+
+        const game = get().game;
+        if (!game) return;
+
+        const updatedPeriods = game.periods.filter((p) => p.id !== periodId);
+        get().updateGame({
+          periods: updatedPeriods,
+          currentPeriodIndex: Math.max(0, updatedPeriods.length - 1),
+        });
+
+        await get().syncGameStatus();
+      } catch (error) {
+        console.error("Error deleting period:", error);
+        throw error;
+      }
+    },
+
+    updatePeriod: async (periodId, updates) => {
+      try {
+        await apiFetch(`game_periods?id=${periodId}`, "PUT", updates);
+
+        const game = get().game;
+        if (!game) return;
+
+        const updatedPeriods = game.periods.map((p) =>
+          p.id === periodId
+            ? {
+                ...p,
+                startTime: updates.start_time || p.startTime,
+                endTime:
+                  updates.end_time !== undefined ? updates.end_time : p.endTime,
+              }
+            : p
+        );
+        get().updateGame({ periods: updatedPeriods });
+
+        await get().syncGameStatus();
+      } catch (error) {
+        console.error("Error updating period:", error);
+        throw error;
+      }
+    },
+
+    deleteEvent: async (eventId) => {
+      try {
+        await apiFetch(`game_events?id=${eventId}`, "DELETE");
+
+        const game = get().game;
+        if (game) {
+          const updatedStoppages = game.stoppages.filter(
+            (s) => s.id !== eventId
+          );
+          get().updateGame({ stoppages: updatedStoppages });
+        }
+      } catch (error) {
+        console.error("Error deleting event:", error);
+        throw error;
+      }
+    },
+
+    updateEvent: async (eventId, updates) => {
+      try {
+        await apiFetch(`game_events?id=${eventId}`, "PUT", updates);
+      } catch (error) {
+        console.error("Error updating event:", error);
+        throw error;
+      }
+    },
+
+    deleteSub: async (subId) => {
+      try {
+        await apiFetch(`game_subs?id=${subId}`, "DELETE");
+      } catch (error) {
+        console.error("Error deleting sub:", error);
+        throw error;
+      }
+    },
+
+    updateSub: async (subId, updates) => {
+      try {
+        await apiFetch(`game_subs?id=${subId}`, "PUT", updates);
+      } catch (error) {
+        console.error("Error updating sub:", error);
+        throw error;
       }
     },
 
@@ -497,7 +587,6 @@ const useGameStore = create((set, get) => {
       return get().getPeriodLabel(game.currentPeriodIndex);
     },
 
-    // Constants
     GAME_STAGES,
   };
 });

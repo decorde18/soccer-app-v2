@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import useGameStore from "./gameStore";
 import { apiFetch } from "@/app/api/fetcher";
+import { calculatePlayerTimeOnField } from "@/lib/dateTimeUtils";
 
 const useGamePlayersStore = create((set, get) => ({
   // State
@@ -25,7 +26,7 @@ const useGamePlayersStore = create((set, get) => ({
       );
 
       if (existingPlayerGames && existingPlayerGames.length > 0) {
-        // Fetch all substitutions for this game
+        // Fetch all substitutions for this game (sub_time is INT game seconds)
         const allSubs = await apiFetch("game_subs", "GET", null, null, {
           filters: { game_id: gameId },
         });
@@ -41,13 +42,13 @@ const useGamePlayersStore = create((set, get) => ({
           }
         );
 
-        // Transform to store format with subs data and stats
+        // Transform to store format
         const players = existingPlayerGames.map((pg) => {
-          // Get this player's ins and outs from game_subs
+          // Get this player's ins and outs (sub_time is game seconds)
           const playerIns = allSubs
             .filter((sub) => sub.in_player_id === pg.player_id)
             .map((sub) => ({
-              gameTime: sub.sub_time,
+              gameTime: sub.sub_time, // game seconds (INT)
               subId: sub.id,
               gkSub: sub.gk_sub === 1,
             }));
@@ -55,7 +56,7 @@ const useGamePlayersStore = create((set, get) => ({
           const playerOuts = allSubs
             .filter((sub) => sub.out_player_id === pg.player_id)
             .map((sub) => ({
-              gameTime: sub.sub_time,
+              gameTime: sub.sub_time, // game seconds (INT)
               subId: sub.id,
               gkSub: sub.gk_sub === 1,
             }));
@@ -180,7 +181,7 @@ const useGamePlayersStore = create((set, get) => ({
           },
         })) || [];
 
-      // Create player_games and transform to store format in one pass
+      // Create player_games
       const createdPlayerGames = await Promise.all(
         teamPlayers.map((p) =>
           apiFetch("player_games", "POST", {
@@ -215,6 +216,14 @@ const useGamePlayersStore = create((set, get) => ({
           homeAway: p.team_season_id === home_team_season_id ? "home" : "away",
           ins: [],
           outs: [],
+          goals: 0,
+          assists: 0,
+          shots: 0,
+          shotsOnTarget: 0,
+          saves: 0,
+          yellowCards: 0,
+          redCards: 0,
+          corners: 0,
         };
       });
 
@@ -246,7 +255,7 @@ const useGamePlayersStore = create((set, get) => ({
         if (updates.gameStatus) dbUpdates.game_status = updates.gameStatus;
         if (updates.started !== undefined)
           dbUpdates.started = updates.started ? 1 : 0;
-        console.log(`player_games?id=${player.playerGameId}`, dbUpdates);
+
         await apiFetch(
           `player_games?id=${player.playerGameId}`,
           "PUT",
@@ -341,7 +350,7 @@ const useGamePlayersStore = create((set, get) => ({
         game_id: gameId,
         in_player_id: inPlayerId,
         out_player_id: outPlayerId,
-        sub_time: null, // Pending - no time yet
+        sub_time: null, // Pending - no time yet (INT column)
         period: useGameStore.getState().getCurrentPeriodNumber(),
         gk_sub: isGkSub ? 1 : 0,
       });
@@ -384,10 +393,10 @@ const useGamePlayersStore = create((set, get) => ({
   },
 
   confirmSub: async (subId) => {
-    const gameTime = useGameStore.getState().getGameTime();
+    const gameTime = useGameStore.getState().getGameTime(); // Already in seconds
 
     try {
-      // Update the sub with the actual game time
+      // Update the sub with the actual game time (INT seconds)
       await apiFetch(`game_subs?id=${subId}`, "PUT", {
         sub_time: gameTime,
       });
@@ -428,7 +437,7 @@ const useGamePlayersStore = create((set, get) => ({
         }),
       }));
 
-      console.log(`Confirmed sub ${subId} at game time ${gameTime}`);
+      console.log(`Confirmed sub ${subId} at game time ${gameTime} seconds`);
     } catch (error) {
       console.error("Error confirming sub:", error);
     }
@@ -474,43 +483,109 @@ const useGamePlayersStore = create((set, get) => ({
     }
   },
 
-  // Legacy methods - kept for backwards compatibility but deprecated
-  recordSubIn: async (playerId) => {
-    console.warn(
-      "recordSubIn is deprecated. Use createPendingSub and confirmSub instead."
-    );
-    const gameTime = useGameStore.getState().getGameTime();
+  // ==================== EVENT RECORDING ====================
 
-    set((state) => ({
-      players: state.players.map((player) => {
-        if (player.id !== playerId) return player;
+  recordEvent: async (eventData) => {
+    const gameStore = useGameStore.getState();
+    const game = gameStore.game;
+    const gameTime = gameStore.getGameTime(); // Already in seconds
+    const period = gameStore.getCurrentPeriodNumber();
 
-        const ins = player.ins || [];
-        return {
-          ...player,
-          ins: [...ins, { gameTime, subId: null, gkSub: false }],
-        };
-      }),
-    }));
+    try {
+      const event = await apiFetch("game_events", "POST", {
+        game_id: game.id,
+        player_game_id: eventData.playerGameId,
+        event_category: eventData.category,
+        event_type: eventData.type,
+        game_time: gameTime, // INT seconds
+        period: period,
+        is_stoppage: eventData.isStoppage || 0,
+        stoppage_start_time: eventData.stoppageStartTime || null,
+        stoppage_end_time: eventData.stoppageEndTime || null,
+        clock_should_run: eventData.clockShouldRun ?? 1,
+        assist_player_game_id: eventData.assistPlayerGameId || null,
+        goal_types: eventData.goalTypes
+          ? JSON.stringify(eventData.goalTypes)
+          : null,
+        card_reason: eventData.cardReason || null,
+        details: eventData.details || null,
+      });
+
+      // Update local player stats
+      const playerId = get().players.find(
+        (p) => p.playerGameId === eventData.playerGameId
+      )?.id;
+
+      if (playerId) {
+        if (eventData.type === "goal") {
+          get().incrementPlayerStat(playerId, "goals");
+        } else if (eventData.type === "shot") {
+          get().incrementPlayerStat(playerId, "shots");
+        } else if (eventData.type === "shot_on_target") {
+          get().incrementPlayerStat(playerId, "shots");
+          get().incrementPlayerStat(playerId, "shotsOnTarget");
+        } else if (eventData.type === "save") {
+          get().incrementPlayerStat(playerId, "saves");
+        } else if (eventData.type === "yellow_card") {
+          get().incrementPlayerStat(playerId, "yellowCards");
+        } else if (eventData.type === "red_card") {
+          get().incrementPlayerStat(playerId, "redCards");
+        }
+
+        // Handle assist
+        if (eventData.assistPlayerGameId) {
+          const assistPlayerId = get().players.find(
+            (p) => p.playerGameId === eventData.assistPlayerGameId
+          )?.id;
+          if (assistPlayerId) {
+            get().incrementPlayerStat(assistPlayerId, "assists");
+          }
+        }
+      }
+
+      return event;
+    } catch (error) {
+      console.error("Error recording event:", error);
+    }
   },
 
-  recordSubOut: async (playerId) => {
-    console.warn(
-      "recordSubOut is deprecated. Use createPendingSub and confirmSub instead."
-    );
-    const gameTime = useGameStore.getState().getGameTime();
+  refreshPlayerStats: async (gameId) => {
+    try {
+      const allStats = await apiFetch(
+        "v_player_game_stats",
+        "GET",
+        null,
+        null,
+        {
+          filters: { game_id: gameId },
+        }
+      );
 
-    set((state) => ({
-      players: state.players.map((player) => {
-        if (player.id !== playerId) return player;
+      set((state) => ({
+        players: state.players.map((player) => {
+          const playerStats = allStats.find(
+            (s) => s.player_game_id === player.playerGameId
+          );
 
-        const outs = player.outs || [];
-        return {
-          ...player,
-          outs: [...outs, { gameTime, subId: null, gkSub: false }],
-        };
-      }),
-    }));
+          if (playerStats) {
+            return {
+              ...player,
+              goals: playerStats.goals || 0,
+              assists: playerStats.assists || 0,
+              shots: playerStats.shots || 0,
+              shotsOnTarget: playerStats.shots_on_target || 0,
+              saves: playerStats.saves || 0,
+              yellowCards: playerStats.yellow_cards || 0,
+              redCards: playerStats.red_cards || 0,
+              corners: playerStats.corners || 0,
+            };
+          }
+          return player;
+        }),
+      }));
+    } catch (error) {
+      console.error("Error refreshing player stats:", error);
+    }
   },
 
   // ==================== TIME CALCULATIONS ====================
@@ -518,28 +593,17 @@ const useGamePlayersStore = create((set, get) => ({
   calculateTotalTimeOnField: (player, currentGameTime) => {
     if (!player) return 0;
 
-    const ins = (player.ins || []).filter((sub) => sub.gameTime !== null);
-    const outs = (player.outs || []).filter((sub) => sub.gameTime !== null);
+    const game = useGameStore.getState().game;
+    const stoppages = game?.stoppages || [];
+    const isStarter = ["starter", "goalkeeper"].includes(player.gameStatus);
 
-    const effectiveIns =
-      ins.length === 0 &&
-      (player.gameStatus === "starter" || player.gameStatus === "goalkeeper")
-        ? [{ gameTime: 0 }]
-        : ins;
-
-    let totalTime = 0;
-
-    const minLength = Math.min(effectiveIns.length, outs.length);
-    for (let i = 0; i < minLength; i++) {
-      totalTime += outs[i].gameTime - effectiveIns[i].gameTime;
-    }
-
-    if (effectiveIns.length > outs.length) {
-      const lastIn = effectiveIns[effectiveIns.length - 1];
-      totalTime += currentGameTime - lastIn.gameTime;
-    }
-
-    return Math.max(0, totalTime);
+    return calculatePlayerTimeOnField(
+      player.ins,
+      player.outs,
+      isStarter,
+      currentGameTime,
+      stoppages
+    );
   },
 
   calculateCurrentTimeOnField: (player, currentGameTime) => {
@@ -553,13 +617,37 @@ const useGamePlayersStore = create((set, get) => ({
       ins.length === 0 &&
       outs.length === 0;
 
-    if (isStarterNoSubs) return currentGameTime;
+    if (isStarterNoSubs) {
+      const game = useGameStore.getState().game;
+      const stoppages = game?.stoppages || [];
+      return calculatePlayerTimeOnField(
+        [],
+        [],
+        true,
+        currentGameTime,
+        stoppages
+      );
+    }
 
     const isOnField = ins.length > outs.length;
     if (!isOnField) return 0;
 
     const lastIn = ins[ins.length - 1];
-    return Math.max(0, currentGameTime - lastIn.gameTime);
+    const game = useGameStore.getState().game;
+    const stoppages = game?.stoppages || [];
+
+    // Calculate time from last sub in, excluding stoppages
+    const timeRange = currentGameTime - lastIn.gameTime;
+    const stoppageTime = stoppages
+      .filter(
+        (s) =>
+          s.endTime &&
+          s.startTime >= lastIn.gameTime &&
+          s.startTime < currentGameTime
+      )
+      .reduce((total, s) => total + (s.endTime - s.startTime), 0);
+
+    return Math.max(0, timeRange - stoppageTime);
   },
 
   calculateCurrentTimeOffField: (player, currentGameTime) => {
