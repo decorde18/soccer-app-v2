@@ -17,7 +17,7 @@ function GameManagementPage() {
   const [subs, setSubs] = useState([]);
   const [selectedTab, setSelectedTab] = useState("periods");
   const [isLoading, setIsLoading] = useState(false);
-  console.log(game);
+
   // Load data
   useEffect(() => {
     if (!game?.id) return;

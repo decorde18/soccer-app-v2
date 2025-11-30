@@ -1,12 +1,8 @@
 // stores/gameStore.js
 import { create } from "zustand";
 import { apiFetch } from "@/app/api/fetcher";
-import {
-  toMySqlDateTime,
-  fromMySqlDateTime,
-  calculateGameTime,
-  calculatePeriodTime,
-} from "@/lib/dateTimeUtils";
+import { calculateGameTime, calculatePeriodTime } from "@/lib/dateTimeUtils";
+import useGamePlayersStore from "./gamePlayersStore";
 
 const GAME_STAGES = {
   BEFORE_START: "before_start",
@@ -322,7 +318,6 @@ const useGameStore = create((set, get) => {
     },
 
     // ==================== GAME ACTIONS ====================
-
     startNextPeriod: async () => {
       const game = get().game;
       if (!game) return;
@@ -337,7 +332,7 @@ const useGameStore = create((set, get) => {
         const periodData = await apiFetch("game_periods", "POST", {
           game_id: game.game_id,
           period_number: nextNumber,
-          start_time: nowMs, // BIGINT Unix ms
+          start_time: nowMs,
           end_time: null,
           added_time: 0,
         });
@@ -363,10 +358,76 @@ const useGameStore = create((set, get) => {
         if (isFirstPeriod) {
           await get().syncGameStatus();
         }
+
+        // Auto-confirm any pending subs at time 0 of new period
+        const gamePlayersStore = useGamePlayersStore.getState();
+        const pendingSubs = gamePlayersStore.getPendingSubs();
+        const completeSubs = pendingSubs.filter((sub) => sub.isComplete);
+
+        if (completeSubs.length > 0) {
+          console.log(
+            `Auto-confirming ${completeSubs.length} subs at start of period ${nextNumber}`
+          );
+
+          // Get game time (should be 0 for start of period)
+          const gameTime = get().getGameTime();
+
+          // Confirm each sub
+          await Promise.all(
+            completeSubs.map(
+              (sub) => gamePlayersStore.confirmSub(sub.subId),
+              gameTime
+            )
+          );
+        }
       } catch (error) {
         console.error("Error starting next period:", error);
       }
     },
+    // startNextPeriod: async () => {
+    //   const game = get().game;
+    //   if (!game) return;
+
+    //   const nowMs = Date.now();
+    //   const isFirstPeriod = game.periods.length === 0;
+    //   const nextIndex = isFirstPeriod ? 0 : game.currentPeriodIndex + 1;
+    //   const nextNumber = nextIndex + 1;
+
+    //   try {
+    //     // Create new period in DB (store Unix ms as BIGINT)
+    //     const periodData = await apiFetch("game_periods", "POST", {
+    //       game_id: game.game_id,
+    //       period_number: nextNumber,
+    //       start_time: nowMs, // BIGINT Unix ms
+    //       end_time: null,
+    //       added_time: 0,
+    //     });
+
+    //     const newPeriod = {
+    //       id: periodData.id,
+    //       periodNumber: nextNumber,
+    //       index: nextIndex,
+    //       startTime: nowMs,
+    //       endTime: null,
+    //       addedTime: 0,
+    //     };
+
+    //     get().updateGame({
+    //       ...(isFirstPeriod && {
+    //         firstPeriodStartTime: nowMs,
+    //         stoppages: [],
+    //       }),
+    //       currentPeriodIndex: nextIndex,
+    //       periods: [...game.periods, newPeriod],
+    //     });
+
+    //     if (isFirstPeriod) {
+    //       await get().syncGameStatus();
+    //     }
+    //   } catch (error) {
+    //     console.error("Error starting next period:", error);
+    //   }
+    // },
 
     endPeriod: async () => {
       const game = get().game;

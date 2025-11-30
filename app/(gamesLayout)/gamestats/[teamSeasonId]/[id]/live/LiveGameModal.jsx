@@ -7,9 +7,9 @@ import Select from "@/components/ui/Select";
 import { secondsToTime, formatSecondsToMmss } from "@/lib/dateTimeUtils";
 import useGameStore from "@/stores/gameStore";
 import useGamePlayersStore from "@/stores/gamePlayersStore";
-import PendingSubsComponent from "./PendingSubs";
+import PendingSubs from "./PendingSubs";
 
-function GameControlModal({ isOpen, onClose }) {
+function GameControlModal({ onClose }) {
   const game = useGameStore((s) => s.game);
   const gameStage = useGameStore((s) => s.getGameStage());
   const getGameTime = useGameStore((s) => s.getGameTime);
@@ -24,6 +24,8 @@ function GameControlModal({ isOpen, onClose }) {
   const getPendingSubs = useGamePlayersStore((s) => s.getPendingSubs);
   const confirmSub = useGamePlayersStore((s) => s.confirmSub);
   const recordEvent = useGamePlayersStore((s) => s.recordEvent);
+
+  const isOpen = game.gameStage === "in_stoppage";
 
   const [, setTick] = useState(0);
   const [eventType, setEventType] = useState("");
@@ -227,7 +229,7 @@ function GameControlModal({ isOpen, onClose }) {
                 Confirm All
               </Button>
             </div>
-            <PendingSubsComponent />
+            <PendingSubs />
           </div>
         )}
 

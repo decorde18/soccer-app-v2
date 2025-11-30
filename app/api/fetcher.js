@@ -9,7 +9,7 @@ const API_BASE_URL = "/api";
  * @param {Object} data - Data for POST, PUT, PATCH
  * @param {string|number} id - ID for GET, DELETE, PUT, PATCH
  * @param {Object} options - Query options for GET requests
- * @param {Object} options.filters - Filters (e.g., { status: 'active', user_id: 123 })
+ * @param {Object} options.filters - Filters (e.g., { status: 'active', user_id: 123, sub_time_is_null: true })
  * @param {Object} options.operators - Operators for filters (e.g., { age: 'gt', price: 'lte' })
  * @param {string|Array} options.sortBy - Column(s) to sort by
  * @param {string|Array} options.order - Sort order ('asc' or 'desc')
@@ -46,21 +46,32 @@ export async function apiFetch(
 
     // Add filters
     for (const [key, value] of Object.entries(filters)) {
-      const operator = operators[key];
-      if (operator) {
-        // Convert operator to suffix (e.g., '>' becomes 'gt')
-        const operatorSuffixMap = {
-          ">": "gt",
-          ">=": "gte",
-          "<": "lt",
-          "<=": "lte",
-          "!=": "ne",
-          LIKE: "like",
-        };
-        const suffix = operatorSuffixMap[operator];
-        params.append(`${key}_${suffix}`, value);
-      } else {
+      // Handle IS NULL checks (e.g., sub_time_is_null: true)
+      if (key.endsWith("_is_null")) {
         params.append(key, value);
+      }
+      // Handle IS NOT NULL checks (e.g., sub_time_is_not_null: true)
+      else if (key.endsWith("_is_not_null")) {
+        params.append(key, value);
+      }
+      // Handle operators
+      else {
+        const operator = operators[key];
+        if (operator) {
+          // Convert operator to suffix (e.g., '>' becomes 'gt')
+          const operatorSuffixMap = {
+            ">": "gt",
+            ">=": "gte",
+            "<": "lt",
+            "<=": "lte",
+            "!=": "ne",
+            LIKE: "like",
+          };
+          const suffix = operatorSuffixMap[operator];
+          params.append(`${key}_${suffix}`, value);
+        } else {
+          params.append(key, value);
+        }
       }
     }
 

@@ -40,7 +40,7 @@ function OnBenchPlayers() {
     { name: "goals", label: "G", cellClassName: "text-end" },
     { name: "assists", label: "A", cellClassName: "text-end" },
     { name: "timeIn", label: "Time", cellClassName: "text-end" },
-    { name: "timeOffBench", label: "Off Bench", cellClassName: "text-end" },
+    { name: "timeOffBench", label: "On Bench", cellClassName: "text-end" },
   ];
 
   const getButtonText = (fieldStatus) => {
