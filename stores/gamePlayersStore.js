@@ -1,8 +1,7 @@
 // stores/gamePlayersStore.js
+// Core player data management - loading, basic updates, field status
 import { create } from "zustand";
-import useGameStore from "./gameStore";
 import { apiFetch } from "@/app/api/fetcher";
-import { calculatePlayerTimeOnField } from "@/lib/dateTimeUtils";
 
 const useGamePlayersStore = create((set, get) => ({
   // State
@@ -12,13 +11,10 @@ const useGamePlayersStore = create((set, get) => ({
 
   // ==================== INITIALIZATION ====================
 
-  // In gamePlayersStore.js - Replace the loadPlayers function
-
   loadPlayers: async (gameId, teamSeasonId) => {
     set({ isLoading: true, error: null });
 
     try {
-      // Fetch existing player_games from v_player_games view
       const existingPlayerGames = await apiFetch(
         "v_player_games",
         "GET",
@@ -28,33 +24,26 @@ const useGamePlayersStore = create((set, get) => ({
       );
 
       if (existingPlayerGames && existingPlayerGames.length > 0) {
-        // Fetch all substitutions for this game (sub_time is INT game seconds)
         const allSubs = await apiFetch("game_subs", "GET", null, null, {
           filters: { game_id: gameId },
         });
 
-        // Separate pending and confirmed subs
         const pendingSubs = allSubs.filter((sub) => sub.sub_time === null);
         const confirmedSubs = allSubs.filter((sub) => sub.sub_time !== null);
 
-        // Fetch stats for all players in this game
         const allStats = await apiFetch(
           "v_player_game_stats",
           "GET",
           null,
           null,
-          {
-            filters: { game_id: gameId },
-          }
+          { filters: { game_id: gameId } }
         );
 
-        // Transform to store format
         const players = existingPlayerGames.map((pg) => {
-          // Get this player's confirmed ins and outs (sub_time is game seconds)
           const playerIns = confirmedSubs
             .filter((sub) => sub.in_player_id === pg.player_game_id)
             .map((sub) => ({
-              gameTime: sub.sub_time, // game seconds (INT)
+              gameTime: sub.sub_time,
               subId: sub.id,
               gkSub: sub.gk_sub === 1,
             }));
@@ -62,12 +51,11 @@ const useGamePlayersStore = create((set, get) => ({
           const playerOuts = confirmedSubs
             .filter((sub) => sub.out_player_id === pg.player_game_id)
             .map((sub) => ({
-              gameTime: sub.sub_time, // game seconds (INT)
+              gameTime: sub.sub_time,
               subId: sub.id,
               gkSub: sub.gk_sub === 1,
             }));
 
-          // Get this player's pending subs
           const playerPendingIn = pendingSubs.find(
             (sub) => sub.in_player_id === pg.player_game_id
           );
@@ -75,7 +63,6 @@ const useGamePlayersStore = create((set, get) => ({
             (sub) => sub.out_player_id === pg.player_game_id
           );
 
-          // Add pending subs to ins/outs arrays
           if (playerPendingIn) {
             playerIns.push({
               gameTime: null,
@@ -91,17 +78,15 @@ const useGamePlayersStore = create((set, get) => ({
             });
           }
 
-          // Determine subStatus
           let subStatus = null;
           if (playerPendingIn && playerPendingOut) {
-            subStatus = "pendingBoth"; // Player is in a complete pending sub
+            subStatus = "pendingBoth";
           } else if (playerPendingIn) {
-            subStatus = "pendingIn"; // Player is subbing in
+            subStatus = "pendingIn";
           } else if (playerPendingOut) {
-            subStatus = "pendingOut"; // Player is subbing out
+            subStatus = "pendingOut";
           }
 
-          // Get this player's stats
           const playerStats = allStats.find(
             (s) => s.player_game_id === pg.player_game_id
           );
@@ -123,8 +108,7 @@ const useGamePlayersStore = create((set, get) => ({
             homeAway: pg.home_away,
             ins: playerIns,
             outs: playerOuts,
-            subStatus: subStatus, // NEW: pending sub status
-            // Stats from game_events
+            subStatus: subStatus,
             goals: playerStats?.goals || 0,
             assists: playerStats?.assists || 0,
             shots: playerStats?.shots || 0,
@@ -135,7 +119,6 @@ const useGamePlayersStore = create((set, get) => ({
             corners: playerStats?.corners || 0,
           };
 
-          // Calculate initial field status
           player.fieldStatus = get().calculateFieldStatus(player);
 
           return player;
@@ -145,7 +128,6 @@ const useGamePlayersStore = create((set, get) => ({
         return players;
       }
 
-      // No player_games exist - create them from roster
       console.log(
         `No player_games found for game ${gameId}. Creating from roster...`
       );
@@ -164,46 +146,8 @@ const useGamePlayersStore = create((set, get) => ({
     }
   },
 
-  // ==================== FIELD STATUS CALCULATION ====================
-
-  calculateFieldStatus: (player) => {
-    if (!player) return "onBench";
-
-    const ins = player.ins || [];
-    const outs = player.outs || [];
-
-    // Check if most recent action is pending (no game time)
-    const lastIn = ins[ins.length - 1];
-    const lastOut = outs[outs.length - 1];
-    const hasPendingIn = lastIn && lastIn.gameTime === null;
-    const hasPendingOut = lastOut && lastOut.gameTime === null;
-
-    // If there's a pending action, return the appropriate subbing status
-    if (hasPendingIn) return "subbingIn";
-    if (hasPendingOut) {
-      return player.gameStatus === "goalkeeper" ? "subbingOutGk" : "subbingOut";
-    }
-
-    // Calculate completed subs (only those with game times)
-    const completedIns = ins.filter((sub) => sub.gameTime !== null).length;
-    const completedOuts = outs.filter((sub) => sub.gameTime !== null).length;
-
-    // Starters/GK begin on field (count as +1 effective in)
-    const isStarter = ["starter", "goalkeeper"].includes(player.gameStatus);
-    const effectiveIns = isStarter ? completedIns + 1 : completedIns;
-
-    const isCurrentlyOnField = effectiveIns > completedOuts;
-
-    if (player.gameStatus === "goalkeeper") {
-      return isCurrentlyOnField ? "onFieldGk" : "onBench";
-    }
-
-    return isCurrentlyOnField ? "onField" : "onBench";
-  },
-
   createPlayerGamesFromRoster: async (gameId, teamSeasonId) => {
     try {
-      // Get game info
       const game = await apiFetch("games", "GET", null, gameId);
       if (!game) throw new Error("Game not found");
 
@@ -213,7 +157,6 @@ const useGamePlayersStore = create((set, get) => ({
         ? home_team_season_id
         : away_team_season_id;
 
-      // Fetch active roster for the selected team
       const teamPlayers =
         (await apiFetch("v_players", "GET", null, null, {
           filters: {
@@ -222,7 +165,6 @@ const useGamePlayersStore = create((set, get) => ({
           },
         })) || [];
 
-      // Create player_games
       const createdPlayerGames = await Promise.all(
         teamPlayers.map((p) =>
           apiFetch("player_games", "POST", {
@@ -257,6 +199,7 @@ const useGamePlayersStore = create((set, get) => ({
           homeAway: p.team_season_id === home_team_season_id ? "home" : "away",
           ins: [],
           outs: [],
+          subStatus: null,
           goals: 0,
           assists: 0,
           shots: 0,
@@ -276,9 +219,42 @@ const useGamePlayersStore = create((set, get) => ({
     }
   },
 
-  setPlayers: (players) => set({ players }),
+  // ==================== FIELD STATUS CALCULATION ====================
 
-  // ==================== PLAYER UPDATES ====================
+  calculateFieldStatus: (player) => {
+    if (!player) return "onBench";
+
+    const ins = player.ins || [];
+    const outs = player.outs || [];
+
+    const lastIn = ins[ins.length - 1];
+    const lastOut = outs[outs.length - 1];
+    const hasPendingIn = lastIn && lastIn.gameTime === null;
+    const hasPendingOut = lastOut && lastOut.gameTime === null;
+
+    if (hasPendingIn) return "subbingIn";
+    if (hasPendingOut) {
+      return player.gameStatus === "goalkeeper" ? "subbingOutGk" : "subbingOut";
+    }
+
+    const completedIns = ins.filter((sub) => sub.gameTime !== null).length;
+    const completedOuts = outs.filter((sub) => sub.gameTime !== null).length;
+
+    const isStarter = ["starter", "goalkeeper"].includes(player.gameStatus);
+    const effectiveIns = isStarter ? completedIns + 1 : completedIns;
+
+    const isCurrentlyOnField = effectiveIns > completedOuts;
+
+    if (player.gameStatus === "goalkeeper") {
+      return isCurrentlyOnField ? "onFieldGk" : "onBench";
+    }
+
+    return isCurrentlyOnField ? "onField" : "onBench";
+  },
+
+  // ==================== BASIC UPDATES ====================
+
+  setPlayers: (players) => set({ players }),
 
   updatePlayer: async (playerId, updates) => {
     set((state) => ({
@@ -287,11 +263,9 @@ const useGamePlayersStore = create((set, get) => ({
       ),
     }));
 
-    // Sync to database if playerGameId exists
     const player = get().players.find((p) => p.id === playerId);
     if (player?.playerGameId) {
       try {
-        // Map store fields to DB fields
         const dbUpdates = {};
         if (updates.gameStatus) dbUpdates.game_status = updates.gameStatus;
         if (updates.started !== undefined)
@@ -306,24 +280,6 @@ const useGamePlayersStore = create((set, get) => ({
         console.error("Error updating player_game:", error);
       }
     }
-  },
-
-  updatePlayerStat: (playerId, stat, value) => {
-    set((state) => ({
-      players: state.players.map((player) =>
-        player.id === playerId ? { ...player, [stat]: value } : player
-      ),
-    }));
-  },
-
-  incrementPlayerStat: (playerId, stat, amount = 1) => {
-    set((state) => ({
-      players: state.players.map((player) =>
-        player.id === playerId
-          ? { ...player, [stat]: (player[stat] || 0) + amount }
-          : player
-      ),
-    }));
   },
 
   updateFieldStatus: (playerId, newStatus) => {
@@ -348,21 +304,17 @@ const useGamePlayersStore = create((set, get) => ({
     const currentPlayer = players.find((p) => p.id === playerId);
     if (!currentPlayer) return;
 
-    // Special handling for goalkeeper
     if (action === "goalkeeper") {
       const updates = [];
 
       if (currentPlayer.gameStatus === "goalkeeper") {
-        // If this player is already goalkeeper, revert them to starter
         updates.push(get().updatePlayer(playerId, { gameStatus: "starter" }));
       } else {
-        // Demote any other goalkeeper to starter
         for (const p of players) {
           if (p.id !== playerId && p.gameStatus === "goalkeeper") {
             updates.push(get().updatePlayer(p.id, { gameStatus: "starter" }));
           }
         }
-        // Set current player to goalkeeper
         updates.push(
           get().updatePlayer(playerId, { gameStatus: "goalkeeper" })
         );
@@ -372,736 +324,15 @@ const useGamePlayersStore = create((set, get) => ({
       return;
     }
 
-    // For all other actions, just set directly
     await get().updatePlayer(playerId, { gameStatus: action });
   },
 
-  // ==================== SUBSTITUTION TRACKING ====================
-  // Replace these functions in gamePlayersStore.js
+  // ==================== SUB STATUS MANAGEMENT ====================
 
-  createPendingSub: async (
-    inPlayerId = null,
-    outPlayerId = null,
-    isGkSub = false
-  ) => {
-    const gameId = useGameStore.getState().game?.game_id;
-    if (!gameId) {
-      console.error("No active game");
-      return null;
-    }
-
-    try {
-      // Create the substitution record without a game time (pending)
-      const sub = await apiFetch("game_subs", "POST", {
-        game_id: gameId,
-        in_player_id: inPlayerId,
-        out_player_id: outPlayerId,
-        sub_time: null,
-        period: useGameStore.getState().getCurrentPeriodNumber(),
-        gk_sub: isGkSub ? 1 : 0,
-      });
-
-      // Add to local state
-      set((state) => ({
-        players: state.players.map((player) => {
-          if (inPlayerId && player.playerGameId === inPlayerId) {
-            const newIns = [
-              ...(player.ins || []),
-              { gameTime: null, subId: sub.id, gkSub: isGkSub },
-            ];
-            return {
-              ...player,
-              ins: newIns,
-              fieldStatus: "subbingIn",
-            };
-          }
-          if (outPlayerId && player.playerGameId === outPlayerId) {
-            const newOuts = [
-              ...(player.outs || []),
-              { gameTime: null, subId: sub.id, gkSub: isGkSub },
-            ];
-            const newFieldStatus = isGkSub ? "subbingOutGk" : "subbingOut";
-            return {
-              ...player,
-              outs: newOuts,
-              fieldStatus: newFieldStatus,
-            };
-          }
-          return player;
-        }),
-      }));
-
-      // Update subStatus for all players
-      await get().updateAllSubStatuses();
-
-      return sub;
-    } catch (error) {
-      console.error("Error creating pending sub:", error);
-      return null;
-    }
-  },
-
-  updatePendingSub: async (subId, updates) => {
-    try {
-      await apiFetch(`game_subs?id=${subId}`, "PUT", updates);
-
-      // Refresh from database to get current state
-      const [updatedSub] = await apiFetch("game_subs", "GET", null, null, {
-        filters: { id: subId },
-      });
-
-      if (!updatedSub) return;
-
-      // Rebuild local state from the updated sub
-      set((state) => {
-        // First, remove this subId from all players
-        let players = state.players.map((player) => ({
-          ...player,
-          ins: (player.ins || []).filter((sub) => sub.subId !== subId),
-          outs: (player.outs || []).filter((sub) => sub.subId !== subId),
-        }));
-
-        // Then add it back to the correct players
-        players = players.map((player) => {
-          if (
-            updatedSub.in_player_id &&
-            player.playerGameId === updatedSub.in_player_id
-          ) {
-            return {
-              ...player,
-              ins: [
-                ...player.ins,
-                {
-                  gameTime: updatedSub.sub_time,
-                  subId: updatedSub.id,
-                  gkSub: updatedSub.gk_sub === 1,
-                },
-              ],
-            };
-          }
-          if (
-            updatedSub.out_player_id &&
-            player.playerGameId === updatedSub.out_player_id
-          ) {
-            return {
-              ...player,
-              outs: [
-                ...player.outs,
-                {
-                  gameTime: updatedSub.sub_time,
-                  subId: updatedSub.id,
-                  gkSub: updatedSub.gk_sub === 1,
-                },
-              ],
-            };
-          }
-          return player;
-        });
-
-        // Recalculate field status for affected players
-        players = players.map((player) => ({
-          ...player,
-          fieldStatus: get().calculateFieldStatus(player),
-        }));
-
-        return { players };
-      });
-
-      // Update subStatus for all players
-      await get().updateAllSubStatuses();
-
-      return updatedSub;
-    } catch (error) {
-      console.error("Error updating pending sub:", error);
-      return null;
-    }
-  },
-
-  confirmSub: async (subId) => {
-    const gameStore = useGameStore.getState();
-    const gameStage = gameStore.getGameStage();
-
-    let gameTime;
-
-    if (gameStage === "between_periods") {
-      console.log("Sub will be confirmed at start of next period");
-      return;
-    } else {
-      gameTime = gameStore.getGameTime();
-    }
-
-    try {
-      await apiFetch(`game_subs?id=${subId}`, "PUT", {
-        sub_time: gameTime,
-      });
-
-      // Update local state
-      set((state) => ({
-        players: state.players.map((player) => {
-          const updatedIns = (player.ins || []).map((sub) =>
-            sub.subId === subId ? { ...sub, gameTime } : sub
-          );
-
-          const updatedOuts = (player.outs || []).map((sub) =>
-            sub.subId === subId ? { ...sub, gameTime } : sub
-          );
-
-          const hasUpdatedIn = updatedIns.some(
-            (sub) => sub.subId === subId && sub.gameTime !== null
-          );
-          const hasUpdatedOut = updatedOuts.some(
-            (sub) => sub.subId === subId && sub.gameTime !== null
-          );
-
-          if (hasUpdatedIn || hasUpdatedOut) {
-            const updatedPlayer = {
-              ...player,
-              ins: updatedIns,
-              outs: updatedOuts,
-            };
-            updatedPlayer.fieldStatus =
-              get().calculateFieldStatus(updatedPlayer);
-            return updatedPlayer;
-          }
-
-          return player;
-        }),
-      }));
-
-      // Update subStatus for all players
-      await get().updateAllSubStatuses();
-
-      console.log(`Confirmed sub ${subId} at game time ${gameTime} seconds`);
-    } catch (error) {
-      console.error("Error confirming sub:", error);
-    }
-  },
-
-  cancelSub: async (subId) => {
-    try {
-      await apiFetch(`game_subs?id=${subId}`, "DELETE");
-
-      // Remove from local state
-      set((state) => ({
-        players: state.players.map((player) => {
-          const updatedIns = (player.ins || []).filter(
-            (sub) => sub.subId !== subId
-          );
-          const updatedOuts = (player.outs || []).filter(
-            (sub) => sub.subId !== subId
-          );
-
-          if (
-            updatedIns.length !== player.ins.length ||
-            updatedOuts.length !== player.outs.length
-          ) {
-            const updatedPlayer = {
-              ...player,
-              ins: updatedIns,
-              outs: updatedOuts,
-            };
-            updatedPlayer.fieldStatus =
-              get().calculateFieldStatus(updatedPlayer);
-            return updatedPlayer;
-          }
-
-          return player;
-        }),
-      }));
-
-      // Update subStatus for all players
-      await get().updateAllSubStatuses();
-
-      console.log(`Cancelled sub ${subId}`);
-    } catch (error) {
-      console.error("Error cancelling sub:", error);
-    }
-  },
-
-  updatePendingSub: async (subId, updates) => {
-    try {
-      // updates can contain: in_player_id, out_player_id, or both
-      await apiFetch(`game_subs?id=${subId}`, "PUT", updates);
-
-      // Refresh from database to get current state
-      const [updatedSub] = await apiFetch("game_subs", "GET", null, null, {
-        filters: { id: subId },
-      });
-
-      if (!updatedSub) return;
-
-      // Rebuild local state from the updated sub
-      set((state) => {
-        // First, remove this subId from all players
-        let players = state.players.map((player) => ({
-          ...player,
-          ins: (player.ins || []).filter((sub) => sub.subId !== subId),
-          outs: (player.outs || []).filter((sub) => sub.subId !== subId),
-        }));
-
-        // Then add it back to the correct players
-        players = players.map((player) => {
-          if (
-            updatedSub.in_player_id &&
-            player.playerGameId === updatedSub.in_player_id
-          ) {
-            return {
-              ...player,
-              ins: [
-                ...player.ins,
-                {
-                  gameTime: updatedSub.sub_time,
-                  subId: updatedSub.id,
-                  gkSub: updatedSub.gk_sub === 1,
-                },
-              ],
-            };
-          }
-          if (
-            updatedSub.out_player_id &&
-            player.playerGameId === updatedSub.out_player_id
-          ) {
-            return {
-              ...player,
-              outs: [
-                ...player.outs,
-                {
-                  gameTime: updatedSub.sub_time,
-                  subId: updatedSub.id,
-                  gkSub: updatedSub.gk_sub === 1,
-                },
-              ],
-            };
-          }
-          return player;
-        });
-
-        // Recalculate field status for affected players
-        players = players.map((player) => ({
-          ...player,
-          fieldStatus: get().calculateFieldStatus(player),
-        }));
-
-        return { players };
-      });
-
-      return updatedSub;
-    } catch (error) {
-      console.error("Error updating pending sub:", error);
-      return null;
-    }
-  },
-
-  confirmSub: async (subId, newPeriodTime) => {
-    const gameStore = useGameStore.getState();
-    const gameStage = gameStore.getGameStage();
-
-    let gameTime;
-
-    // If between periods, sub enters at 0 of next period
-    if (gameStage === "between_periods") {
-      // Sub will be confirmed when next period starts
-      // For now, keep it null - it will be set when period starts
-      gameTime = newPeriodTime;
-      console.log("Sub will be confirmed at start of next period");
-      return;
-    } else {
-      gameTime = gameStore.getGameTime(); // Current game time in seconds
-    }
-
-    try {
-      // Update the sub with the actual game time (INT seconds)
-      await apiFetch(`game_subs?id=${subId}`, "PUT", {
-        sub_time: gameTime,
-      });
-
-      // Update local state
-      set((state) => ({
-        players: state.players.map((player) => {
-          // Update ins array
-          const updatedIns = (player.ins || []).map((sub) =>
-            sub.subId === subId ? { ...sub, gameTime } : sub
-          );
-
-          // Update outs array
-          const updatedOuts = (player.outs || []).map((sub) =>
-            sub.subId === subId ? { ...sub, gameTime } : sub
-          );
-
-          const hasUpdatedIn = updatedIns.some(
-            (sub) => sub.subId === subId && sub.gameTime !== null
-          );
-          const hasUpdatedOut = updatedOuts.some(
-            (sub) => sub.subId === subId && sub.gameTime !== null
-          );
-
-          if (hasUpdatedIn || hasUpdatedOut) {
-            const updatedPlayer = {
-              ...player,
-              ins: updatedIns,
-              outs: updatedOuts,
-            };
-            // Recalculate field status
-            updatedPlayer.fieldStatus =
-              get().calculateFieldStatus(updatedPlayer);
-            return updatedPlayer;
-          }
-
-          return player;
-        }),
-      }));
-
-      console.log(`Confirmed sub ${subId} at game time ${gameTime} seconds`);
-    } catch (error) {
-      console.error("Error confirming sub:", error);
-    }
-  },
-
-  confirmAllPendingSubs: async () => {
-    const gameStore = useGameStore.getState();
-    const gameStage = gameStore.getGameStage();
-
-    // Fetch fresh pending subs from DB
-    const pendingSubs = await get().getPendingSubs();
-
-    // Filter to only complete subs
-    const completeSubs = pendingSubs.filter((sub) => sub.isComplete);
-
-    if (completeSubs.length === 0) {
-      console.log("No complete subs to confirm");
-      return { confirmed: 0, errors: [] };
-    }
-
-    // Check for orphaned subs (player coming out without replacement)
-    const incompleteSubs = pendingSubs.filter((sub) => !sub.isComplete);
-    const playersOutWithoutReplacement = incompleteSubs.filter(
-      (sub) => sub.outPlayerId && !sub.inPlayerId
-    );
-
-    if (playersOutWithoutReplacement.length > 0) {
-      const players = get().players;
-      const playerNames = playersOutWithoutReplacement.map((sub) => {
-        const player = players.find((p) => p.playerGameId === sub.outPlayerId);
-        return player
-          ? `#${player.jerseyNumber} ${player.fullName}`
-          : "Unknown";
-      });
-
-      return {
-        confirmed: 0,
-        errors: [
-          `Players coming out without replacement: ${playerNames.join(", ")}`,
-        ],
-      };
-    }
-
-    let gameTime;
-
-    if (gameStage === "between_periods") {
-      // Subs will be confirmed when next period starts
-      console.log("Subs will be confirmed at start of next period");
-      return { confirmed: 0, pending: completeSubs.length };
-    } else {
-      gameTime = gameStore.getGameTime();
-    }
-
-    // Confirm all complete subs
-    const results = await Promise.allSettled(
-      completeSubs.map((sub) => get().confirmSub(sub.subId))
-    );
-
-    const errors = results
-      .filter((r) => r.status === "rejected")
-      .map((r) => r.reason?.message || "Unknown error");
-
-    const confirmed = results.filter((r) => r.status === "fulfilled").length;
-
-    return { confirmed, errors };
-  },
-
-  cancelSub: async (subId) => {
-    try {
-      // Delete the sub from database
-      await apiFetch(`game_subs?id=${subId}`, "DELETE");
-
-      // Remove from local state
-      set((state) => ({
-        players: state.players.map((player) => {
-          const updatedIns = (player.ins || []).filter(
-            (sub) => sub.subId !== subId
-          );
-          const updatedOuts = (player.outs || []).filter(
-            (sub) => sub.subId !== subId
-          );
-
-          if (
-            updatedIns.length !== player.ins.length ||
-            updatedOuts.length !== player.outs.length
-          ) {
-            const updatedPlayer = {
-              ...player,
-              ins: updatedIns,
-              outs: updatedOuts,
-            };
-            // Recalculate field status
-            updatedPlayer.fieldStatus =
-              get().calculateFieldStatus(updatedPlayer);
-            return updatedPlayer;
-          }
-
-          return player;
-        }),
-      }));
-
-      console.log(`Cancelled sub ${subId}`);
-    } catch (error) {
-      console.error("Error cancelling sub:", error);
-    }
-  },
-
-  // ==================== EVENT RECORDING ====================
-
-  recordEvent: async (eventData) => {
-    const gameStore = useGameStore.getState();
-    const game = gameStore.game;
-    const gameTime = gameStore.getGameTime(); // Already in seconds
-    const period = gameStore.getCurrentPeriodNumber();
-
-    try {
-      const event = await apiFetch("game_events", "POST", {
-        game_id: game.id,
-        player_game_id: eventData.playerGameId,
-        event_category: eventData.category,
-        event_type: eventData.type,
-        game_time: gameTime, // INT seconds
-        period: period,
-        is_stoppage: eventData.isStoppage || 0,
-        stoppage_start_time: eventData.stoppageStartTime || null,
-        stoppage_end_time: eventData.stoppageEndTime || null,
-        clock_should_run: eventData.clockShouldRun ?? 1,
-        assist_player_game_id: eventData.assistPlayerGameId || null,
-        goal_types: eventData.goalTypes
-          ? JSON.stringify(eventData.goalTypes)
-          : null,
-        card_reason: eventData.cardReason || null,
-        details: eventData.details || null,
-      });
-
-      // Update local player stats
-      const playerId = get().players.find(
-        (p) => p.playerGameId === eventData.playerGameId
-      )?.id;
-
-      if (playerId) {
-        if (eventData.type === "goal") {
-          get().incrementPlayerStat(playerId, "goals");
-        } else if (eventData.type === "shot") {
-          get().incrementPlayerStat(playerId, "shots");
-        } else if (eventData.type === "shot_on_target") {
-          get().incrementPlayerStat(playerId, "shots");
-          get().incrementPlayerStat(playerId, "shotsOnTarget");
-        } else if (eventData.type === "save") {
-          get().incrementPlayerStat(playerId, "saves");
-        } else if (eventData.type === "yellow_card") {
-          get().incrementPlayerStat(playerId, "yellowCards");
-        } else if (eventData.type === "red_card") {
-          get().incrementPlayerStat(playerId, "redCards");
-        }
-
-        // Handle assist
-        if (eventData.assistPlayerGameId) {
-          const assistPlayerId = get().players.find(
-            (p) => p.playerGameId === eventData.assistPlayerGameId
-          )?.id;
-          if (assistPlayerId) {
-            get().incrementPlayerStat(assistPlayerId, "assists");
-          }
-        }
-      }
-
-      return event;
-    } catch (error) {
-      console.error("Error recording event:", error);
-    }
-  },
-
-  refreshPlayerStats: async (gameId) => {
-    try {
-      const allStats = await apiFetch(
-        "v_player_game_stats",
-        "GET",
-        null,
-        null,
-        {
-          filters: { game_id: gameId },
-        }
-      );
-
-      set((state) => ({
-        players: state.players.map((player) => {
-          const playerStats = allStats.find(
-            (s) => s.player_game_id === player.playerGameId
-          );
-
-          if (playerStats) {
-            return {
-              ...player,
-              goals: playerStats.goals || 0,
-              assists: playerStats.assists || 0,
-              shots: playerStats.shots || 0,
-              shotsOnTarget: playerStats.shots_on_target || 0,
-              saves: playerStats.saves || 0,
-              yellowCards: playerStats.yellow_cards || 0,
-              redCards: playerStats.red_cards || 0,
-              corners: playerStats.corners || 0,
-            };
-          }
-          return player;
-        }),
-      }));
-    } catch (error) {
-      console.error("Error refreshing player stats:", error);
-    }
-  },
-
-  // ==================== TIME CALCULATIONS ====================
-
-  calculateTotalTimeOnField: (player, currentGameTime) => {
-    if (!player) return 0;
-
-    const game = useGameStore.getState().game;
-    const stoppages = game?.stoppages || [];
-    const isStarter = ["starter", "goalkeeper"].includes(player.gameStatus);
-
-    return calculatePlayerTimeOnField(
-      player.ins,
-      player.outs,
-      isStarter,
-      currentGameTime,
-      stoppages
-    );
-  },
-
-  calculateCurrentTimeOnField: (player, currentGameTime) => {
-    if (!player) return 0;
-
-    const ins = (player.ins || []).filter((sub) => sub.gameTime !== null);
-    const outs = (player.outs || []).filter((sub) => sub.gameTime !== null);
-
-    const isStarterNoSubs =
-      (player.gameStatus === "starter" || player.gameStatus === "goalkeeper") &&
-      ins.length === 0 &&
-      outs.length === 0;
-
-    if (isStarterNoSubs) {
-      const game = useGameStore.getState().game;
-      const stoppages = game?.stoppages || [];
-      return calculatePlayerTimeOnField(
-        [],
-        [],
-        true,
-        currentGameTime,
-        stoppages
-      );
-    }
-
-    const isOnField = ins.length > outs.length;
-    if (!isOnField) return 0;
-
-    const lastIn = ins[ins.length - 1];
-    const game = useGameStore.getState().game;
-    const stoppages = game?.stoppages || [];
-
-    // Calculate time from last sub in, excluding stoppages
-    const timeRange = currentGameTime - lastIn.gameTime;
-    const stoppageTime = stoppages
-      .filter(
-        (s) =>
-          s.endTime &&
-          s.startTime >= lastIn.gameTime &&
-          s.startTime < currentGameTime
-      )
-      .reduce((total, s) => total + (s.endTime - s.startTime), 0);
-
-    return Math.max(0, timeRange - stoppageTime);
-  },
-
-  calculateCurrentTimeOffField: (player, currentGameTime) => {
-    if (!player) return 0;
-
-    const ins = (player.ins || []).filter((sub) => sub.gameTime !== null);
-    const outs = (player.outs || []).filter((sub) => sub.gameTime !== null);
-
-    const isStarterNoOuts =
-      (player.gameStatus === "starter" || player.gameStatus === "goalkeeper") &&
-      ins.length === 0 &&
-      outs.length === 0;
-
-    if (isStarterNoOuts) return 0;
-
-    const isOffField = outs.length >= ins.length;
-    if (!isOffField) return 0;
-
-    if (outs.length === 0) return currentGameTime;
-
-    const lastOut = outs[outs.length - 1];
-    return Math.max(0, currentGameTime - lastOut.gameTime);
-  },
-
-  isPlayerOnField: (player) => {
-    if (!player) return false;
-
-    const ins = (player.ins || []).filter((sub) => sub.gameTime !== null);
-    const outs = (player.outs || []).filter((sub) => sub.gameTime !== null);
-
-    if (
-      (player.gameStatus === "starter" || player.gameStatus === "goalkeeper") &&
-      ins.length === 0 &&
-      outs.length === 0
-    ) {
-      return true;
-    }
-
-    return ins.length > outs.length;
-  },
-
-  // ==================== QUERY HELPERS ====================
-
-  getPlayersByFieldStatus: (fieldStatus) => {
-    return get().players.filter((player) => player.fieldStatus === fieldStatus);
-  },
-
-  getPlayersByGameStatus: (gameStatus) => {
-    return get().players.filter((player) => player.gameStatus === gameStatus);
-  },
-
-  getPlayerById: (playerId) => {
-    return get().players.find((player) => player.id === playerId);
-  },
-
-  getStarters: () => {
-    return get().players.filter(
-      (p) => p.gameStatus === "starter" || p.gameStatus === "goalkeeper"
-    );
-  },
-
-  getBench: () => {
-    return get().players.filter((p) => p.gameStatus === "dressed");
-  },
-
-  // ==================== QUERY HELPERS ====================
-
-  // Add this helper function to gamePlayersStore.js after calculateFieldStatus
-
-  /**
-   * Recalculate subStatus for all players based on pending subs
-   */
-  updateAllSubStatuses: async () => {
-    const gameId = useGameStore.getState().game?.game_id;
+  updateAllSubStatuses: async (gameId) => {
     if (!gameId) return;
 
     try {
-      // Fetch fresh pending subs
       const pendingSubs = await apiFetch("game_subs", "GET", null, null, {
         filters: { game_id: gameId, sub_time_is_null: true },
       });
@@ -1131,73 +362,46 @@ const useGamePlayersStore = create((set, get) => ({
       console.error("Error updating sub statuses:", error);
     }
   },
-  getPendingSubs: async () => {
-    const gameId = useGameStore.getState().game?.game_id;
-    if (!gameId) return [];
 
-    try {
-      // Fetch all pending subs directly from DB (sub_time is NULL)
-      const pendingSubs = await apiFetch("game_subs", "GET", null, null, {
-        filters: { game_id: gameId, sub_time_is_null: true },
-      });
+  // ==================== QUERY HELPERS ====================
 
-      // Map to include completion status
-      return pendingSubs.map((sub) => ({
-        subId: sub.id,
-        inPlayerId: sub.in_player_id, // Can be NULL
-        outPlayerId: sub.out_player_id, // Can be NULL
-        gkSub: sub.gk_sub === 1,
-        period: sub.period,
-        isComplete: sub.in_player_id !== null && sub.out_player_id !== null,
-      }));
-    } catch (error) {
-      console.error("Error fetching pending subs:", error);
-      return [];
-    }
+  getPlayersByFieldStatus: (fieldStatus) => {
+    return get().players.filter((player) => player.fieldStatus === fieldStatus);
   },
 
-  // Add a new synchronous version that uses cached data if needed
-  getPendingSubsSync: () => {
-    const allSubs = [];
-    const seenSubIds = new Set();
+  getPlayersByGameStatus: (gameStatus) => {
+    return get().players.filter((player) => player.gameStatus === gameStatus);
+  },
 
-    // Collect all unique pending subs from player ins/outs
-    get().players.forEach((player) => {
-      (player.ins || []).forEach((sub) => {
-        if (sub.gameTime === null && !seenSubIds.has(sub.subId)) {
-          seenSubIds.add(sub.subId);
-          allSubs.push({
-            subId: sub.subId,
-            inPlayerId: player.playerGameId,
-            outPlayerId: null,
-            gkSub: sub.gkSub,
-          });
-        }
-      });
+  getPlayerById: (playerId) => {
+    return get().players.find((player) => player.id === playerId);
+  },
 
-      (player.outs || []).forEach((sub) => {
-        if (sub.gameTime === null) {
-          const existing = allSubs.find((s) => s.subId === sub.subId);
-          if (existing) {
-            existing.outPlayerId = player.playerGameId;
-          } else if (!seenSubIds.has(sub.subId)) {
-            seenSubIds.add(sub.subId);
-            allSubs.push({
-              subId: sub.subId,
-              inPlayerId: null,
-              outPlayerId: player.playerGameId,
-              gkSub: sub.gkSub,
-            });
-          }
-        }
-      });
-    });
+  getPlayerByPlayerGameId: (playerGameId) => {
+    return get().players.find((player) => player.playerGameId === playerGameId);
+  },
 
-    // Mark complete status
-    return allSubs.map((sub) => ({
-      ...sub,
-      isComplete: sub.inPlayerId !== null && sub.outPlayerId !== null,
-    }));
+  getStarters: () => {
+    return get().players.filter(
+      (p) => p.gameStatus === "starter" || p.gameStatus === "goalkeeper"
+    );
+  },
+
+  getBench: () => {
+    return get().players.filter((p) => p.gameStatus === "dressed");
+  },
+
+  getCurrentGoalkeeper: () => {
+    return get().players.find((p) => p.gameStatus === "goalkeeper");
+  },
+
+  getPlayersWithPendingSubs: () => {
+    const players = get().players;
+    return {
+      pendingIn: players.filter((p) => p.subStatus === "pendingIn"),
+      pendingOut: players.filter((p) => p.subStatus === "pendingOut"),
+      pendingBoth: players.filter((p) => p.subStatus === "pendingBoth"),
+    };
   },
 }));
 

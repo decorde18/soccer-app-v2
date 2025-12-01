@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { apiFetch } from "@/app/api/fetcher";
 import { calculateGameTime, calculatePeriodTime } from "@/lib/dateTimeUtils";
 import useGamePlayersStore from "./gamePlayersStore";
+import useGameSubsStore from "./gameSubsStore";
 
 const GAME_STAGES = {
   BEFORE_START: "before_start",
@@ -361,7 +362,7 @@ const useGameStore = create((set, get) => {
 
         // Auto-confirm any pending subs at time 0 of new period
         const gamePlayersStore = useGamePlayersStore.getState();
-        const pendingSubs = gamePlayersStore.getPendingSubs();
+        const pendingSubs = useGameSubsStore.getPendingSubs();
         const completeSubs = pendingSubs.filter((sub) => sub.isComplete);
 
         if (completeSubs.length > 0) {

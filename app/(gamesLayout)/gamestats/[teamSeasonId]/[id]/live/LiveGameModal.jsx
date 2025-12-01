@@ -7,6 +7,8 @@ import Select from "@/components/ui/Select";
 import { secondsToTime, formatSecondsToMmss } from "@/lib/dateTimeUtils";
 import useGameStore from "@/stores/gameStore";
 import useGamePlayersStore from "@/stores/gamePlayersStore";
+import useGameSubsStore from "@/stores/gameSubsStore";
+import useGameEventsStore from "@/stores/gameEventsStore";
 import PendingSubs from "./PendingSubs";
 
 function GameControlModal({ onClose }) {
@@ -21,11 +23,18 @@ function GameControlModal({ onClose }) {
   const endPeriod = useGameStore((s) => s.endPeriod);
 
   const players = useGamePlayersStore((s) => s.players);
-  const getPendingSubs = useGamePlayersStore((s) => s.getPendingSubs);
-  const confirmSub = useGamePlayersStore((s) => s.confirmSub);
-  const recordEvent = useGamePlayersStore((s) => s.recordEvent);
 
-  const isOpen = game.gameStage === "in_stoppage";
+  // Sub management from gameSubsStore
+  const getPendingSubs = useGameSubsStore((s) => s.getPendingSubs);
+  const confirmSub = useGameSubsStore((s) => s.confirmSub);
+  const confirmAllPendingSubs = useGameSubsStore(
+    (s) => s.confirmAllPendingSubs
+  );
+
+  // Event recording from gameEventsStore
+  const recordEvent = useGameEventsStore((s) => s.recordEvent);
+
+  const isOpen = game?.gameStage === "in_stoppage";
 
   const [, setTick] = useState(0);
   const [eventType, setEventType] = useState("");
@@ -34,6 +43,17 @@ function GameControlModal({ onClose }) {
   const [eventDetails, setEventDetails] = useState("");
   const [cardReason, setCardReason] = useState("");
   const [stoppageReason, setStoppageReason] = useState("");
+  const [pendingSubs, setPendingSubs] = useState([]);
+
+  // Fetch pending subs
+  useEffect(() => {
+    const fetchSubs = async () => {
+      if (!game?.game_id) return;
+      const subs = await getPendingSubs();
+      setPendingSubs(subs || []);
+    };
+    fetchSubs();
+  }, [game?.game_id, getPendingSubs, players]); // Refetch when players change
 
   // Update every second for live clock
   useEffect(() => {
@@ -47,8 +67,7 @@ function GameControlModal({ onClose }) {
   const gameTime = getGameTime();
   const periodTime = getPeriodTime();
   const periodLabel = getCurrentPeriodLabel();
-  const pendingSubs = getPendingSubs();
-  const activeStoppage = game?.stoppages.find((s) => s.endTime === null);
+  const activeStoppage = game?.stoppages?.find((s) => s.endTime === null);
   const isInStoppage = gameStage === "in_stoppage";
 
   // Get on-field players for event recording
@@ -87,16 +106,22 @@ function GameControlModal({ onClose }) {
   };
 
   const handleConfirmAllSubs = async () => {
-    for (const sub of pendingSubs) {
-      await confirmSub(sub.subId);
+    const result = await confirmAllPendingSubs();
+
+    // Refresh pending subs after confirmation
+    if (game?.game_id) {
+      const subs = await getPendingSubs();
+      setPendingSubs(subs || []);
     }
+
+    return result;
   };
 
   const handleRecordEvent = async () => {
     if (!eventType || !selectedPlayer) return;
 
     const eventData = {
-      playerGameId: selectedPlayer,
+      playerGameId: parseInt(selectedPlayer),
       category: "major",
       type: eventType,
       isStoppage: 0,
@@ -106,7 +131,7 @@ function GameControlModal({ onClose }) {
 
     // Add assist for goals
     if (eventType === "goal" && selectedAssist) {
-      eventData.assistPlayerGameId = selectedAssist;
+      eventData.assistPlayerGameId = parseInt(selectedAssist);
     }
 
     // Add card reason for cards
@@ -142,6 +167,10 @@ function GameControlModal({ onClose }) {
     }
     onClose();
   };
+
+  if (!game) {
+    return null;
+  }
 
   return (
     <Modal

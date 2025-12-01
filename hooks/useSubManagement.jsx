@@ -1,5 +1,7 @@
 import SubSelectionModal from "@/app/(gamesLayout)/gamestats/[teamSeasonId]/[id]/live/SubSelectionModal";
 import useGamePlayersStore from "@/stores/gamePlayersStore";
+import useGamePlayerTimeStore from "@/stores/gamePlayerTimeStore";
+import useGameSubsStore from "@/stores/gameSubsStore";
 import { useState } from "react";
 
 export function useSubManagement() {
@@ -8,8 +10,8 @@ export function useSubManagement() {
   const [subMode, setSubMode] = useState(null); // 'selectIn' or 'selectOut'
 
   const players = useGamePlayersStore((s) => s.players);
-  const getPendingSubsSync = useGamePlayersStore((s) => s.getPendingSubsSync);
-  const cancelSub = useGamePlayersStore((s) => s.cancelSub);
+  const getPendingSubsSync = useGameSubsStore((s) => s.getPendingSubsSync);
+  const cancelSub = useGameSubsStore((s) => s.cancelSub);
 
   const handleSubClick = async (playerId) => {
     const player = players.find((p) => p.id === playerId);

@@ -4,10 +4,11 @@ import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import useGamePlayersStore from "@/stores/gamePlayersStore";
+import useGameSubsStore from "@/stores/gameSubsStore";
 
 function SubSelectionModal({ isOpen = true, onClose, triggerPlayer, mode }) {
   const players = useGamePlayersStore((s) => s.players);
-  const createPendingSub = useGamePlayersStore((s) => s.createPendingSub);
+  const createPendingSub = useGameSubsStore((s) => s.createPendingSub);
   const [selectedPlayerId, setSelectedPlayerId] = useState("");
   const [createWithoutPair, setCreateWithoutPair] = useState(false);
 

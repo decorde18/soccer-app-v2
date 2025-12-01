@@ -1,18 +1,23 @@
 "use client";
 import useGamePlayersStore from "@/stores/gamePlayersStore";
+import useGameSubsStore from "@/stores/gameSubsStore";
+import useGameStore from "@/stores/gameStore";
 import { useMemo, useState, useEffect } from "react";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 
 function PendingSubs() {
   const players = useGamePlayersStore((s) => s.players);
-  const getPendingSubs = useGamePlayersStore((s) => s.getPendingSubs);
-  const confirmSub = useGamePlayersStore((s) => s.confirmSub);
-  const confirmAllPendingSubs = useGamePlayersStore(
+  const game = useGameStore((s) => s.game);
+
+  // All sub-related functions now come from gameSubsStore
+  const getPendingSubs = useGameSubsStore((s) => s.getPendingSubs);
+  const confirmSub = useGameSubsStore((s) => s.confirmSub);
+  const confirmAllPendingSubs = useGameSubsStore(
     (s) => s.confirmAllPendingSubs
   );
-  const cancelSub = useGamePlayersStore((s) => s.cancelSub);
-  const updatePendingSub = useGamePlayersStore((s) => s.updatePendingSub);
+  const cancelSub = useGameSubsStore((s) => s.cancelSub);
+  const updatePendingSub = useGameSubsStore((s) => s.updatePendingSub);
 
   const [editingSubId, setEditingSubId] = useState(null);
   const [editingInPlayer, setEditingInPlayer] = useState("");
@@ -24,13 +29,19 @@ function PendingSubs() {
   // Fetch pending subs on mount and when players change
   useEffect(() => {
     const fetchPendingSubs = async () => {
+      if (!game?.game_id) {
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       const subs = await getPendingSubs();
-      setPendingSubs(subs);
+      setPendingSubs(subs || []);
       setIsLoading(false);
     };
+
     fetchPendingSubs();
-  }, [players, getPendingSubs]);
+  }, [players, getPendingSubs, game?.game_id]);
 
   const subsWithPlayerInfo = useMemo(() => {
     return pendingSubs.map((sub) => {
@@ -102,6 +113,8 @@ function PendingSubs() {
   };
 
   const handleSaveEdit = async () => {
+    if (!game?.game_id) return;
+
     const updates = {};
     if (editingInPlayer) updates.in_player_id = parseInt(editingInPlayer);
     if (editingOutPlayer) updates.out_player_id = parseInt(editingOutPlayer);
@@ -109,7 +122,7 @@ function PendingSubs() {
     await updatePendingSub(editingSubId, updates);
 
     const subs = await getPendingSubs();
-    setPendingSubs(subs);
+    setPendingSubs(subs || []);
 
     setEditingSubId(null);
     setEditingInPlayer("");
@@ -123,6 +136,8 @@ function PendingSubs() {
   };
 
   const handleConfirmAll = async () => {
+    if (!game?.game_id) return;
+
     setConfirmError(null);
     const result = await confirmAllPendingSubs();
 
@@ -137,20 +152,28 @@ function PendingSubs() {
     }
 
     const subs = await getPendingSubs();
-    setPendingSubs(subs);
+    setPendingSubs(subs || []);
   };
 
   const handleConfirmSingle = async (subId) => {
+    if (!game?.game_id) return;
+
     await confirmSub(subId);
     const subs = await getPendingSubs();
-    setPendingSubs(subs);
+    setPendingSubs(subs || []);
   };
 
   const handleCancelSub = async (subId) => {
+    if (!game?.game_id) return;
+
     await cancelSub(subId);
     const subs = await getPendingSubs();
-    setPendingSubs(subs);
+    setPendingSubs(subs || []);
   };
+
+  if (!game?.game_id) {
+    return <div className='text-center text-muted py-4'>No active game</div>;
+  }
 
   if (isLoading) {
     return <div className='text-center text-muted py-4'>Loading...</div>;
