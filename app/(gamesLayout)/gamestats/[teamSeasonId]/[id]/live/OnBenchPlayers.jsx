@@ -1,22 +1,15 @@
-// ============================================================
-// OnBenchPlayers.jsx - USES SAME TABLE
-// ============================================================
+// OnBenchPlayers.jsx
 "use client";
-
-import Button from "@/components/ui/Button";
 import PlayersTable from "./PlayersTable";
-import { useSubManagement } from "@/hooks/useSubManagement";
+import Button from "@/components/ui/Button";
 
-function OnBenchPlayers() {
-  const { handleSubClick } = useSubManagement();
-
+function OnBenchPlayers({ handleSubClick }) {
   const filterBenchPlayers = (player) => {
     return (
       player.fieldStatus === "onBench" || player.fieldStatus === "subbingIn"
     );
   };
 
-  // Bench columns - show time in and time out
   const benchColumns = [
     { name: "number", label: "#", width: "50px" },
     { name: "name", label: "Name", width: "35%" },

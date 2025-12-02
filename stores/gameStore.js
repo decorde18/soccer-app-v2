@@ -2,8 +2,7 @@
 import { create } from "zustand";
 import { apiFetch } from "@/app/api/fetcher";
 import { calculateGameTime, calculatePeriodTime } from "@/lib/dateTimeUtils";
-import useGamePlayersStore from "./gamePlayersStore";
-import useGameSubsStore from "./gameSubsStore";
+import useGameSubsStore from "./gameSubsStore"; // ADD THIS IMPORT
 
 const GAME_STAGES = {
   BEFORE_START: "before_start",
@@ -319,6 +318,7 @@ const useGameStore = create((set, get) => {
     },
 
     // ==================== GAME ACTIONS ====================
+    // ==================== GAME ACTIONS ====================
     startNextPeriod: async () => {
       const game = get().game;
       if (!game) return;
@@ -361,8 +361,9 @@ const useGameStore = create((set, get) => {
         }
 
         // Auto-confirm any pending subs at time 0 of new period
-        const gamePlayersStore = useGamePlayersStore.getState();
-        const pendingSubs = useGameSubsStore.getPendingSubs();
+        // FIXED: Access gameSubsStore correctly
+        const gameSubsStore = useGameSubsStore.getState();
+        const pendingSubs = await gameSubsStore.getPendingSubs(game.game_id);
         const completeSubs = pendingSubs.filter((sub) => sub.isComplete);
 
         if (completeSubs.length > 0) {
@@ -375,9 +376,8 @@ const useGameStore = create((set, get) => {
 
           // Confirm each sub
           await Promise.all(
-            completeSubs.map(
-              (sub) => gamePlayersStore.confirmSub(sub.subId),
-              gameTime
+            completeSubs.map((sub) =>
+              gameSubsStore.confirmSub(sub.subId, gameTime)
             )
           );
         }
@@ -385,51 +385,6 @@ const useGameStore = create((set, get) => {
         console.error("Error starting next period:", error);
       }
     },
-    // startNextPeriod: async () => {
-    //   const game = get().game;
-    //   if (!game) return;
-
-    //   const nowMs = Date.now();
-    //   const isFirstPeriod = game.periods.length === 0;
-    //   const nextIndex = isFirstPeriod ? 0 : game.currentPeriodIndex + 1;
-    //   const nextNumber = nextIndex + 1;
-
-    //   try {
-    //     // Create new period in DB (store Unix ms as BIGINT)
-    //     const periodData = await apiFetch("game_periods", "POST", {
-    //       game_id: game.game_id,
-    //       period_number: nextNumber,
-    //       start_time: nowMs, // BIGINT Unix ms
-    //       end_time: null,
-    //       added_time: 0,
-    //     });
-
-    //     const newPeriod = {
-    //       id: periodData.id,
-    //       periodNumber: nextNumber,
-    //       index: nextIndex,
-    //       startTime: nowMs,
-    //       endTime: null,
-    //       addedTime: 0,
-    //     };
-
-    //     get().updateGame({
-    //       ...(isFirstPeriod && {
-    //         firstPeriodStartTime: nowMs,
-    //         stoppages: [],
-    //       }),
-    //       currentPeriodIndex: nextIndex,
-    //       periods: [...game.periods, newPeriod],
-    //     });
-
-    //     if (isFirstPeriod) {
-    //       await get().syncGameStatus();
-    //     }
-    //   } catch (error) {
-    //     console.error("Error starting next period:", error);
-    //   }
-    // },
-
     endPeriod: async () => {
       const game = get().game;
       if (!game) return;

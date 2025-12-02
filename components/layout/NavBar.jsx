@@ -1,13 +1,10 @@
 "use client";
-import { Menu, X, ChevronDown, ChevronRight, ArrowLeft } from "lucide-react";
+import { Menu, X, ChevronDown, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 
-import Button from "../ui/Button";
-
 import { useUserContextStore } from "@/stores/userContextStore";
-import useGameStore from "@/stores/gameStore";
 import LogoutButton from "@/app/(public)/auth/LogoutButton";
 import {
   buildCompleteNavigation,
@@ -15,33 +12,19 @@ import {
 } from "@/lib/navigationUtils";
 import useAuthStore from "@/stores/authStore";
 
-// import { formatTime } from "@/lib/timeUtils";
-
 function NavBar() {
   const user = useAuthStore((s) => s.user);
   const { myTeams, myClubs } = useUserContextStore();
-  const router = useRouter();
   const pathname = usePathname();
-
-  // Game-specific state
-  const game = useGameStore((s) => s.game);
-  const gameStage = useGameStore((s) => s.getGameStage());
-  const GAME_STAGES = useGameStore((s) => s.GAME_STAGES);
-  const getCurrentPeriodLabel = useGameStore((s) => s.getCurrentPeriodLabel());
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandedClubs, setExpandedClubs] = useState({});
   const [expandedTeams, setExpandedTeams] = useState({});
 
-  // Detect if we're in a game route
-  const isGameRoute =
-    pathname?.includes("/gamestats/") && pathname?.match(/\/gamestats\/[^/]+/);
-  const isDarkHeader = pathname?.includes("/live");
-
-  // Handle screen size + auto-open on desktop (but NOT for game routes)
+  // Auto-open on desktop
   useEffect(() => {
     const handleResize = () => {
-      if (!isGameRoute && window.innerWidth >= 1024) {
+      if (window.innerWidth >= 1024) {
         setSidebarOpen(true);
       } else {
         setSidebarOpen(false);
@@ -51,14 +34,14 @@ function NavBar() {
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [pathname, isGameRoute]);
+  }, []);
 
-  // Auto-close sidebar when route changes (mobile only, or always for game routes)
+  // Auto-close sidebar when route changes (mobile only)
   useEffect(() => {
-    if (window.innerWidth < 1024 || isGameRoute) {
+    if (window.innerWidth < 1024) {
       setSidebarOpen(false);
     }
-  }, [pathname, isGameRoute]);
+  }, [pathname]);
 
   // Auto-expand the club/team that contains the current route
   useEffect(() => {
@@ -74,7 +57,6 @@ function NavBar() {
     }
   }, [pathname, myTeams]);
 
-  // Toggle functions
   const toggleClub = (clubId) => {
     setExpandedClubs((prev) => ({ ...prev, [clubId]: !prev[clubId] }));
   };
@@ -86,124 +68,8 @@ function NavBar() {
     }));
   };
 
-  // Get the appropriate navigation based on route
-  const getNavigation = () => {
-    if (isGameRoute && game) {
-      return getGameNavigation();
-    }
-    return buildCompleteNavigation(user, myTeams, myClubs);
-  };
+  const sections = buildCompleteNavigation(user, myTeams, myClubs);
 
-  // Build game-specific navigation based on game stage
-  const getGameNavigation = () => {
-    const baseGamePath = `/gamestats/${game.id}`;
-
-    // Helper to get the correct "Return to Game" path
-    const getReturnPath = () => {
-      switch (gameStage) {
-        case GAME_STAGES.BEFORE_START:
-          return `${baseGamePath}`;
-        case GAME_STAGES.DURING_PERIOD:
-        case GAME_STAGES.IN_STOPPAGE:
-          return `${baseGamePath}/live`;
-        case GAME_STAGES.BETWEEN_PERIODS:
-          return `${baseGamePath}/period-break`;
-        case GAME_STAGES.END_GAME:
-          return `${baseGamePath}/summary`;
-        default:
-          return baseGamePath;
-      }
-    };
-
-    const sections = [
-      {
-        id: "game-overview",
-        label: "Game Overview",
-        items: [
-          {
-            id: "return-to-game",
-            label: "Return to Game",
-            path: getReturnPath(),
-            icon: "⚽",
-          },
-          {
-            id: "lineup",
-            label: "Lineup",
-            path: `${baseGamePath}/lineup`,
-            icon: "👥",
-          },
-          {
-            id: "settings",
-            label: "Game Settings",
-            path: `${baseGamePath}/settings`,
-            icon: "⚙️",
-          },
-        ],
-      },
-    ];
-
-    // Add stage-specific navigation
-    if (gameStage !== GAME_STAGES.BEFORE_START) {
-      sections.push({
-        id: "game-stats",
-        label: "Statistics",
-        items: [
-          {
-            id: "live-stats",
-            label: "Live Stats",
-            path: `${baseGamePath}/stats`,
-            icon: "📊",
-          },
-          {
-            id: "player-stats",
-            label: "Player Stats",
-            path: `${baseGamePath}/player-stats`,
-            icon: "👤",
-          },
-        ],
-      });
-    }
-
-    if (gameStage === GAME_STAGES.END_GAME) {
-      sections.push({
-        id: "game-review",
-        label: "Game Review",
-        items: [
-          {
-            id: "summary",
-            label: "Game Summary",
-            path: `${baseGamePath}/summary`,
-            icon: "📋",
-          },
-          {
-            id: "highlights",
-            label: "Highlights",
-            path: `${baseGamePath}/highlights`,
-            icon: "✨",
-          },
-        ],
-      });
-    }
-
-    return sections;
-  };
-
-  const sections = getNavigation();
-
-  // Sidebar classes
-  const sidebarClasses = isGameRoute
-    ? `fixed top-0 left-0 h-full w-72 bg-gradient-to-br from-primary to-secondary text-white z-[1100] transition-transform duration-300 ease-in-out ${
-        sidebarOpen
-          ? "translate-x-0 shadow-[4px_0_20px_rgba(0,0,0,0.2)]"
-          : "-translate-x-full"
-      }`
-    : `fixed top-0 left-0 h-full w-72 bg-gradient-to-br from-primary to-secondary text-white z-[1100] transition-transform duration-300 ease-in-out ${
-        sidebarOpen
-          ? "translate-x-0 shadow-[4px_0_20px_rgba(0,0,0,0.2)]"
-          : "-translate-x-full"
-      } lg:relative lg:translate-x-0 lg:shadow-none`;
-
-  // Nav button component
   const NavButton = ({ item, indent = 0 }) => {
     const isActive = pathname === item.path;
 
@@ -230,77 +96,24 @@ function NavBar() {
     );
   };
 
-  // Game header component
-  const GameHeader = () => {
-    if (!isGameRoute || !game) return null;
-
-    const getStageDisplay = () => {
-      switch (gameStage) {
-        case GAME_STAGES.BEFORE_START:
-          return { text: "Pre-Game", color: "bg-yellow-500/20" };
-        case GAME_STAGES.DURING_PERIOD:
-          return { text: getCurrentPeriodLabel, color: "bg-green-500/20" };
-        case GAME_STAGES.BETWEEN_PERIODS:
-          return { text: "Period Break", color: "bg-blue-500/20" };
-        case GAME_STAGES.IN_STOPPAGE:
-          return { text: "Stoppage", color: "bg-orange-500/20" };
-        case GAME_STAGES.END_GAME:
-          return { text: "Final", color: "bg-gray-500/20" };
-        default:
-          return { text: "Unknown", color: "bg-gray-500/20" };
-      }
-    };
-
-    const stageInfo = getStageDisplay();
-
-    return (
-      <div className='p-4 border-b border-white/10 bg-black/10'>
-        <div className='flex items-center justify-between mb-2'>
-          <h2 className='text-lg font-bold text-white'>
-            Game #{game.id.slice(-8)}
-          </h2>
-          <span
-            className={`text-xs px-2 py-1 rounded-full ${stageInfo.color} text-white`}
-          >
-            {stageInfo.text}
-          </span>
-        </div>
-        {game.homeTeam && game.awayTeam && (
-          <div className='text-xs text-white/70'>
-            {game.homeTeam} vs {game.awayTeam}
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <>
-      {/* Hamburger Button */}
+      {/* Hamburger Button - Hidden on desktop */}
       <button
         onClick={() => setSidebarOpen((prev) => !prev)}
-        className={`w-14 fixed top-4 left-4 z-[1200] bg-transparent border-none cursor-pointer transition-transform hover:scale-110 ${
-          isGameRoute ? "" : "lg:hidden"
-        }`}
+        className='lg:hidden fixed top-4 left-4 z-[1200] bg-transparent border-none cursor-pointer transition-transform hover:scale-110'
         aria-label='Toggle menu'
       >
         {sidebarOpen ? (
           <X size={28} className='text-white drop-shadow-lg' />
         ) : (
-          <Menu
-            size={28}
-            className={`transition-colors duration-300 drop-shadow-lg ${
-              isDarkHeader ? "text-white" : "text-text"
-            }`}
-          />
+          <Menu size={28} className='text-text drop-shadow-lg' />
         )}
       </button>
 
-      {/* Backdrop */}
+      {/* Backdrop - Hidden on desktop */}
       <div
-        className={`fixed inset-0 bg-black/50 z-[1000] transition-opacity duration-300 ${
-          isGameRoute ? "" : "lg:hidden"
-        } ${
+        className={`lg:hidden fixed inset-0 bg-black/50 z-[1000] transition-opacity duration-300 ${
           sidebarOpen
             ? "opacity-100 pointer-events-auto"
             : "opacity-0 pointer-events-none"
@@ -309,21 +122,23 @@ function NavBar() {
       />
 
       {/* Sidebar */}
-      <aside className={sidebarClasses}>
+      <aside
+        className={`fixed top-0 left-0 h-full w-72 bg-gradient-to-br from-primary to-secondary text-white z-[1100] transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:shadow-none ${
+          sidebarOpen
+            ? "translate-x-0 shadow-[4px_0_20px_rgba(0,0,0,0.2)]"
+            : "-translate-x-full"
+        }`}
+      >
         <div className='flex flex-col h-full'>
           {/* Header */}
-          {!isGameRoute ? (
-            <div className='flex-shrink-0 p-6 border-b border-white/10'>
-              <h1 className='text-2xl font-bold mb-1 bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent'>
-                Soccer Stats
-              </h1>
-              <p className='text-xs text-white/60 uppercase tracking-wider'>
-                Pro Platform
-              </p>
-            </div>
-          ) : (
-            <GameHeader />
-          )}
+          <div className='flex-shrink-0 p-6 border-b border-white/10'>
+            <h1 className='text-2xl font-bold mb-1 bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent'>
+              Soccer Stats
+            </h1>
+            <p className='text-xs text-white/60 uppercase tracking-wider'>
+              Pro Platform
+            </p>
+          </div>
 
           {/* Navigation */}
           <nav className='flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar'>

@@ -103,10 +103,6 @@ function PlayersTable({
 
   // Default action button
   const defaultGetActionButton = (row) => {
-    if (gameStage === "before_start" || gameStage === "end_game") {
-      return null;
-    }
-
     const buttonText = row.subStatus === "pendingOut" ? "Cancel" : "Sub";
     const variant = row.subStatus === "pendingOut" ? "outline" : "default";
 
@@ -124,53 +120,61 @@ function PlayersTable({
     );
   };
 
-  const actionButton = getActionButton || defaultGetActionButton;
+  const actionButton =
+    gameStage === "before_start" || gameStage === "end_game"
+      ? null
+      : getActionButton || defaultGetActionButton;
 
   const players = useMemo(
     () =>
-      allPlayers.filter(filterPlayers).map((player) => {
-        // Calculate times based on mode
-        let totalTime = 0;
-        let secondaryTime = 0;
+      allPlayers
+        .filter((p) =>
+          ["dressed", "starter", "goalkeeper"].includes(p.gameStatus)
+        )
+        .filter(filterPlayers)
+        .map((player) => {
+          // Calculate times based on mode
+          let totalTime = 0;
+          let secondaryTime = 0;
 
-        if (timeMode === "onField") {
-          totalTime = calculateTotalTimeOnField(player, gameTime);
-          secondaryTime = calculateCurrentTimeOnField(player, gameTime);
-        } else if (timeMode === "onBench") {
-          totalTime = calculateTotalTimeOnField(player, gameTime);
-          secondaryTime = calculateCurrentTimeOffField(player, gameTime);
-        }
+          if (timeMode === "onField") {
+            totalTime = calculateTotalTimeOnField(player, gameTime);
+            secondaryTime = calculateCurrentTimeOnField(player, gameTime);
+          } else if (timeMode === "onBench") {
+            totalTime = calculateTotalTimeOnField(player, gameTime);
+            secondaryTime = calculateCurrentTimeOffField(player, gameTime);
+          }
 
-        const rowData = {
-          id: player.id,
-          playerGameId: player.playerGameId,
-          number: player.jerseyNumber || "—",
-          name: player.fullName || `${player.firstName} ${player.lastName}`,
-          position: player.position,
-          shots: player.shots || 0,
-          goals: player.goals || 0,
-          assists: player.assists || 0,
-          saves: player.saves || 0,
-          yellowCards: player.yellowCards || 0,
-          redCards: player.redCards || 0,
-          fieldStatus: player.fieldStatus,
-          gameStatus: player.gameStatus,
-          subStatus: player.subStatus,
-          pendingSubId: player.outs?.find((out) => out.gameTime === null)
-            ?.subId,
-        };
+          const rowData = {
+            id: player.id,
+            playerGameId: player.playerGameId,
+            number: player.jerseyNumber ?? "—",
+            name: player.fullName || `${player.firstName} ${player.lastName}`,
+            position: player.position,
+            shots: player.shots || 0,
+            goals: player.goals || 0,
+            assists: player.assists || 0,
+            saves: player.saves || 0,
+            yellowCards: player.yellowCards || 0,
+            redCards: player.redCards || 0,
+            fieldStatus: player.fieldStatus,
+            gameStatus: player.gameStatus,
+            subStatus: player.subStatus,
+            pendingSubId: player.outs?.find((out) => out.gameTime === null)
+              ?.subId,
+          };
 
-        // Add time columns based on mode
-        if (timeMode === "onField") {
-          rowData.timeIn = formatSecondsToMmss(totalTime);
-          rowData.timeInRecent = formatSecondsToMmss(secondaryTime);
-        } else if (timeMode === "onBench") {
-          rowData.timeIn = formatSecondsToMmss(totalTime);
-          rowData.timeOut = formatSecondsToMmss(secondaryTime);
-        }
+          // Add time columns based on mode
+          if (timeMode === "onField") {
+            rowData.timeIn = formatSecondsToMmss(totalTime);
+            rowData.timeInRecent = formatSecondsToMmss(secondaryTime);
+          } else if (timeMode === "onBench") {
+            rowData.timeIn = formatSecondsToMmss(totalTime);
+            rowData.timeOut = formatSecondsToMmss(secondaryTime);
+          }
 
-        return rowData;
-      }),
+          return rowData;
+        }),
     [
       allPlayers,
       filterPlayers,

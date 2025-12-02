@@ -1,16 +1,10 @@
-// ============================================================
-// OnFieldPlayers.jsx - PARENT COMPONENT (handles SubModal)
-// ============================================================
+// OnFieldPlayers.jsx
 "use client";
-
+import OnFieldGk from "./OnFieldGk";
 import PlayersTable from "./PlayersTable";
-import { useSubManagement } from "@/hooks/useSubManagement";
 
-function OnFieldPlayers() {
-  const { handleSubClick, SubModal } = useSubManagement();
-
+function OnFieldPlayers({ handleSubClick }) {
   const filterOnFieldPlayers = (player) => {
-    // Exclude goalkeepers (they have their own component)
     if (player.gameStatus === "goalkeeper") return false;
     return (
       player.fieldStatus === "onField" || player.fieldStatus === "subbingOut"
@@ -25,7 +19,7 @@ function OnFieldPlayers() {
         onActionClick={(row) => handleSubClick(row.id)}
         timeMode='onField'
       />
-      <SubModal />
+      <OnFieldGk handleSubClick={handleSubClick} />
     </div>
   );
 }

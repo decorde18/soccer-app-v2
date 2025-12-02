@@ -10,14 +10,17 @@ function SubSelectionModal({ isOpen = true, onClose, triggerPlayer, mode }) {
   const players = useGamePlayersStore((s) => s.players);
   const createPendingSub = useGameSubsStore((s) => s.createPendingSub);
   const [selectedPlayerId, setSelectedPlayerId] = useState("");
-  const [createWithoutPair, setCreateWithoutPair] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Get available players based on mode
   const availablePlayers = useMemo(() => {
     if (mode === "selectIn") {
       // Show bench players for subbing in
       return players
-        .filter((p) => p.fieldStatus === "onBench")
+        .filter((p) =>
+          ["dressed", "starter", "goalkeeper"].includes(p.gameStatus)
+        )
+        .filter((p) => p.fieldStatus === "onBench" && !p.subStatus)
         .map((p) => ({
           value: p.playerGameId,
           label: `#${p.jerseyNumber} ${p.fullName}`,
@@ -26,7 +29,9 @@ function SubSelectionModal({ isOpen = true, onClose, triggerPlayer, mode }) {
       // Show on-field players for subbing out
       return players
         .filter(
-          (p) => p.fieldStatus === "onField" || p.fieldStatus === "onFieldGk"
+          (p) =>
+            (p.fieldStatus === "onField" || p.fieldStatus === "onFieldGk") &&
+            !p.subStatus
         )
         .map((p) => ({
           value: p.playerGameId,
@@ -36,6 +41,7 @@ function SubSelectionModal({ isOpen = true, onClose, triggerPlayer, mode }) {
   }, [players, mode]);
 
   const handleCreateSub = async () => {
+    setIsProcessing(true);
     if (!triggerPlayer) return;
 
     const isGkSub =
@@ -55,8 +61,8 @@ function SubSelectionModal({ isOpen = true, onClose, triggerPlayer, mode }) {
     }
 
     setSelectedPlayerId("");
-    setCreateWithoutPair(false);
     onClose();
+    setIsProcessing(false);
   };
 
   const handleCreatePartialSub = async () => {
@@ -73,7 +79,6 @@ function SubSelectionModal({ isOpen = true, onClose, triggerPlayer, mode }) {
     }
 
     setSelectedPlayerId("");
-    setCreateWithoutPair(false);
     onClose();
   };
 
@@ -105,9 +110,9 @@ function SubSelectionModal({ isOpen = true, onClose, triggerPlayer, mode }) {
           <Button
             variant='primary'
             onClick={handleCreateSub}
-            disabled={!selectedPlayerId}
+            disabled={!selectedPlayerId || isProcessing}
           >
-            Create Substitution
+            {!isProcessing ? "Create Substitution" : "Creating"}
           </Button>
         </>
       }
@@ -133,12 +138,10 @@ function SubSelectionModal({ isOpen = true, onClose, triggerPlayer, mode }) {
               ? "Select player to sub IN (optional)"
               : "Select player to sub OUT (optional)"
           }
+          placeholder='Choose a player'
           value={selectedPlayerId}
           onChange={(e) => setSelectedPlayerId(e.target.value)}
-          options={[
-            { value: "", label: "Choose a player..." },
-            ...availablePlayers,
-          ]}
+          options={availablePlayers}
         />
 
         <div className='text-sm text-muted'>

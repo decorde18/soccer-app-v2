@@ -1,12 +1,9 @@
+// OnFieldGk.jsx
 "use client";
-
-import Button from "@/components/ui/Button";
 import PlayersTable from "./PlayersTable";
-import { useSubManagement } from "@/hooks/useSubManagement";
+import Button from "@/components/ui/Button";
 
-function OnFieldGk() {
-  const { handleSubClick } = useSubManagement();
-
+function OnFieldGk({ handleSubClick }) {
   const filterGoalkeeper = (player) => {
     return (
       player.gameStatus === "goalkeeper" &&
@@ -15,7 +12,6 @@ function OnFieldGk() {
     );
   };
 
-  // Custom columns for goalkeeper - show saves instead of shots/goals
   const gkColumns = [
     { name: "number", label: "#", width: "50px" },
     { name: "name", label: "Name", width: "40%" },
@@ -24,9 +20,11 @@ function OnFieldGk() {
     { name: "redCards", label: "RC", cellClassName: "text-end" },
     { name: "timeIn", label: "Time", cellClassName: "text-end" },
   ];
-
+  const getRowClassName = (row) => {
+    if (row.fieldStatus === "subbingOutGk") return "bg-red-100";
+    return "bg-green-50";
+  };
   const getGkActionButton = (row) => {
-    // Custom button text for GK
     const buttonText = row.subStatus === "pendingOut" ? "Cancel" : "Sub GK";
     const variant = row.subStatus === "pendingOut" ? "outline" : "primary";
 
@@ -48,14 +46,13 @@ function OnFieldGk() {
     <div className='bg-primary-dark p-2'>
       <PlayersTable
         filterPlayers={filterGoalkeeper}
-        caption={
-          <span className='text-xl font-bold text-white'>Goalkeeper</span>
-        }
+        caption={<span className='text-xl font-bold '>Goalkeeper</span>}
         columns={gkColumns}
         onActionClick={(row) => handleSubClick(row.id)}
         getActionButton={getGkActionButton}
         timeMode='onField'
         size='xs'
+        getRowClassName={getRowClassName}
       />
     </div>
   );

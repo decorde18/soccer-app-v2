@@ -1,8 +1,6 @@
-import SubSelectionModal from "@/app/(gamesLayout)/gamestats/[teamSeasonId]/[id]/live/SubSelectionModal";
-import useGamePlayersStore from "@/stores/gamePlayersStore";
-import useGamePlayerTimeStore from "@/stores/gamePlayerTimeStore";
-import useGameSubsStore from "@/stores/gameSubsStore";
 import { useState } from "react";
+import useGamePlayersStore from "@/stores/gamePlayersStore";
+import useGameSubsStore from "@/stores/gameSubsStore";
 
 export function useSubManagement() {
   const [subModalOpen, setSubModalOpen] = useState(false);
@@ -27,17 +25,23 @@ export function useSubManagement() {
       (s) => s.outPlayerId === player.playerGameId
     );
 
+    // If player has pending sub, cancel it
     if (player.fieldStatus === "subbingIn" && playerPendingIn) {
-      // Cancel pending sub in
       await cancelSub(playerPendingIn.subId);
-    } else if (
+      return;
+    }
+
+    if (
       (player.fieldStatus === "subbingOut" ||
         player.fieldStatus === "subbingOutGk") &&
       playerPendingOut
     ) {
-      // Cancel pending sub out
       await cancelSub(playerPendingOut.subId);
-    } else if (player.fieldStatus === "onBench") {
+      return;
+    }
+
+    // Otherwise, open modal to create new sub
+    if (player.fieldStatus === "onBench") {
       // Bench player - select who they're subbing in for
       setTriggerPlayer(player);
       setSubMode("selectOut");
@@ -65,14 +69,5 @@ export function useSubManagement() {
     subMode,
     handleSubClick,
     closeSubModal,
-
-    SubModal: () => (
-      <SubSelectionModal
-        isOpen={subModalOpen}
-        onClose={closeSubModal}
-        triggerPlayer={triggerPlayer}
-        mode={subMode}
-      />
-    ),
   };
 }

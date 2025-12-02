@@ -11,7 +11,7 @@ export default function Button({
   ...props
 }) {
   const base =
-    "inline-flex items-center justify-center rounded-[var(--radius-default)] font-semibold transition-colors duration-200";
+    "inline-flex items-center justify-center rounded-[var(--radius-default)] font-semibold transition-colors duration-200 mb-0";
 
   const sizes = {
     xs: "text-[0.7rem] px-1.5 py-0.5",
