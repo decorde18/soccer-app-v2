@@ -16,6 +16,7 @@ function TeamStats() {
   const [stats, setStats] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showMajorModal, setShowMajorModal] = useState(false);
   const [modalType, setModalType] = useState(null);
   const [selectedPlayer, setSelectedPlayer] = useState("");
 
@@ -106,6 +107,19 @@ function TeamStats() {
     setShowModal(true);
   };
 
+  const handleOpenMajorModal = () => {
+    setShowMajorModal(true);
+  };
+
+  const handleCloseMajorModal = () => {
+    setShowMajorModal(false);
+  };
+
+  const handleSelectMajorEvent = (type) => {
+    setShowMajorModal(false);
+    handleOpenModal(type);
+  };
+
   const handleCloseModal = () => {
     setShowModal(false);
     setModalType(null);
@@ -150,6 +164,32 @@ function TeamStats() {
     }
   };
 
+  const handleQuickStat = async (statType, forTeam) => {
+    if (!game) return;
+
+    const gameTime = getGameTime();
+    const period = getCurrentPeriodNumber();
+
+    try {
+      const eventData = {
+        game_id: game.game_id,
+        player_game_id: null,
+        event_category: "stat",
+        event_type: statType.toLowerCase(),
+        game_time: gameTime,
+        period: period,
+        for_team: forTeam,
+        clock_should_run: 1,
+        is_stoppage: 0,
+      };
+
+      await apiFetch("game_events", "POST", eventData);
+      await fetchStats();
+    } catch (error) {
+      console.error("Error creating stat:", error);
+    }
+  };
+
   const handleDeleteStat = async (statId) => {
     if (!confirm("Delete this stat?")) return;
 
@@ -167,111 +207,109 @@ function TeamStats() {
   }
 
   return (
-    <div className='w-full'>
-      {/* Quick Action Buttons */}
-      <div className='grid grid-cols-2 gap-2 mb-3'>
+    <div className='w-[290px] min-w-[290px]'>
+      {/* Major Event Button */}
+      <div className='mb-3'>
         <Button
-          onClick={() => handleOpenModal("GOAL")}
-          variant='success'
-          size='sm'
+          onClick={handleOpenMajorModal}
+          variant='primary'
+          className='w-full'
+          size='md'
         >
-          Goal
-        </Button>
-        <Button
-          onClick={() => handleOpenModal("DISCIPLINE")}
-          variant='danger'
-          size='sm'
-        >
-          Discipline
-        </Button>
-        <Button
-          onClick={() => handleOpenModal("PENALTY")}
-          variant='outline'
-          size='sm'
-        >
-          Penalty
-        </Button>
-        <Button
-          onClick={() => handleOpenModal("PAUSE")}
-          variant='outline'
-          size='sm'
-        >
-          Game Paused
+          Major Event
         </Button>
       </div>
 
-      {/* Stat Counters */}
+      {/* Stat Counters - Compact with inline +/- buttons */}
       <div className='space-y-2 mb-3'>
         {/* Corner Kicks */}
-        <div className='flex items-center justify-between p-2 bg-surface rounded border border-border'>
-          <div className='flex items-center gap-2'>
-            <Button
-              onClick={() => handleOpenModal("CORNER")}
-              variant='outline'
-              size='sm'
+        <div className='flex items-center justify-between py-2 px-3 bg-surface rounded-lg border border-border'>
+          <span className='text-xs font-medium text-text'>Corners</span>
+          <div className='flex items-center gap-3'>
+            <button
+              onClick={() => handleQuickStat("CORNER", game.team_season_id)}
+              className='w-7 h-7 flex items-center justify-center rounded bg-primary text-white hover:bg-accent-hover transition-colors'
             >
               +
-            </Button>
-            <span className='text-xs font-medium'>Corner Kicks</span>
-          </div>
-          <div className='flex items-center gap-2 text-sm'>
-            <span className='font-bold text-primary'>
-              {statCounts.corner.us}
-            </span>
-            <span className='text-muted'>-</span>
-            <span className='font-bold text-accent'>
-              {statCounts.corner.them}
-            </span>
+            </button>
+            <div className='flex items-center gap-2 min-w-[50px] justify-center'>
+              <span className='text-sm font-bold text-primary'>
+                {statCounts.corner.us}
+              </span>
+              <span className='text-xs text-muted'>-</span>
+              <span className='text-sm font-bold text-accent'>
+                {statCounts.corner.them}
+              </span>
+            </div>
+            <button
+              onClick={() => handleQuickStat("CORNER", game.opponentId)}
+              className='w-7 h-7 flex items-center justify-center rounded bg-accent text-white hover:bg-error-hover transition-colors'
+            >
+              +
+            </button>
           </div>
         </div>
 
         {/* Offsides */}
-        <div className='flex items-center justify-between p-2 bg-surface rounded border border-border'>
-          <div className='flex items-center gap-2'>
-            <Button
-              onClick={() => handleOpenModal("OFFSIDE")}
-              variant='outline'
-              size='sm'
+        <div className='flex items-center justify-between py-2 px-3 bg-surface rounded-lg border border-border'>
+          <span className='text-xs font-medium text-text'>Offsides</span>
+          <div className='flex items-center gap-3'>
+            <button
+              onClick={() => handleQuickStat("OFFSIDE", game.team_season_id)}
+              className='w-7 h-7 flex items-center justify-center rounded bg-primary text-white hover:bg-accent-hover transition-colors'
             >
               +
-            </Button>
-            <span className='text-xs font-medium'>Offsides</span>
-          </div>
-          <div className='flex items-center gap-2 text-sm'>
-            <span className='font-bold text-primary'>
-              {statCounts.offside.us}
-            </span>
-            <span className='text-muted'>-</span>
-            <span className='font-bold text-accent'>
-              {statCounts.offside.them}
-            </span>
+            </button>
+            <div className='flex items-center gap-2 min-w-[50px] justify-center'>
+              <span className='text-sm font-bold text-primary'>
+                {statCounts.offside.us}
+              </span>
+              <span className='text-xs text-muted'>-</span>
+              <span className='text-sm font-bold text-accent'>
+                {statCounts.offside.them}
+              </span>
+            </div>
+            <button
+              onClick={() => handleQuickStat("OFFSIDE", game.opponentId)}
+              className='w-7 h-7 flex items-center justify-center rounded bg-accent text-white hover:bg-error-hover transition-colors'
+            >
+              +
+            </button>
           </div>
         </div>
 
         {/* Fouls */}
-        <div className='flex items-center justify-between p-2 bg-surface rounded border border-border'>
-          <div className='flex items-center gap-2'>
-            <Button
-              onClick={() => handleOpenModal("FOUL")}
-              variant='outline'
-              size='sm'
+        <div className='flex items-center justify-between py-2 px-3 bg-surface rounded-lg border border-border'>
+          <span className='text-xs font-medium text-text'>Fouls</span>
+          <div className='flex items-center gap-3'>
+            <button
+              onClick={() => handleQuickStat("FOUL", game.team_season_id)}
+              className='w-7 h-7 flex items-center justify-center rounded bg-primary text-white hover:bg-accent-hover transition-colors'
             >
               +
-            </Button>
-            <span className='text-xs font-medium'>Fouls</span>
-          </div>
-          <div className='flex items-center gap-2 text-sm'>
-            <span className='font-bold text-primary'>{statCounts.foul.us}</span>
-            <span className='text-muted'>-</span>
-            <span className='font-bold text-accent'>
-              {statCounts.foul.them}
-            </span>
+            </button>
+            <div className='flex items-center gap-2 min-w-[50px] justify-center'>
+              <span className='text-sm font-bold text-primary'>
+                {statCounts.foul.us}
+              </span>
+              <span className='text-xs text-muted'>-</span>
+              <span className='text-sm font-bold text-accent'>
+                {statCounts.foul.them}
+              </span>
+            </div>
+            <button
+              onClick={() => handleQuickStat("FOUL", game.opponentId)}
+              className='w-7 h-7 flex items-center justify-center rounded bg-accent text-white hover:bg-error-hover transition-colors'
+            >
+              +
+            </button>
           </div>
         </div>
 
         {/* Shots (Our Team Only) */}
-        <div className='flex items-center justify-between p-2 bg-surface rounded border border-border'>
-          <div className='flex items-center gap-2'>
+        <div className='flex items-center justify-between py-2 px-3 bg-surface rounded-lg border border-border'>
+          <span className='text-xs font-medium text-text'>Shots</span>
+          <div className='flex items-center gap-3'>
             <Button
               onClick={() => handleOpenModal("SHOT")}
               variant='outline'
@@ -279,16 +317,16 @@ function TeamStats() {
             >
               +
             </Button>
-            <span className='text-xs font-medium'>Shots (Us)</span>
+            <span className='text-sm font-bold text-primary min-w-[30px] text-center'>
+              {statCounts.shot}
+            </span>
           </div>
-          <span className='text-sm font-bold text-primary'>
-            {statCounts.shot}
-          </span>
         </div>
 
         {/* Saves (Our Team Only) */}
-        <div className='flex items-center justify-between p-2 bg-surface rounded border border-border'>
-          <div className='flex items-center gap-2'>
+        <div className='flex items-center justify-between py-2 px-3 bg-surface rounded-lg border border-border'>
+          <span className='text-xs font-medium text-text'>Saves</span>
+          <div className='flex items-center gap-3'>
             <Button
               onClick={() => handleOpenModal("SAVE")}
               variant='outline'
@@ -296,29 +334,27 @@ function TeamStats() {
             >
               +
             </Button>
-            <span className='text-xs font-medium'>Saves (Us)</span>
+            <span className='text-sm font-bold text-primary min-w-[30px] text-center'>
+              {statCounts.save}
+            </span>
           </div>
-          <span className='text-sm font-bold text-primary'>
-            {statCounts.save}
-          </span>
         </div>
       </div>
 
-      {/* Recent Stats List */}
-      <div className='border-t border-border pt-3'>
-        <h3 className='text-xs font-medium text-text-label mb-2'>
+      {/* Recent Events List */}
+      <div className='border-t-2 border-border pt-3'>
+        <h3 className='text-xs font-semibold text-text-label mb-2 uppercase'>
           Recent Events
         </h3>
-        <div className='space-y-1 max-h-[200px] overflow-y-auto'>
+        <div className='space-y-1.5 h-[105px] overflow-y-auto pr-1'>
           {stats.length === 0 ? (
-            <div className='text-xs text-muted text-center py-2'>
+            <div className='text-xs text-muted text-center py-4 bg-surface rounded border border-border'>
               No events yet
             </div>
           ) : (
             stats
               .slice()
               .reverse()
-              .slice(0, 10)
               .map((stat) => {
                 const player = players.find(
                   (p) => p.playerGameId === stat.player_game_id
@@ -328,34 +364,37 @@ function TeamStats() {
                 return (
                   <div
                     key={stat.id}
-                    className='flex items-center justify-between p-1.5 bg-surface rounded border border-border text-xs'
+                    className='flex items-center gap-2 p-2 bg-surface rounded-lg border border-border'
                   >
                     <div className='flex-1 min-w-0'>
-                      <span className='font-medium capitalize'>
-                        {stat.event_type}
-                      </span>
+                      <div className='flex items-center gap-2'>
+                        <span className='text-xs font-semibold text-text capitalize'>
+                          {stat.event_type}
+                        </span>
+                        {!player && stat.for_team && (
+                          <span
+                            className={`px-1.5 py-0.5 text-xs font-medium rounded ${
+                              isOurTeam
+                                ? "bg-primary text-white"
+                                : "bg-accent text-white"
+                            }`}
+                          >
+                            {isOurTeam ? "Us" : "Them"}
+                          </span>
+                        )}
+                      </div>
                       {player && (
-                        <span className='text-muted ml-1'>
-                          - #{player.jerseyNumber} {player.fullName}
-                        </span>
-                      )}
-                      {!player && stat.for_team && (
-                        <span
-                          className={`ml-1 ${
-                            isOurTeam ? "text-primary" : "text-accent"
-                          }`}
-                        >
-                          ({isOurTeam ? "Us" : "Them"})
-                        </span>
+                        <div className='text-xs text-muted truncate mt-0.5'>
+                          #{player.jerseyNumber} {player.fullName}
+                        </div>
                       )}
                     </div>
-                    <Button
+                    <button
                       onClick={() => handleDeleteStat(stat.id)}
-                      variant='danger'
-                      size='sm'
+                      className='w-6 h-6 flex items-center justify-center rounded bg-danger text-white hover:bg-error-hover transition-colors flex-shrink-0 text-sm font-bold'
                     >
                       ×
-                    </Button>
+                    </button>
                   </div>
                 );
               })
@@ -363,7 +402,54 @@ function TeamStats() {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Major Event Selection Modal */}
+      {showMajorModal && (
+        <Modal
+          isOpen={showMajorModal}
+          onClose={handleCloseMajorModal}
+          title='Select Major Event'
+        >
+          <div className='space-y-2'>
+            <Button
+              onClick={() => handleSelectMajorEvent("GOAL")}
+              variant='success'
+              className='w-full'
+            >
+              Goal
+            </Button>
+            <Button
+              onClick={() => handleSelectMajorEvent("DISCIPLINE")}
+              variant='danger'
+              className='w-full'
+            >
+              Discipline
+            </Button>
+            <Button
+              onClick={() => handleSelectMajorEvent("PENALTY")}
+              variant='outline'
+              className='w-full'
+            >
+              Penalty
+            </Button>
+            <Button
+              onClick={() => handleSelectMajorEvent("PAUSE")}
+              variant='outline'
+              className='w-full'
+            >
+              Game Paused
+            </Button>
+            <Button
+              onClick={handleCloseMajorModal}
+              variant='outline'
+              className='w-full mt-4'
+            >
+              Cancel
+            </Button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Event Detail Modal (for player selection) */}
       {showModal && modalType && (
         <Modal
           isOpen={showModal}

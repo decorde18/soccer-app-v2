@@ -22,7 +22,7 @@ function OnBenchPlayers({ handleSubClick }) {
 
   const getBenchActionButton = (row) => {
     const buttonText = row.subStatus === "pendingIn" ? "Cancel" : "Sub In";
-    const variant = row.subStatus === "pendingIn" ? "outline" : "success";
+    const variant = row.subStatus === "pendingIn" ? "danger" : "primary";
 
     return (
       <Button

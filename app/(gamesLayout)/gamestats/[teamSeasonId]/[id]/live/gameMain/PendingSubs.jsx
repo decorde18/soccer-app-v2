@@ -5,12 +5,12 @@ import useGameStore from "@/stores/gameStore";
 import { useMemo, useState, useEffect } from "react";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
+import Dialog from "@/components/ui/Dialog";
 
-function PendingSubs() {
-  const players = useGamePlayersStore((s) => s.players);
+function PendingSubs({ hideIndividualEnter = false }) {
+  const allPlayers = useGamePlayersStore((s) => s.players);
   const game = useGameStore((s) => s.game);
 
-  // All sub-related functions now come from gameSubsStore
   const getPendingSubs = useGameSubsStore((s) => s.getPendingSubs);
   const confirmSub = useGameSubsStore((s) => s.confirmSub);
   const confirmAllPendingSubs = useGameSubsStore(
@@ -25,6 +25,15 @@ function PendingSubs() {
   const [confirmError, setConfirmError] = useState(null);
   const [pendingSubs, setPendingSubs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Dialog state
+  const [dialog, setDialog] = useState({
+    isOpen: false,
+    type: "confirm",
+    title: "",
+    message: "",
+    onConfirm: null,
+  });
 
   // Fetch pending subs on mount and when players change
   useEffect(() => {
@@ -41,7 +50,11 @@ function PendingSubs() {
     };
 
     fetchPendingSubs();
-  }, [players, getPendingSubs, game?.game_id]);
+  }, [allPlayers, getPendingSubs, game?.game_id]);
+
+  const players = allPlayers.filter((p) =>
+    ["dressed", "starter", "goalkeeper"].includes(p.gameStatus)
+  );
 
   const subsWithPlayerInfo = useMemo(() => {
     return pendingSubs.map((sub) => {
@@ -71,13 +84,22 @@ function PendingSubs() {
   }, [pendingSubs, players]);
 
   // Get available players for dropdowns
-  const availableBenchPlayers = useMemo(() => {
+  const getAvailableBenchPlayers = (currentSubId) => {
+    const currentSub = pendingSubs.find((s) => s.subId === currentSubId);
     const pendingInPlayerIds = new Set(
-      pendingSubs.filter((s) => s.inPlayerId).map((s) => s.inPlayerId)
+      pendingSubs
+        .filter((s) => s.inPlayerId && s.subId !== currentSubId)
+        .map((s) => s.inPlayerId)
     );
 
     return players
       .filter((p) => {
+        if (
+          currentSub?.inPlayerId &&
+          p.playerGameId === currentSub.inPlayerId
+        ) {
+          return true;
+        }
         if (p.fieldStatus !== "onBench") return false;
         if (pendingInPlayerIds.has(p.playerGameId)) return false;
         return true;
@@ -86,15 +108,24 @@ function PendingSubs() {
         value: p.playerGameId,
         label: `#${p.jerseyNumber} ${p.fullName}`,
       }));
-  }, [players, pendingSubs]);
+  };
 
-  const availableFieldPlayers = useMemo(() => {
+  const getAvailableFieldPlayers = (currentSubId) => {
+    const currentSub = pendingSubs.find((s) => s.subId === currentSubId);
     const pendingOutPlayerIds = new Set(
-      pendingSubs.filter((s) => s.outPlayerId).map((s) => s.outPlayerId)
+      pendingSubs
+        .filter((s) => s.outPlayerId && s.subId !== currentSubId)
+        .map((s) => s.outPlayerId)
     );
 
     return players
       .filter((p) => {
+        if (
+          currentSub?.outPlayerId &&
+          p.playerGameId === currentSub.outPlayerId
+        ) {
+          return true;
+        }
         if (p.fieldStatus !== "onField" && p.fieldStatus !== "onFieldGk")
           return false;
         if (pendingOutPlayerIds.has(p.playerGameId)) return false;
@@ -104,7 +135,12 @@ function PendingSubs() {
         value: p.playerGameId,
         label: `#${p.jerseyNumber} ${p.fullName}`,
       }));
-  }, [players, pendingSubs]);
+  };
+
+  const refreshPendingSubs = async () => {
+    const subs = await getPendingSubs();
+    setPendingSubs(subs || []);
+  };
 
   const handleStartEdit = (sub) => {
     setEditingSubId(sub.subId);
@@ -120,9 +156,7 @@ function PendingSubs() {
     if (editingOutPlayer) updates.out_player_id = parseInt(editingOutPlayer);
 
     await updatePendingSub(editingSubId, updates);
-
-    const subs = await getPendingSubs();
-    setPendingSubs(subs || []);
+    await refreshPendingSubs();
 
     setEditingSubId(null);
     setEditingInPlayer("");
@@ -135,40 +169,115 @@ function PendingSubs() {
     setEditingOutPlayer("");
   };
 
-  const handleConfirmAll = async () => {
-    if (!game?.game_id) return;
+  const validateAndConfirmSub = async (sub) => {
+    // Validation logic
+    if (sub.outPlayerId && !sub.inPlayerId) {
+      const player = players.find((p) => p.playerGameId === sub.outPlayerId);
+      const playerName = player
+        ? `#${player.jerseyNumber} ${player.fullName}`
+        : "Unknown";
 
-    setConfirmError(null);
-    const result = await confirmAllPendingSubs();
-
-    if (result.errors && result.errors.length > 0) {
-      setConfirmError(result.errors.join("; "));
-    } else if (result.confirmed > 0) {
-      console.log(`Confirmed ${result.confirmed} substitutions`);
-    } else if (result.pending) {
-      setConfirmError(
-        `${result.pending} subs will be confirmed at start of next period`
-      );
+      return new Promise((resolve) => {
+        setDialog({
+          isOpen: true,
+          type: "warning",
+          title: "Incomplete Substitution",
+          message: `Player coming out without replacement:\n${playerName}\n\nConfirm this substitution?`,
+          onConfirm: () => resolve(true),
+          onCancel: () => resolve(false),
+        });
+      });
     }
 
-    const subs = await getPendingSubs();
-    setPendingSubs(subs || []);
+    if (sub.inPlayerId && !sub.outPlayerId) {
+      const currentFieldCount = players.filter(
+        (p) =>
+          p.fieldStatus === "onField" ||
+          p.fieldStatus === "subbingIn" ||
+          p.fieldStatus === "onFieldGk"
+      ).length;
+
+      if (currentFieldCount >= +game.settings.playersOnField) {
+        setDialog({
+          isOpen: true,
+          type: "error",
+          title: "Maximum Players Reached",
+          message:
+            "You already have the maximum number of players on the field.",
+          showCancel: false,
+          onConfirm: () => {},
+        });
+        return false;
+      }
+
+      const player = players.find((p) => p.playerGameId === sub.inPlayerId);
+      const playerName = player
+        ? `#${player.jerseyNumber} ${player.fullName}`
+        : "Unknown";
+
+      return new Promise((resolve) => {
+        setDialog({
+          isOpen: true,
+          type: "warning",
+          title: "Incomplete Substitution",
+          message: `Player coming in without replacement:\n${playerName}\n\nConfirm this substitution?`,
+          onConfirm: () => resolve(true),
+          onCancel: () => resolve(false),
+        });
+      });
+    }
+
+    return true;
   };
 
   const handleConfirmSingle = async (subId) => {
     if (!game?.game_id) return;
 
+    const sub = pendingSubs.find((s) => s.subId === subId);
+    if (!sub) return;
+
+    if (!sub.isComplete) {
+      const shouldProceed = await validateAndConfirmSub(sub);
+      if (!shouldProceed) return;
+    }
+
     await confirmSub(subId);
-    const subs = await getPendingSubs();
-    setPendingSubs(subs || []);
+    await refreshPendingSubs();
+  };
+
+  const handleConfirmAll = async () => {
+    if (!game?.game_id) return;
+
+    setConfirmError(null);
+
+    // Process ALL subs immediately, one at a time
+    // Complete subs confirm without dialog, incomplete show validation dialog
+    for (const sub of pendingSubs) {
+      console.log(sub);
+      if (!sub.isComplete) {
+        // Show validation dialog for incomplete sub
+        const shouldProceed = await validateAndConfirmSub(sub);
+        if (shouldProceed) {
+          await confirmSub(sub.subId);
+        }
+      } else {
+        // Complete subs confirm immediately without dialog
+        await confirmSub(sub.subId);
+      }
+    }
+
+    await refreshPendingSubs();
   };
 
   const handleCancelSub = async (subId) => {
     if (!game?.game_id) return;
 
     await cancelSub(subId);
-    const subs = await getPendingSubs();
-    setPendingSubs(subs || []);
+    await refreshPendingSubs();
+  };
+
+  const closeDialog = () => {
+    setDialog({ ...dialog, isOpen: false });
   };
 
   if (!game?.game_id) {
@@ -188,12 +297,31 @@ function PendingSubs() {
 
   return (
     <div className='w-full max-w-full overflow-hidden'>
+      {/* Dialog Component */}
+      <Dialog
+        isOpen={dialog.isOpen}
+        onClose={closeDialog}
+        title={dialog.title}
+        message={dialog.message}
+        type={dialog.type}
+        confirmText={dialog.type === "error" ? "OK" : "Confirm"}
+        showCancel={dialog.type !== "alert" && dialog.type !== "error"}
+        onConfirm={() => {
+          if (dialog.onConfirm) {
+            dialog.onConfirm();
+          }
+          closeDialog();
+        }}
+      />
+
       {/* Header with Enter All Button */}
-      {completeSubs.length > 0 && (
+      {(completeSubs.length > 0 || incompleteSubs.length > 0) && (
         <div className='mb-3 pb-3 border-b border-border'>
           <div className='flex items-center justify-between gap-2 mb-2'>
             <div className='text-xs text-muted'>
               {completeSubs.length} ready
+              {incompleteSubs.length > 0 &&
+                `, ${incompleteSubs.length} incomplete`}
             </div>
             <Button onClick={handleConfirmAll} variant='success' size='sm'>
               Enter All
@@ -209,10 +337,16 @@ function PendingSubs() {
         </div>
       )}
 
-      {/* Substitutions List - Max height with scroll */}
+      {/* Substitutions List */}
       <div className='space-y-2 max-h-[400px] overflow-y-auto pr-1'>
         {subsWithPlayerInfo.map((sub) => {
           const isEditing = editingSubId === sub.subId;
+          const availableBenchPlayers = isEditing
+            ? getAvailableBenchPlayers(sub.subId)
+            : [];
+          const availableFieldPlayers = isEditing
+            ? getAvailableFieldPlayers(sub.subId)
+            : [];
 
           return (
             <div
@@ -223,7 +357,7 @@ function PendingSubs() {
                   : "bg-warningbg border-warningborder"
               }`}
             >
-              {/* Player Info - Compact Layout */}
+              {/* Player Info */}
               <div className='space-y-1 mb-2'>
                 {/* IN Player */}
                 <div className='flex items-center gap-1.5'>
@@ -246,10 +380,8 @@ function PendingSubs() {
                     <Select
                       value={editingInPlayer}
                       onChange={(e) => setEditingInPlayer(e.target.value)}
-                      options={[
-                        { value: "", label: "Select..." },
-                        ...availableBenchPlayers,
-                      ]}
+                      options={availableBenchPlayers}
+                      placeholder='Select Player In'
                       className='text-xs flex-1 min-w-0'
                     />
                   ) : (
@@ -287,10 +419,8 @@ function PendingSubs() {
                     <Select
                       value={editingOutPlayer}
                       onChange={(e) => setEditingOutPlayer(e.target.value)}
-                      options={[
-                        { value: "", label: "Select..." },
-                        ...availableFieldPlayers,
-                      ]}
+                      options={availableFieldPlayers}
+                      placeholder='Select Player Out'
                       className='text-xs flex-1 min-w-0'
                     />
                   ) : (
@@ -339,7 +469,7 @@ function PendingSubs() {
                     >
                       Edit
                     </Button>
-                    {sub.isComplete && (
+                    {!hideIndividualEnter && (
                       <Button
                         onClick={() => handleConfirmSingle(sub.subId)}
                         variant='success'

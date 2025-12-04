@@ -7,6 +7,122 @@ import { apiFetch } from "@/app/api/fetcher";
 import useGameStore from "./gameStore";
 
 const useGameSubsStore = create((set, get) => ({
+  // ==================== HELPER FUNCTIONS ====================
+
+  /**
+   * Determines who the current goalkeeper is based on:
+   * 1. Most recent CONFIRMED gk_sub (gk_sub=1 AND sub_time IS NOT NULL)
+   * 2. OR player with gameStatus='goalkeeper' if no GK subs have been confirmed
+   *
+   * IMPORTANT: gameStatus never changes during the game - it reflects lineup only.
+   * GK subs during the game override the starting GK.
+   */
+  getCurrentGoalkeeper: async () => {
+    const gameId = useGameStore.getState().game?.game_id;
+    if (!gameId) return null;
+
+    try {
+      // Fetch all CONFIRMED GK subs (sub_time IS NOT NULL)
+      const confirmedGkSubs = await apiFetch("game_subs", "GET", null, null, {
+        filters: {
+          game_id: gameId,
+          gk_sub: 1,
+          sub_time_is_not_null: true,
+        },
+      });
+
+      // If there are confirmed GK subs, find the most recent one
+      if (confirmedGkSubs && confirmedGkSubs.length > 0) {
+        // Sort by sub_time descending to get most recent
+        const mostRecentGkSub = confirmedGkSubs.sort(
+          (a, b) => b.sub_time - a.sub_time
+        )[0];
+
+        // The IN player from the most recent GK sub is the current GK
+        const players = useGamePlayersStore.getState().players;
+        const currentGk = players.find(
+          (p) => p.playerGameId === mostRecentGkSub.in_player_id
+        );
+
+        if (currentGk) {
+          console.log(`Current GK from sub: ${currentGk.fullName}`);
+          return currentGk;
+        }
+      }
+
+      // If no confirmed GK subs, use the starting GK (gameStatus='goalkeeper')
+      const players = useGamePlayersStore.getState().players;
+      const startingGk = players.find((p) => p.gameStatus === "goalkeeper");
+
+      if (startingGk) {
+        console.log(`Current GK from lineup: ${startingGk.fullName}`);
+      }
+
+      return startingGk;
+    } catch (error) {
+      console.error("Error finding current goalkeeper:", error);
+
+      // Fallback to gameStatus check
+      const players = useGamePlayersStore.getState().players;
+      return players.find((p) => p.gameStatus === "goalkeeper");
+    }
+  },
+
+  /**
+   * Checks if a player is currently the goalkeeper
+   */
+  isCurrentGoalkeeper: async (playerId) => {
+    const currentGk = await get().getCurrentGoalkeeper();
+    return currentGk?.id === playerId;
+  },
+
+  /**
+   * Determines if this is a GK sub based on players involved
+   */
+  isGkSubstitution: async (inPlayerId, outPlayerId) => {
+    if (!inPlayerId && !outPlayerId) return false;
+
+    const players = useGamePlayersStore.getState().players;
+
+    const inPlayer = inPlayerId
+      ? players.find((p) => p.playerGameId === inPlayerId)
+      : null;
+    const outPlayer = outPlayerId
+      ? players.find((p) => p.playerGameId === outPlayerId)
+      : null;
+
+    // Check if either player is the current GK
+    const currentGk = await get().getCurrentGoalkeeper();
+    const involvesCurrentGk =
+      currentGk &&
+      (inPlayer?.id === currentGk.id || outPlayer?.id === currentGk.id);
+
+    return involvesCurrentGk;
+  },
+
+  /**
+   * Checks if both players in a sub are currently on field
+   */
+  isBothOnField: (inPlayerId, outPlayerId) => {
+    const players = useGamePlayersStore.getState().players;
+
+    const inPlayer = inPlayerId
+      ? players.find((p) => p.playerGameId === inPlayerId)
+      : null;
+    const outPlayer = outPlayerId
+      ? players.find((p) => p.playerGameId === outPlayerId)
+      : null;
+
+    const inOnField =
+      inPlayer?.fieldStatus === "onField" ||
+      inPlayer?.fieldStatus === "onFieldGk";
+    const outOnField =
+      outPlayer?.fieldStatus === "onField" ||
+      outPlayer?.fieldStatus === "onFieldGk";
+
+    return inOnField && outOnField;
+  },
+
   // ==================== PENDING SUB QUERIES ====================
 
   getPendingSubs: async () => {
@@ -86,6 +202,11 @@ const useGameSubsStore = create((set, get) => ({
       return null;
     }
 
+    // Auto-detect if this is a GK sub
+    if (!isGkSub && (inPlayerId || outPlayerId)) {
+      isGkSub = await get().isGkSubstitution(inPlayerId, outPlayerId);
+    }
+
     try {
       const sub = await apiFetch("game_subs", "POST", {
         game_id: gameId,
@@ -140,23 +261,48 @@ const useGameSubsStore = create((set, get) => ({
 
   updatePendingSub: async (subId, updates) => {
     try {
+      // Check if we need to auto-detect GK sub status
+      const currentSubs = await apiFetch("game_subs", "GET", null, null, {
+        filters: { id: subId },
+      });
+      const currentSub = currentSubs[0];
+
+      const newInPlayerId = updates.in_player_id ?? currentSub.in_player_id;
+      const newOutPlayerId = updates.out_player_id ?? currentSub.out_player_id;
+
+      // Auto-detect if this should be a GK sub
+      const shouldBeGkSub = await get().isGkSubstitution(
+        newInPlayerId,
+        newOutPlayerId
+      );
+
+      // Update gk_sub flag
+      updates.gk_sub = shouldBeGkSub ? 1 : 0;
+
+      // Update in database
       await apiFetch(`game_subs?id=${subId}`, "PUT", updates);
 
-      const [updatedSub] = await apiFetch("game_subs", "GET", null, null, {
+      // Fetch the updated sub
+      const updatedSub = await apiFetch("game_subs", "GET", null, null, {
         filters: { id: subId },
       });
 
-      if (!updatedSub) return;
+      if (!updatedSub) {
+        console.error("No sub found after update");
+        return null;
+      }
 
       const playersStore = useGamePlayersStore.getState();
       const calculateFieldStatus = playersStore.calculateFieldStatus;
 
+      // Remove this sub from all players first
       let players = playersStore.players.map((player) => ({
         ...player,
         ins: (player.ins || []).filter((sub) => sub.subId !== subId),
         outs: (player.outs || []).filter((sub) => sub.subId !== subId),
       }));
 
+      // Add updated sub to appropriate players
       players = players.map((player) => {
         if (
           updatedSub.in_player_id &&
@@ -193,6 +339,7 @@ const useGameSubsStore = create((set, get) => ({
         return player;
       });
 
+      // Recalculate field status for all affected players
       players = players.map((player) => ({
         ...player,
         fieldStatus: calculateFieldStatus(player),
@@ -226,10 +373,28 @@ const useGameSubsStore = create((set, get) => ({
     }
 
     try {
+      // Get the sub details
+      const sub = await apiFetch("game_subs", "GET", null, null, {
+        filters: { id: subId },
+      });
+
+      if (!sub) {
+        console.error("Sub not found");
+        return;
+      }
+
+      const isGkSub = sub.gk_sub === 1;
+
+      // Confirm the sub (set sub_time)
       await apiFetch(`game_subs?id=${subId}`, "PUT", {
         sub_time: gameTime,
       });
 
+      // NOTE: We do NOT update game_status in player_games
+      // gameStatus only reflects the lineup and never changes during the game
+      // The getCurrentGoalkeeper() function will use confirmed GK subs to determine who is actually GK
+
+      // Update ins/outs in player state
       const playersStore = useGamePlayersStore.getState();
       const calculateFieldStatus = playersStore.calculateFieldStatus;
 
@@ -266,7 +431,11 @@ const useGameSubsStore = create((set, get) => ({
 
       await playersStore.updateAllSubStatuses(gameStore.game?.game_id);
 
-      console.log(`Confirmed sub ${subId} at game time ${gameTime} seconds`);
+      console.log(
+        `Confirmed ${
+          isGkSub ? "GK " : ""
+        }sub ${subId} at game time ${gameTime} seconds`
+      );
     } catch (error) {
       console.error("Error confirming sub:", error);
     }
@@ -280,41 +449,26 @@ const useGameSubsStore = create((set, get) => ({
 
     const pendingSubs = await get().getPendingSubs(gameStore.game?.game_id);
     const completeSubs = pendingSubs.filter((sub) => sub.isComplete);
-
-    if (completeSubs.length === 0) {
-      console.log("No complete subs to confirm");
-      return { confirmed: 0, errors: [] };
-    }
-
     const incompleteSubs = pendingSubs.filter((sub) => !sub.isComplete);
-    const playersOutWithoutReplacement = incompleteSubs.filter(
-      (sub) => sub.outPlayerId && !sub.inPlayerId
-    );
 
-    if (playersOutWithoutReplacement.length > 0) {
-      const players = useGamePlayersStore.getState().players;
-      const playerNames = playersOutWithoutReplacement.map((sub) => {
-        const player = players.find((p) => p.playerGameId === sub.outPlayerId);
-        return player
-          ? `#${player.jerseyNumber} ${player.fullName}`
-          : "Unknown";
-      });
-
-      return {
-        confirmed: 0,
-        errors: [
-          `Players coming out without replacement: ${playerNames.join(", ")}`,
-        ],
-      };
+    if (completeSubs.length === 0 && incompleteSubs.length === 0) {
+      console.log("No subs to confirm");
+      return { confirmed: 0, errors: [] };
     }
 
     if (gameStage === "between_periods") {
       console.log("Subs will be confirmed at start of next period");
-      return { confirmed: 0, pending: completeSubs.length };
+      return {
+        confirmed: 0,
+        pending: completeSubs.length + incompleteSubs.length,
+      };
     }
 
+    // Confirm all subs (complete and incomplete)
+    const allSubsToConfirm = [...completeSubs, ...incompleteSubs];
+
     const results = await Promise.allSettled(
-      completeSubs.map((sub) => get().confirmSub(sub.subId))
+      allSubsToConfirm.map((sub) => get().confirmSub(sub.subId))
     );
 
     const errors = results

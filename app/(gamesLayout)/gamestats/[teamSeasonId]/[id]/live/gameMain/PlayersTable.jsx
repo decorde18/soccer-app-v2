@@ -103,8 +103,8 @@ function PlayersTable({
 
   // Default action button
   const defaultGetActionButton = (row) => {
-    const buttonText = row.subStatus === "pendingOut" ? "Cancel" : "Sub";
-    const variant = row.subStatus === "pendingOut" ? "outline" : "default";
+    const buttonText = row.subStatus === "pendingOut" ? "Cancel" : "Sub Out";
+    const variant = row.subStatus === "pendingOut" ? "danger" : "primary";
 
     return (
       <Button

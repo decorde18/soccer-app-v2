@@ -2,12 +2,12 @@
 
 import { useSubManagement } from "@/hooks/useSubManagement";
 import SubSelectionModal from "./SubSelectionModal";
-import OnFieldPlayers from "./OnFieldPlayers";
+import OnFieldPlayers from "./gameMain/OnFieldPlayers";
 
-import OnBenchPlayers from "./OnBenchPlayers";
-import TeamStats from "./TeamStats";
-import PendingSubs from "./PendingSubs";
-import LiveGameHeader from "./LiveGameHeader";
+import OnBenchPlayers from "./gameMain/OnBenchPlayers";
+import TeamStats from "./gameMain/TeamStats";
+import PendingSubs from "./gameMain/PendingSubs";
+import LiveGameHeader from "./gameHeader/LiveGameHeader";
 
 function GamePlayersLayout() {
   const {
@@ -19,13 +19,15 @@ function GamePlayersLayout() {
   } = useSubManagement();
 
   return (
-    <div className='h-screen grid grid-cols-[60%_1fr] grid-rows-[10%_1.22fr_1fr] gap-4 p-1 overflow-hidden'>
+    <div className='h-screen grid grid-cols-[61%_1fr] grid-rows-[10%_1.22fr_1fr] gap-4 p-1 overflow-hidden'>
       <LiveGameHeader />
 
       <OnFieldPlayers handleSubClick={handleSubClick} />
       <OnBenchPlayers handleSubClick={handleSubClick} />
-      <div className='row-start-2 row-span-2 grid grid-rows-2 gap-4 h-full'>
-        <TeamStats />
+      <div className='row-start-2 row-span-2 grid grid-rows-2 gap-4 h-full space-y-4'>
+        <div className='pb-4 border-b-2 border-border'>
+          <TeamStats />
+        </div>
         <PendingSubs />
       </div>
       <SubSelectionModal

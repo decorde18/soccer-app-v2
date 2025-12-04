@@ -9,7 +9,7 @@ import useGameStore from "@/stores/gameStore";
 import useGamePlayersStore from "@/stores/gamePlayersStore";
 import useGameSubsStore from "@/stores/gameSubsStore";
 import useGameEventsStore from "@/stores/gameEventsStore";
-import PendingSubs from "./PendingSubs";
+import PendingSubs from "./gameMain/PendingSubs";
 
 function GameControlModal({ onClose }) {
   const game = useGameStore((s) => s.game);

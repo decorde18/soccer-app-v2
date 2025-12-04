@@ -26,9 +26,9 @@ export default function Button({
       "bg-[hsl(var(--color-primary))] text-white hover:bg-[hsl(var(--color-accent-hover))]",
     secondary: "bg-[hsl(var(--color-secondary))] text-white hover:opacity-90",
     success:
-      "border border-[hsl(var(--color-border))] bg-[hsl(var(--color-success))] text-white hover:bg-[hsl(var(--color-background))]",
+      "border border-[hsl(var(--color-border))] bg-[hsl(var(--color-success))] text-white hover:opacity-80",
     danger:
-      "border border-[hsl(var(--color-border))] bg-danger text-white hover:bg-bakground",
+      "border border-[hsl(var(--color-border))] bg-danger text-white hover:opacity-90",
     muted:
       "border border-[hsl(var(--color-border))] bg-[hsl(var(--color-muted))] text-white hover:bg-[hsl(var(--color-background))]",
     outline:
