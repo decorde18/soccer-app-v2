@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Nov 26, 2025 at 11:26 PM
+-- Generation Time: Dec 05, 2025 at 08:52 AM
 -- Server version: 11.8.3-MariaDB-log
 -- PHP Version: 7.2.34
 
@@ -172,7 +172,7 @@ CREATE TABLE `games` (
   `sublocation_id` int(11) DEFAULT NULL,
   `start_date` date NOT NULL,
   `start_time` time DEFAULT NULL,
-  `end_date` date NOT NULL,
+  `end_date` date DEFAULT NULL,
   `end_time` time DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -205,14 +205,22 @@ CREATE TABLE `games_overtimes` (
 CREATE TABLE `game_events` (
   `id` int(11) NOT NULL,
   `game_id` int(11) NOT NULL,
-  `player_id` int(11) NOT NULL,
-  `team_id` int(11) NOT NULL,
-  `event_type` enum('goal','assist','yellow_card','red_card','substitution_in','substitution_out','corner','shot','shot_on_target','save','penalty') NOT NULL,
-  `minute` int(11) NOT NULL,
+  `player_game_id` int(11) DEFAULT NULL,
+  `event_category` enum('minor','major','goal','card','substitution') NOT NULL,
+  `event_type` varchar(50) NOT NULL,
+  `game_time` int(11) NOT NULL,
+  `period` int(11) NOT NULL,
+  `is_stoppage` tinyint(1) DEFAULT 0,
+  `stoppage_start_time` int(11) DEFAULT NULL,
+  `stoppage_end_time` int(11) DEFAULT NULL,
+  `clock_should_run` tinyint(1) DEFAULT 1,
+  `assist_player_game_id` int(11) DEFAULT NULL,
+  `goal_types` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`goal_types`)),
+  `card_reason` varchar(255) DEFAULT NULL,
   `details` text DEFAULT NULL,
-  `related_event_id` int(11) DEFAULT NULL,
-  `created_at` datetime DEFAULT current_timestamp(),
-  `modified_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  `notes` text DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `modified_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -237,8 +245,8 @@ CREATE TABLE `game_periods` (
   `id` int(11) NOT NULL,
   `game_id` int(11) NOT NULL,
   `period_number` int(11) NOT NULL,
-  `start_time` datetime NOT NULL,
-  `end_time` datetime DEFAULT NULL,
+  `start_time` bigint(20) DEFAULT NULL,
+  `end_time` bigint(20) DEFAULT NULL,
   `added_time` int(11) DEFAULT 0,
   `created_at` datetime DEFAULT current_timestamp(),
   `modified_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
@@ -286,9 +294,9 @@ CREATE TABLE `game_standings_inclusions` (
 CREATE TABLE `game_subs` (
   `id` int(11) NOT NULL,
   `game_id` int(11) NOT NULL,
-  `in_player_id` int(11) NOT NULL,
+  `in_player_id` int(11) DEFAULT NULL,
   `out_player_id` int(11) DEFAULT NULL,
-  `sub_time` time NOT NULL,
+  `sub_time` int(11) DEFAULT NULL COMMENT 'Game time in seconds since period 1 start (NULL = pending)',
   `period` int(11) NOT NULL,
   `gk_sub` tinyint(1) DEFAULT 0,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
@@ -319,6 +327,7 @@ CREATE TABLE `governing_bodies` (
 CREATE TABLE `leagues` (
   `id` int(11) NOT NULL,
   `name` varchar(255) NOT NULL,
+  `abbreviation` varchar(20) DEFAULT NULL,
   `governing_body_id` int(11) DEFAULT NULL,
   `is_active` tinyint(1) DEFAULT 1,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
@@ -435,7 +444,7 @@ CREATE TABLE `player_games` (
   `team_id` int(11) NOT NULL,
   `position_id` int(11) DEFAULT NULL,
   `started` tinyint(1) DEFAULT 0,
-  `game_status` enum('starter','dressed','not dressed','injured','suspended','not available') DEFAULT NULL,
+  `game_status` enum('goalkeeper','starter','dressed','not_dressed','injured','suspended','unavailable') NOT NULL DEFAULT 'dressed',
   `created_at` datetime DEFAULT current_timestamp(),
   `modified_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `is_guest` tinyint(1) DEFAULT 0
@@ -781,6 +790,7 @@ CREATE TABLE `v_games_summary` (
 ,`away_gender` enum('Men','Women','Mixed')
 ,`league_names` longtext
 ,`league_node_names` longtext
+,`leagues_array` longtext
 ,`home_score` int(11)
 ,`away_score` int(11)
 ,`final_status` enum('regulation','overtime','penalty_kicks')
@@ -795,6 +805,7 @@ CREATE TABLE `v_games_summary` (
 CREATE TABLE `v_leagues` (
 `league_id` int(11)
 ,`league_name` varchar(255)
+,`league_abbreviation` varchar(20)
 ,`league_description` text
 ,`league_is_active` tinyint(1)
 ,`is_tournament` tinyint(1)
@@ -1001,45 +1012,83 @@ CREATE TABLE `v_players` (
 -- --------------------------------------------------------
 
 --
--- Stand-in structure for view `v_player_stats_combined`
+-- Stand-in structure for view `v_player_games`
 -- (See below for the actual view)
 --
-CREATE TABLE `v_player_stats_combined` (
-`player_id` int(11)
+CREATE TABLE `v_player_games` (
+`player_game_id` int(11)
+,`game_id` int(11)
+,`player_id` int(11)
+,`team_id` int(11)
+,`position_id` int(11)
+,`started` tinyint(1)
+,`game_status` enum('goalkeeper','starter','dressed','not_dressed','injured','suspended','unavailable')
+,`is_guest` tinyint(1)
 ,`first_name` varchar(25)
 ,`last_name` varchar(25)
+,`full_name` varchar(51)
+,`nickname` varchar(25)
+,`player_team_id` int(11)
+,`jersey_number` int(11)
+,`primary_position` varchar(50)
 ,`team_season_id` int(11)
+,`captain` tinyint(1)
+,`grade` varchar(10)
 ,`team_name` varchar(100)
+,`team_gender` enum('Men','Women','Mixed')
 ,`club_name` varchar(100)
+,`club_abbreviation` varchar(20)
+,`club_logo_url` varchar(255)
+,`start_date` date
+,`start_time` time
+,`game_status_overall` enum('scheduled','in_progress','completed','postponed','cancelled')
+,`home_team_season_id` int(11)
+,`away_team_season_id` int(11)
+,`season_id` int(11)
+,`home_away` varchar(4)
 ,`season_name` varchar(50)
-,`calculated_goals` decimal(22,0)
-,`calculated_assists` decimal(22,0)
-,`calculated_yellow_cards` decimal(22,0)
-,`calculated_red_cards` decimal(22,0)
-,`calculated_shots` decimal(22,0)
-,`calculated_shots_on_target` decimal(22,0)
-,`calculated_saves` decimal(22,0)
-,`calculated_games_played` bigint(21)
-,`calculated_games_started` decimal(22,0)
-,`manual_goals` int(11)
-,`manual_assists` int(11)
-,`manual_yellow_cards` int(11)
-,`manual_red_cards` int(11)
-,`manual_games_played` int(11)
-,`manual_games_started` int(11)
-,`manual_shots` int(11)
-,`manual_shots_on_target` int(11)
-,`manual_saves` int(11)
-,`manual_clean_sheets` int(11)
-,`stats_source` enum('manual','calculated','hybrid')
-,`total_goals` decimal(22,0)
-,`total_assists` decimal(22,0)
-,`total_yellow_cards` decimal(22,0)
-,`total_red_cards` decimal(22,0)
-,`total_games_played` bigint(21)
-,`total_shots` decimal(22,0)
-,`total_saves` decimal(22,0)
+,`is_current_season` tinyint(1)
+,`age_group_id` int(11)
+,`age_group_name` varchar(50)
+,`created_at` datetime
+,`modified_at` datetime
 );
+
+-- --------------------------------------------------------
+
+--
+-- Stand-in structure for view `v_player_game_stats`
+-- (See below for the actual view)
+--
+CREATE TABLE `v_player_game_stats` (
+`player_game_id` int(11)
+,`game_id` int(11)
+,`player_id` int(11)
+,`team_id` int(11)
+,`first_name` varchar(25)
+,`last_name` varchar(25)
+,`full_name` varchar(51)
+,`jersey_number` int(11)
+,`position` varchar(50)
+,`game_status` enum('goalkeeper','starter','dressed','not_dressed','injured','suspended','unavailable')
+,`started` tinyint(1)
+,`goals` bigint(21)
+,`assists` bigint(21)
+,`shots` bigint(21)
+,`shots_on_target` bigint(21)
+,`saves` bigint(21)
+,`yellow_cards` bigint(21)
+,`red_cards` bigint(21)
+,`corners` bigint(21)
+);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `v_player_stats_combined`
+--
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_player_stats_combined`  AS SELECT `p`.`id` AS `player_id`, `p`.`first_name` AS `first_name`, `p`.`last_name` AS `last_name`, `ts`.`id` AS `team_season_id`, `t`.`team_name` AS `team_name`, `c`.`name` AS `club_name`, `s`.`season_name` AS `season_name`, coalesce(sum(case when `ge`.`event_type` = 'goal' then 1 else 0 end),0) AS `calculated_goals`, coalesce(sum(case when `ge`.`event_type` = 'assist' then 1 else 0 end),0) AS `calculated_assists`, coalesce(sum(case when `ge`.`event_type` = 'yellow_card' then 1 else 0 end),0) AS `calculated_yellow_cards`, coalesce(sum(case when `ge`.`event_type` = 'red_card' then 1 else 0 end),0) AS `calculated_red_cards`, coalesce(sum(case when `ge`.`event_type` = 'shot' then 1 else 0 end),0) AS `calculated_shots`, coalesce(sum(case when `ge`.`event_type` = 'shot_on_target' then 1 else 0 end),0) AS `calculated_shots_on_target`, coalesce(sum(case when `ge`.`event_type` = 'save' then 1 else 0 end),0) AS `calculated_saves`, coalesce(count(distinct `pg`.`game_id`),0) AS `calculated_games_played`, coalesce(sum(case when `pg`.`started` = 1 then 1 else 0 end),0) AS `calculated_games_started`, `pss`.`goals` AS `manual_goals`, `pss`.`assists` AS `manual_assists`, `pss`.`yellow_cards` AS `manual_yellow_cards`, `pss`.`red_cards` AS `manual_red_cards`, `pss`.`games_played` AS `manual_games_played`, `pss`.`games_started` AS `manual_games_started`, `pss`.`shots` AS `manual_shots`, `pss`.`shots_on_target` AS `manual_shots_on_target`, `pss`.`saves` AS `manual_saves`, `pss`.`clean_sheets` AS `manual_clean_sheets`, `pss`.`stats_source` AS `stats_source`, coalesce(`pss`.`goals`,sum(case when `ge`.`event_type` = 'goal' then 1 else 0 end),0) AS `total_goals`, coalesce(`pss`.`assists`,sum(case when `ge`.`event_type` = 'assist' then 1 else 0 end),0) AS `total_assists`, coalesce(`pss`.`yellow_cards`,sum(case when `ge`.`event_type` = 'yellow_card' then 1 else 0 end),0) AS `total_yellow_cards`, coalesce(`pss`.`red_cards`,sum(case when `ge`.`event_type` = 'red_card' then 1 else 0 end),0) AS `total_red_cards`, coalesce(`pss`.`games_played`,count(distinct `pg`.`game_id`),0) AS `total_games_played`, coalesce(`pss`.`shots`,sum(case when `ge`.`event_type` = 'shot' then 1 else 0 end),0) AS `total_shots`, coalesce(`pss`.`saves`,sum(case when `ge`.`event_type` = 'save' then 1 else 0 end),0) AS `total_saves` FROM ((((((((`people` `p` join `player_teams` `pt` on(`p`.`id` = `pt`.`player_id`)) join `team_seasons` `ts` on(`pt`.`team_season_id` = `ts`.`id`)) join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `player_season_stats` `pss` on(`p`.`id` = `pss`.`player_id` and `ts`.`id` = `pss`.`team_season_id`)) left join `player_games` `pg` on(`p`.`id` = `pg`.`player_id` and `pg`.`team_id` = `t`.`id`)) left join `game_events` `ge` on(`p`.`id` = `ge`.`player_id` and `ge`.`game_id` = `pg`.`game_id`)) WHERE `pt`.`is_active` = 1 GROUP BY `p`.`id`, `p`.`first_name`, `p`.`last_name`, `ts`.`id`, `t`.`team_name`, `c`.`name`, `s`.`season_name`, `pss`.`goals`, `pss`.`assists`, `pss`.`yellow_cards`, `pss`.`red_cards`, `pss`.`games_played`, `pss`.`games_started`, `pss`.`shots`, `pss`.`shots_on_target`, `pss`.`saves`, `pss`.`clean_sheets`, `pss`.`stats_source` ORDER BY `c`.`name` ASC, `t`.`team_name` ASC, `p`.`last_name` ASC, `p`.`first_name` ASC ;
 
 -- --------------------------------------------------------
 
@@ -1105,54 +1154,22 @@ CREATE TABLE `v_standings` (
 --
 CREATE TABLE `v_stat_leaders` (
 `player_id` int(11)
+,`team_id` int(11)
 ,`first_name` varchar(25)
 ,`last_name` varchar(25)
 ,`full_name` varchar(51)
-,`nickname` varchar(25)
-,`birth_date` date
-,`age` bigint(21)
-,`team_season_id` int(11)
-,`team_id` int(11)
-,`team_name` varchar(100)
-,`team_gender` enum('Men','Women','Mixed')
 ,`jersey_number` int(11)
 ,`position` varchar(50)
-,`club_id` int(11)
-,`club_name` varchar(100)
-,`club_abbreviation` varchar(20)
-,`club_logo_url` varchar(255)
-,`club_type` enum('high_school','club')
-,`season_id` int(11)
-,`season_name` varchar(50)
-,`season_start` date
-,`season_end` date
-,`is_current_season` tinyint(1)
-,`age_group_id` int(11)
-,`age_group_name` varchar(50)
-,`league_id` int(11)
-,`league_name` varchar(255)
-,`league_node_id` int(11)
-,`league_node_name` varchar(255)
-,`league_node_type` enum('league','conference','division','group','region','district','classification','age_group','gender','custom','tournament')
-,`goals` decimal(22,0)
-,`assists` decimal(22,0)
-,`points` decimal(23,0)
-,`yellow_cards` decimal(22,0)
-,`red_cards` decimal(22,0)
-,`shots` decimal(22,0)
-,`shots_on_target` decimal(22,0)
-,`saves` decimal(22,0)
+,`total_goals` decimal(42,0)
+,`total_assists` decimal(42,0)
+,`total_shots` decimal(42,0)
+,`total_shots_on_target` decimal(42,0)
+,`total_saves` decimal(42,0)
+,`total_yellow_cards` decimal(42,0)
+,`total_red_cards` decimal(42,0)
+,`total_corners` decimal(42,0)
 ,`games_played` bigint(21)
 ,`games_started` decimal(22,0)
-,`minutes_played` int(11)
-,`clean_sheets` int(11)
-,`penalty_goals` int(11)
-,`goals_per_game` decimal(25,2)
-,`points_per_game` decimal(26,2)
-,`shooting_percentage` decimal(28,2)
-,`shot_accuracy` decimal(28,2)
-,`stats_source` varchar(10)
-,`is_active` tinyint(1)
 );
 
 -- --------------------------------------------------------
@@ -1367,11 +1384,11 @@ ALTER TABLE `games_overtimes`
 --
 ALTER TABLE `game_events`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `related_event_id` (`related_event_id`),
   ADD KEY `idx_game_events_game` (`game_id`),
-  ADD KEY `idx_game_events_player` (`player_id`),
-  ADD KEY `idx_game_events_team` (`team_id`),
-  ADD KEY `idx_game_events_type` (`event_type`);
+  ADD KEY `idx_game_events_player_game` (`player_game_id`),
+  ADD KEY `idx_game_events_assist` (`assist_player_game_id`),
+  ADD KEY `idx_game_events_type` (`event_type`),
+  ADD KEY `idx_game_events_period` (`period`);
 
 --
 -- Indexes for table `game_league_nodes`
@@ -1409,8 +1426,8 @@ ALTER TABLE `game_standings_inclusions`
 ALTER TABLE `game_subs`
   ADD PRIMARY KEY (`id`),
   ADD KEY `game_id` (`game_id`),
-  ADD KEY `in_player_id` (`in_player_id`),
-  ADD KEY `out_player_id` (`out_player_id`);
+  ADD KEY `fk_game_subs_in` (`in_player_id`),
+  ADD KEY `fk_game_subs_out` (`out_player_id`);
 
 --
 -- Indexes for table `governing_bodies`
@@ -1816,7 +1833,7 @@ CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL S
 --
 DROP TABLE IF EXISTS `v_games_summary`;
 
-CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_games_summary`  AS SELECT `g`.`id` AS `game_id`, `g`.`status` AS `status`, `g`.`game_type` AS `game_type`, `g`.`start_date` AS `start_date`, `g`.`start_time` AS `start_time`, `g`.`end_date` AS `end_date`, `g`.`end_time` AS `end_time`, `g`.`timezone_label` AS `timezone_label`, `s`.`season_name` AS `season_name`, `g`.`location_id` AS `location_id`, `l`.`name` AS `location_name`, `g`.`sublocation_id` AS `sublocation_id`, `ls`.`name` AS `sublocation_name`, `g`.`home_team_season_id` AS `home_team_season_id`, `ht`.`team_name` AS `home_team_name`, `hc`.`name` AS `home_club_name`, `ht`.`gender` AS `home_gender`, `g`.`away_team_season_id` AS `away_team_season_id`, `at`.`team_name` AS `away_team_name`, `ac`.`name` AS `away_club_name`, `at`.`gender` AS `away_gender`, group_concat(distinct `l_league`.`name` order by `gln`.`is_primary` DESC,`l_league`.`name` ASC separator ', ') AS `league_names`, group_concat(distinct `ln`.`name` order by `gln`.`is_primary` DESC,`ln`.`name` ASC separator ', ') AS `league_node_names`, `gs`.`home_score` AS `home_score`, `gs`.`away_score` AS `away_score`, `gs`.`final_status` AS `final_status` FROM ((((((((((((((`games` `g` join `seasons` `s` on(`g`.`season_id` = `s`.`id`)) left join `locations` `l` on(`g`.`location_id` = `l`.`id`)) left join `locations_sublocations` `ls` on(`g`.`sublocation_id` = `ls`.`id`)) join `team_seasons` `hts` on(`g`.`home_team_season_id` = `hts`.`id`)) join `teams` `ht` on(`hts`.`team_id` = `ht`.`id`)) join `clubs` `hc` on(`ht`.`club_id` = `hc`.`id`)) join `team_seasons` `ats` on(`g`.`away_team_season_id` = `ats`.`id`)) join `teams` `at` on(`ats`.`team_id` = `at`.`id`)) join `clubs` `ac` on(`at`.`club_id` = `ac`.`id`)) left join `game_league_nodes` `gln` on(`g`.`id` = `gln`.`game_id`)) left join `league_node_seasons` `lns` on(`gln`.`league_node_id` = `lns`.`id`)) left join `league_nodes` `ln` on(`lns`.`league_node_id` = `ln`.`id`)) left join `leagues` `l_league` on(`ln`.`league_id` = `l_league`.`id`)) left join `game_scores` `gs` on(`g`.`id` = `gs`.`id`)) GROUP BY `g`.`id`, `g`.`status`, `g`.`game_type`, `g`.`start_date`, `g`.`start_time`, `g`.`end_date`, `g`.`end_time`, `g`.`timezone_label`, `s`.`season_name`, `g`.`location_id`, `l`.`name`, `g`.`sublocation_id`, `ls`.`name`, `g`.`home_team_season_id`, `ht`.`team_name`, `hc`.`name`, `ht`.`gender`, `g`.`away_team_season_id`, `at`.`team_name`, `ac`.`name`, `at`.`gender`, `gs`.`home_score`, `gs`.`away_score`, `gs`.`final_status` ;
+CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_games_summary`  AS SELECT `g`.`id` AS `game_id`, `g`.`status` AS `status`, `g`.`game_type` AS `game_type`, `g`.`start_date` AS `start_date`, `g`.`start_time` AS `start_time`, `g`.`end_date` AS `end_date`, `g`.`end_time` AS `end_time`, `g`.`timezone_label` AS `timezone_label`, `s`.`season_name` AS `season_name`, `g`.`location_id` AS `location_id`, `l`.`name` AS `location_name`, `g`.`sublocation_id` AS `sublocation_id`, `ls`.`name` AS `sublocation_name`, `g`.`home_team_season_id` AS `home_team_season_id`, `ht`.`team_name` AS `home_team_name`, `hc`.`name` AS `home_club_name`, `ht`.`gender` AS `home_gender`, `g`.`away_team_season_id` AS `away_team_season_id`, `at`.`team_name` AS `away_team_name`, `ac`.`name` AS `away_club_name`, `at`.`gender` AS `away_gender`, group_concat(distinct coalesce(`l_league`.`abbreviation`,`l_league`.`name`) order by `gln`.`is_primary` DESC,`l_league`.`name` ASC separator ', ') AS `league_names`, group_concat(distinct `ln`.`name` order by `gln`.`is_primary` DESC,`ln`.`name` ASC separator ', ') AS `league_node_names`, json_arrayagg(json_object('league_id',`l_league`.`id`,'league_name',`l_league`.`name`,'league_abbreviation',`l_league`.`abbreviation`,'league_node_id',`ln`.`id`,'league_node_name',`ln`.`name`,'league_node_type',`ln`.`node_type`,'league_node_season_id',`lns`.`id`,'is_primary',`gln`.`is_primary`,'is_tournament',`l_league`.`is_tournament`)) AS `leagues_array`, `gs`.`home_score` AS `home_score`, `gs`.`away_score` AS `away_score`, `gs`.`final_status` AS `final_status` FROM ((((((((((((((`games` `g` join `seasons` `s` on(`g`.`season_id` = `s`.`id`)) left join `locations` `l` on(`g`.`location_id` = `l`.`id`)) left join `locations_sublocations` `ls` on(`g`.`sublocation_id` = `ls`.`id`)) join `team_seasons` `hts` on(`g`.`home_team_season_id` = `hts`.`id`)) join `teams` `ht` on(`hts`.`team_id` = `ht`.`id`)) join `clubs` `hc` on(`ht`.`club_id` = `hc`.`id`)) join `team_seasons` `ats` on(`g`.`away_team_season_id` = `ats`.`id`)) join `teams` `at` on(`ats`.`team_id` = `at`.`id`)) join `clubs` `ac` on(`at`.`club_id` = `ac`.`id`)) left join `game_league_nodes` `gln` on(`g`.`id` = `gln`.`game_id`)) left join `league_node_seasons` `lns` on(`gln`.`league_node_id` = `lns`.`id`)) left join `league_nodes` `ln` on(`lns`.`league_node_id` = `ln`.`id`)) left join `leagues` `l_league` on(`ln`.`league_id` = `l_league`.`id`)) left join `game_scores` `gs` on(`g`.`id` = `gs`.`game_id`)) GROUP BY `g`.`id`, `g`.`status`, `g`.`game_type`, `g`.`start_date`, `g`.`start_time`, `g`.`end_date`, `g`.`end_time`, `g`.`timezone_label`, `s`.`season_name`, `g`.`location_id`, `l`.`name`, `g`.`sublocation_id`, `ls`.`name`, `g`.`home_team_season_id`, `ht`.`team_name`, `hc`.`name`, `ht`.`gender`, `g`.`away_team_season_id`, `at`.`team_name`, `ac`.`name`, `at`.`gender`, `gs`.`home_score`, `gs`.`away_score`, `gs`.`final_status` ;
 
 -- --------------------------------------------------------
 
@@ -1825,7 +1842,7 @@ CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL S
 --
 DROP TABLE IF EXISTS `v_leagues`;
 
-CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_leagues`  AS SELECT `l`.`id` AS `league_id`, `l`.`name` AS `league_name`, `l`.`description` AS `league_description`, `l`.`is_active` AS `league_is_active`, `l`.`is_tournament` AS `is_tournament`, `gb`.`id` AS `governing_body_id`, `gb`.`name` AS `governing_body_name`, `gb`.`abbreviation` AS `governing_body_abbreviation`, `gb`.`website` AS `governing_body_website`, count(distinct `ln`.`id`) AS `total_nodes`, count(distinct case when `ln`.`parent_id` is null then `ln`.`id` end) AS `root_nodes`, count(distinct case when `ln`.`node_type` = 'league' then `ln`.`id` end) AS `league_nodes`, count(distinct case when `ln`.`node_type` = 'conference' then `ln`.`id` end) AS `conference_nodes`, count(distinct case when `ln`.`node_type` = 'division' then `ln`.`id` end) AS `division_nodes`, count(distinct case when `ln`.`node_type` = 'group' then `ln`.`id` end) AS `group_nodes`, count(distinct `lns`.`season_id`) AS `seasons_count`, count(distinct case when `s`.`is_current` = 1 then `lns`.`id` end) AS `current_season_nodes`, count(distinct case when `s`.`is_current` = 1 and `tle`.`is_active` = 1 then `tle`.`team_season_id` end) AS `current_teams_count`, `l`.`created_at` AS `created_at`, `l`.`modified_at` AS `modified_at` FROM (((((`leagues` `l` left join `governing_bodies` `gb` on(`l`.`governing_body_id` = `gb`.`id`)) left join `league_nodes` `ln` on(`l`.`id` = `ln`.`league_id`)) left join `league_node_seasons` `lns` on(`ln`.`id` = `lns`.`league_node_id`)) left join `seasons` `s` on(`lns`.`season_id` = `s`.`id`)) left join `team_league_enrollments` `tle` on(`lns`.`id` = `tle`.`league_node_season_id`)) GROUP BY `l`.`id`, `l`.`name`, `l`.`description`, `l`.`is_active`, `l`.`is_tournament`, `gb`.`id`, `gb`.`name`, `gb`.`abbreviation`, `gb`.`website`, `l`.`created_at`, `l`.`modified_at` ORDER BY `l`.`is_active` DESC, `l`.`name` ASC ;
+CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_leagues`  AS SELECT `l`.`id` AS `league_id`, `l`.`name` AS `league_name`, `l`.`abbreviation` AS `league_abbreviation`, `l`.`description` AS `league_description`, `l`.`is_active` AS `league_is_active`, `l`.`is_tournament` AS `is_tournament`, `gb`.`id` AS `governing_body_id`, `gb`.`name` AS `governing_body_name`, `gb`.`abbreviation` AS `governing_body_abbreviation`, `gb`.`website` AS `governing_body_website`, count(distinct `ln`.`id`) AS `total_nodes`, count(distinct case when `ln`.`parent_id` is null then `ln`.`id` end) AS `root_nodes`, count(distinct case when `ln`.`node_type` = 'league' then `ln`.`id` end) AS `league_nodes`, count(distinct case when `ln`.`node_type` = 'conference' then `ln`.`id` end) AS `conference_nodes`, count(distinct case when `ln`.`node_type` = 'division' then `ln`.`id` end) AS `division_nodes`, count(distinct case when `ln`.`node_type` = 'group' then `ln`.`id` end) AS `group_nodes`, count(distinct `lns`.`season_id`) AS `seasons_count`, count(distinct case when `s`.`is_current` = 1 then `lns`.`id` end) AS `current_season_nodes`, count(distinct case when `s`.`is_current` = 1 and `tle`.`is_active` = 1 then `tle`.`team_season_id` end) AS `current_teams_count`, `l`.`created_at` AS `created_at`, `l`.`modified_at` AS `modified_at` FROM (((((`leagues` `l` left join `governing_bodies` `gb` on(`l`.`governing_body_id` = `gb`.`id`)) left join `league_nodes` `ln` on(`l`.`id` = `ln`.`league_id`)) left join `league_node_seasons` `lns` on(`ln`.`id` = `lns`.`league_node_id`)) left join `seasons` `s` on(`lns`.`season_id` = `s`.`id`)) left join `team_league_enrollments` `tle` on(`lns`.`id` = `tle`.`league_node_season_id`)) GROUP BY `l`.`id`, `l`.`name`, `l`.`abbreviation`, `l`.`description`, `l`.`is_active`, `l`.`is_tournament`, `gb`.`id`, `gb`.`name`, `gb`.`abbreviation`, `gb`.`website`, `l`.`created_at`, `l`.`modified_at` ORDER BY `l`.`is_active` DESC, `l`.`name` ASC ;
 
 -- --------------------------------------------------------
 
@@ -1884,11 +1901,20 @@ CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL S
 -- --------------------------------------------------------
 
 --
--- Structure for view `v_player_stats_combined`
+-- Structure for view `v_player_games`
 --
-DROP TABLE IF EXISTS `v_player_stats_combined`;
+DROP TABLE IF EXISTS `v_player_games`;
 
-CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_player_stats_combined`  AS SELECT `p`.`id` AS `player_id`, `p`.`first_name` AS `first_name`, `p`.`last_name` AS `last_name`, `ts`.`id` AS `team_season_id`, `t`.`team_name` AS `team_name`, `c`.`name` AS `club_name`, `s`.`season_name` AS `season_name`, coalesce(sum(case when `ge`.`event_type` = 'goal' then 1 else 0 end),0) AS `calculated_goals`, coalesce(sum(case when `ge`.`event_type` = 'assist' then 1 else 0 end),0) AS `calculated_assists`, coalesce(sum(case when `ge`.`event_type` = 'yellow_card' then 1 else 0 end),0) AS `calculated_yellow_cards`, coalesce(sum(case when `ge`.`event_type` = 'red_card' then 1 else 0 end),0) AS `calculated_red_cards`, coalesce(sum(case when `ge`.`event_type` = 'shot' then 1 else 0 end),0) AS `calculated_shots`, coalesce(sum(case when `ge`.`event_type` = 'shot_on_target' then 1 else 0 end),0) AS `calculated_shots_on_target`, coalesce(sum(case when `ge`.`event_type` = 'save' then 1 else 0 end),0) AS `calculated_saves`, coalesce(count(distinct `pg`.`game_id`),0) AS `calculated_games_played`, coalesce(sum(case when `pg`.`started` = 1 then 1 else 0 end),0) AS `calculated_games_started`, `pss`.`goals` AS `manual_goals`, `pss`.`assists` AS `manual_assists`, `pss`.`yellow_cards` AS `manual_yellow_cards`, `pss`.`red_cards` AS `manual_red_cards`, `pss`.`games_played` AS `manual_games_played`, `pss`.`games_started` AS `manual_games_started`, `pss`.`shots` AS `manual_shots`, `pss`.`shots_on_target` AS `manual_shots_on_target`, `pss`.`saves` AS `manual_saves`, `pss`.`clean_sheets` AS `manual_clean_sheets`, `pss`.`stats_source` AS `stats_source`, coalesce(`pss`.`goals`,sum(case when `ge`.`event_type` = 'goal' then 1 else 0 end),0) AS `total_goals`, coalesce(`pss`.`assists`,sum(case when `ge`.`event_type` = 'assist' then 1 else 0 end),0) AS `total_assists`, coalesce(`pss`.`yellow_cards`,sum(case when `ge`.`event_type` = 'yellow_card' then 1 else 0 end),0) AS `total_yellow_cards`, coalesce(`pss`.`red_cards`,sum(case when `ge`.`event_type` = 'red_card' then 1 else 0 end),0) AS `total_red_cards`, coalesce(`pss`.`games_played`,count(distinct `pg`.`game_id`),0) AS `total_games_played`, coalesce(`pss`.`shots`,sum(case when `ge`.`event_type` = 'shot' then 1 else 0 end),0) AS `total_shots`, coalesce(`pss`.`saves`,sum(case when `ge`.`event_type` = 'save' then 1 else 0 end),0) AS `total_saves` FROM ((((((((`people` `p` join `player_teams` `pt` on(`p`.`id` = `pt`.`player_id`)) join `team_seasons` `ts` on(`pt`.`team_season_id` = `ts`.`id`)) join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `player_season_stats` `pss` on(`p`.`id` = `pss`.`player_id` and `ts`.`id` = `pss`.`team_season_id`)) left join `player_games` `pg` on(`p`.`id` = `pg`.`player_id` and `pg`.`team_id` = `t`.`id`)) left join `game_events` `ge` on(`p`.`id` = `ge`.`player_id` and `ge`.`game_id` = `pg`.`game_id`)) WHERE `pt`.`is_active` = 1 GROUP BY `p`.`id`, `p`.`first_name`, `p`.`last_name`, `ts`.`id`, `t`.`team_name`, `c`.`name`, `s`.`season_name`, `pss`.`goals`, `pss`.`assists`, `pss`.`yellow_cards`, `pss`.`red_cards`, `pss`.`games_played`, `pss`.`games_started`, `pss`.`shots`, `pss`.`shots_on_target`, `pss`.`saves`, `pss`.`clean_sheets`, `pss`.`stats_source` ORDER BY `c`.`name` ASC, `t`.`team_name` ASC, `p`.`last_name` ASC, `p`.`first_name` ASC ;
+CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_player_games`  AS SELECT `pg`.`id` AS `player_game_id`, `pg`.`game_id` AS `game_id`, `pg`.`player_id` AS `player_id`, `pg`.`team_id` AS `team_id`, `pg`.`position_id` AS `position_id`, `pg`.`started` AS `started`, `pg`.`game_status` AS `game_status`, `pg`.`is_guest` AS `is_guest`, `p`.`first_name` AS `first_name`, `p`.`last_name` AS `last_name`, concat(`p`.`first_name`,' ',`p`.`last_name`) AS `full_name`, `p`.`nickname` AS `nickname`, `pt`.`id` AS `player_team_id`, `pt`.`jersey_number` AS `jersey_number`, `pt`.`position` AS `primary_position`, `pt`.`team_season_id` AS `team_season_id`, `pt`.`captain` AS `captain`, `pt`.`grade` AS `grade`, `t`.`team_name` AS `team_name`, `t`.`gender` AS `team_gender`, `c`.`name` AS `club_name`, `c`.`abbreviation` AS `club_abbreviation`, `c`.`logo_url` AS `club_logo_url`, `g`.`start_date` AS `start_date`, `g`.`start_time` AS `start_time`, `g`.`status` AS `game_status_overall`, `g`.`home_team_season_id` AS `home_team_season_id`, `g`.`away_team_season_id` AS `away_team_season_id`, `g`.`season_id` AS `season_id`, CASE WHEN `ts`.`id` = `g`.`home_team_season_id` THEN 'home' WHEN `ts`.`id` = `g`.`away_team_season_id` THEN 'away' ELSE NULL END AS `home_away`, `s`.`season_name` AS `season_name`, `s`.`is_current` AS `is_current_season`, `ag`.`id` AS `age_group_id`, `ag`.`name` AS `age_group_name`, `pg`.`created_at` AS `created_at`, `pg`.`modified_at` AS `modified_at` FROM ((((((((`player_games` `pg` join `people` `p` on(`pg`.`player_id` = `p`.`id`)) join `teams` `t` on(`pg`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `games` `g` on(`pg`.`game_id` = `g`.`id`)) join `team_seasons` `ts` on(`ts`.`team_id` = `pg`.`team_id` and `ts`.`season_id` = `g`.`season_id` and `ts`.`id` in (`g`.`home_team_season_id`,`g`.`away_team_season_id`))) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `player_teams` `pt` on(`pt`.`player_id` = `pg`.`player_id` and `pt`.`team_season_id` = `ts`.`id` and `pt`.`is_active` = 1)) left join `age_groups` `ag` on(`ts`.`age_group` = `ag`.`id`)) ORDER BY `g`.`start_date` DESC, `g`.`start_time` DESC, `pg`.`started` DESC, `p`.`last_name` ASC, `p`.`first_name` ASC ;
+
+-- --------------------------------------------------------
+
+--
+-- Structure for view `v_player_game_stats`
+--
+DROP TABLE IF EXISTS `v_player_game_stats`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_player_game_stats`  AS SELECT `pg`.`id` AS `player_game_id`, `pg`.`game_id` AS `game_id`, `pg`.`player_id` AS `player_id`, `pg`.`team_id` AS `team_id`, `p`.`first_name` AS `first_name`, `p`.`last_name` AS `last_name`, concat(`p`.`first_name`,' ',`p`.`last_name`) AS `full_name`, `pt`.`jersey_number` AS `jersey_number`, `pt`.`position` AS `position`, `pg`.`game_status` AS `game_status`, `pg`.`started` AS `started`, count(case when `ge`.`event_type` = 'goal' then 1 end) AS `goals`, count(case when `ge`.`assist_player_game_id` = `pg`.`id` then 1 end) AS `assists`, count(case when `ge`.`event_type` = 'shot' then 1 end) AS `shots`, count(case when `ge`.`event_type` = 'shot_on_target' then 1 end) AS `shots_on_target`, count(case when `ge`.`event_type` = 'save' then 1 end) AS `saves`, count(case when `ge`.`event_type` = 'yellow_card' then 1 end) AS `yellow_cards`, count(case when `ge`.`event_type` = 'red_card' then 1 end) AS `red_cards`, count(case when `ge`.`event_type` = 'corner' then 1 end) AS `corners` FROM (((`player_games` `pg` left join `game_events` `ge` on(`pg`.`id` = `ge`.`player_game_id`)) left join `people` `p` on(`pg`.`player_id` = `p`.`id`)) left join `player_teams` `pt` on(`pg`.`player_id` = `pt`.`player_id` and exists(select 1 from `team_seasons` `ts` where `ts`.`id` = `pt`.`team_season_id` and `ts`.`team_id` = `pg`.`team_id` limit 1))) GROUP BY `pg`.`id`, `pg`.`game_id`, `pg`.`player_id`, `pg`.`team_id`, `p`.`first_name`, `p`.`last_name`, `pt`.`jersey_number`, `pt`.`position`, `pg`.`game_status`, `pg`.`started` ;
 
 -- --------------------------------------------------------
 
@@ -1906,7 +1932,7 @@ CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL S
 --
 DROP TABLE IF EXISTS `v_stat_leaders`;
 
-CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_stat_leaders`  AS SELECT `p`.`id` AS `player_id`, `p`.`first_name` AS `first_name`, `p`.`last_name` AS `last_name`, concat(`p`.`first_name`,' ',`p`.`last_name`) AS `full_name`, `p`.`nickname` AS `nickname`, `p`.`birth_date` AS `birth_date`, timestampdiff(YEAR,`p`.`birth_date`,curdate()) AS `age`, `ts`.`id` AS `team_season_id`, `t`.`id` AS `team_id`, `t`.`team_name` AS `team_name`, `t`.`gender` AS `team_gender`, `pt`.`jersey_number` AS `jersey_number`, `pt`.`position` AS `position`, `c`.`id` AS `club_id`, `c`.`name` AS `club_name`, `c`.`abbreviation` AS `club_abbreviation`, `c`.`logo_url` AS `club_logo_url`, `c`.`type` AS `club_type`, `s`.`id` AS `season_id`, `s`.`season_name` AS `season_name`, `s`.`start_date` AS `season_start`, `s`.`end_date` AS `season_end`, `s`.`is_current` AS `is_current_season`, `ag`.`id` AS `age_group_id`, `ag`.`name` AS `age_group_name`, `l`.`id` AS `league_id`, `l`.`name` AS `league_name`, `ln`.`id` AS `league_node_id`, `ln`.`name` AS `league_node_name`, `ln`.`node_type` AS `league_node_type`, coalesce(`pss`.`goals`,sum(case when `ge`.`event_type` = 'goal' then 1 else 0 end),0) AS `goals`, coalesce(`pss`.`assists`,sum(case when `ge`.`event_type` = 'assist' then 1 else 0 end),0) AS `assists`, coalesce(`pss`.`goals`,sum(case when `ge`.`event_type` = 'goal' then 1 else 0 end),0) + coalesce(`pss`.`assists`,sum(case when `ge`.`event_type` = 'assist' then 1 else 0 end),0) AS `points`, coalesce(`pss`.`yellow_cards`,sum(case when `ge`.`event_type` = 'yellow_card' then 1 else 0 end),0) AS `yellow_cards`, coalesce(`pss`.`red_cards`,sum(case when `ge`.`event_type` = 'red_card' then 1 else 0 end),0) AS `red_cards`, coalesce(`pss`.`shots`,sum(case when `ge`.`event_type` = 'shot' then 1 else 0 end),0) AS `shots`, coalesce(`pss`.`shots_on_target`,sum(case when `ge`.`event_type` = 'shot_on_target' then 1 else 0 end),0) AS `shots_on_target`, coalesce(`pss`.`saves`,sum(case when `ge`.`event_type` = 'save' then 1 else 0 end),0) AS `saves`, coalesce(`pss`.`games_played`,count(distinct `pg`.`game_id`),0) AS `games_played`, coalesce(`pss`.`games_started`,sum(case when `pg`.`started` = 1 then 1 else 0 end),0) AS `games_started`, coalesce(`pss`.`minutes_played`,0) AS `minutes_played`, coalesce(`pss`.`clean_sheets`,0) AS `clean_sheets`, coalesce(`pss`.`penalty_goals`,0) AS `penalty_goals`, CASE WHEN coalesce(`pss`.`games_played`,count(distinct `pg`.`game_id`),0) > 0 THEN round(coalesce(`pss`.`goals`,sum(case when `ge`.`event_type` = 'goal' then 1 else 0 end),0) / coalesce(`pss`.`games_played`,count(distinct `pg`.`game_id`),1),2) ELSE 0 END AS `goals_per_game`, CASE WHEN coalesce(`pss`.`games_played`,count(distinct `pg`.`game_id`),0) > 0 THEN round((coalesce(`pss`.`goals`,sum(case when `ge`.`event_type` = 'goal' then 1 else 0 end),0) + coalesce(`pss`.`assists`,sum(case when `ge`.`event_type` = 'assist' then 1 else 0 end),0)) / coalesce(`pss`.`games_played`,count(distinct `pg`.`game_id`),1),2) ELSE 0 END AS `points_per_game`, CASE WHEN coalesce(`pss`.`shots`,sum(case when `ge`.`event_type` = 'shot' then 1 else 0 end),0) > 0 THEN round(coalesce(`pss`.`goals`,sum(case when `ge`.`event_type` = 'goal' then 1 else 0 end),0) * 100.0 / coalesce(`pss`.`shots`,sum(case when `ge`.`event_type` = 'shot' then 1 else 0 end),1),2) ELSE 0 END AS `shooting_percentage`, CASE WHEN coalesce(`pss`.`shots`,sum(case when `ge`.`event_type` = 'shot' then 1 else 0 end),0) > 0 THEN round(coalesce(`pss`.`shots_on_target`,sum(case when `ge`.`event_type` = 'shot_on_target' then 1 else 0 end),0) * 100.0 / coalesce(`pss`.`shots`,sum(case when `ge`.`event_type` = 'shot' then 1 else 0 end),1),2) ELSE 0 END AS `shot_accuracy`, coalesce(`pss`.`stats_source`,'calculated') AS `stats_source`, `pt`.`is_active` AS `is_active` FROM ((((((((((((((`people` `p` join `player_teams` `pt` on(`p`.`id` = `pt`.`player_id`)) join `team_seasons` `ts` on(`pt`.`team_season_id` = `ts`.`id`)) join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `age_groups` `ag` on(`ts`.`age_group` = `ag`.`id`)) left join `player_season_stats` `pss` on(`p`.`id` = `pss`.`player_id` and `ts`.`id` = `pss`.`team_season_id`)) left join `player_games` `pg` on(`p`.`id` = `pg`.`player_id` and `pg`.`team_id` = `t`.`id`)) left join `games` `g` on(`pg`.`game_id` = `g`.`id` and `g`.`status` = 'completed')) left join `game_events` `ge` on(`pg`.`game_id` = `ge`.`game_id` and `p`.`id` = `ge`.`player_id`)) left join `team_league_enrollments` `tle` on(`ts`.`id` = `tle`.`team_season_id` and `tle`.`is_active` = 1)) left join `league_node_seasons` `lns` on(`tle`.`league_node_season_id` = `lns`.`id`)) left join `league_nodes` `ln` on(`lns`.`league_node_id` = `ln`.`id`)) left join `leagues` `l` on(`ln`.`league_id` = `l`.`id`)) WHERE `pt`.`is_active` = 1 AND `ts`.`is_active` = 1 AND `t`.`is_active` = 1 AND `c`.`is_active` = 1 GROUP BY `p`.`id`, `p`.`first_name`, `p`.`last_name`, `p`.`nickname`, `p`.`birth_date`, `ts`.`id`, `t`.`id`, `t`.`team_name`, `t`.`gender`, `pt`.`jersey_number`, `pt`.`position`, `c`.`id`, `c`.`name`, `c`.`abbreviation`, `c`.`logo_url`, `c`.`type`, `s`.`id`, `s`.`season_name`, `s`.`start_date`, `s`.`end_date`, `s`.`is_current`, `ag`.`id`, `ag`.`name`, `l`.`id`, `l`.`name`, `ln`.`id`, `ln`.`name`, `ln`.`node_type`, `pss`.`goals`, `pss`.`assists`, `pss`.`yellow_cards`, `pss`.`red_cards`, `pss`.`shots`, `pss`.`shots_on_target`, `pss`.`saves`, `pss`.`games_played`, `pss`.`games_started`, `pss`.`minutes_played`, `pss`.`clean_sheets`, `pss`.`penalty_goals`, `pss`.`stats_source`, `pt`.`is_active` ORDER BY `s`.`is_current` DESC, `s`.`start_date` DESC, coalesce(`pss`.`goals`,sum(case when `ge`.`event_type` = 'goal' then 1 else 0 end),0) DESC, coalesce(`pss`.`assists`,sum(case when `ge`.`event_type` = 'assist' then 1 else 0 end),0) DESC ;
+CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_stat_leaders`  AS SELECT `v`.`player_id` AS `player_id`, `v`.`team_id` AS `team_id`, `v`.`first_name` AS `first_name`, `v`.`last_name` AS `last_name`, `v`.`full_name` AS `full_name`, `v`.`jersey_number` AS `jersey_number`, `v`.`position` AS `position`, sum(`v`.`goals`) AS `total_goals`, sum(`v`.`assists`) AS `total_assists`, sum(`v`.`shots`) AS `total_shots`, sum(`v`.`shots_on_target`) AS `total_shots_on_target`, sum(`v`.`saves`) AS `total_saves`, sum(`v`.`yellow_cards`) AS `total_yellow_cards`, sum(`v`.`red_cards`) AS `total_red_cards`, sum(`v`.`corners`) AS `total_corners`, count(`v`.`player_game_id`) AS `games_played`, sum(case when `v`.`started` = 1 then 1 else 0 end) AS `games_started` FROM `v_player_game_stats` AS `v` GROUP BY `v`.`player_id`, `v`.`team_id`, `v`.`first_name`, `v`.`last_name`, `v`.`full_name`, `v`.`jersey_number`, `v`.`position` ;
 
 -- --------------------------------------------------------
 
@@ -1997,10 +2023,9 @@ ALTER TABLE `games_overtimes`
 -- Constraints for table `game_events`
 --
 ALTER TABLE `game_events`
-  ADD CONSTRAINT `fk_game_events_person` FOREIGN KEY (`player_id`) REFERENCES `people` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `game_events_ibfk_1` FOREIGN KEY (`game_id`) REFERENCES `games` (`id`),
-  ADD CONSTRAINT `game_events_ibfk_3` FOREIGN KEY (`team_id`) REFERENCES `teams` (`id`),
-  ADD CONSTRAINT `game_events_ibfk_4` FOREIGN KEY (`related_event_id`) REFERENCES `game_events` (`id`);
+  ADD CONSTRAINT `fk_game_events_assist` FOREIGN KEY (`assist_player_game_id`) REFERENCES `player_games` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_game_events_game` FOREIGN KEY (`game_id`) REFERENCES `games` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_game_events_player_game` FOREIGN KEY (`player_game_id`) REFERENCES `player_games` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `game_league_nodes`
@@ -2032,9 +2057,9 @@ ALTER TABLE `game_standings_inclusions`
 -- Constraints for table `game_subs`
 --
 ALTER TABLE `game_subs`
-  ADD CONSTRAINT `game_subs_ibfk_1` FOREIGN KEY (`game_id`) REFERENCES `games` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `game_subs_ibfk_2` FOREIGN KEY (`in_player_id`) REFERENCES `people` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `game_subs_ibfk_3` FOREIGN KEY (`out_player_id`) REFERENCES `people` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `fk_game_subs_in` FOREIGN KEY (`in_player_id`) REFERENCES `player_games` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_game_subs_out` FOREIGN KEY (`out_player_id`) REFERENCES `player_games` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `game_subs_ibfk_1` FOREIGN KEY (`game_id`) REFERENCES `games` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `leagues`
