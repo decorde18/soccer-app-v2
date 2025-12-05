@@ -1,9 +1,7 @@
-import BetweenPeriodsLayout from "./BetweenPeriodsLayout";
-import GamePlayersLayout from "./GamePlayersLayout";
+import LiveGamePageClient from "./LiveGamePageClient";
 
 function page() {
-  // return <BetweenPeriodsLayout />;
-  return <GamePlayersLayout />;
+  return <LiveGamePageClient />;
 }
 
 export default page;

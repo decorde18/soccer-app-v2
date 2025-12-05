@@ -1,11 +1,12 @@
 "use client";
 
 import useGameStore from "@/stores/gameStore";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 import { useEffect } from "react";
 
 function MainContent() {
+  const { id, teamSeasonId } = useParams();
   const router = useRouter();
   const game = useGameStore((s) => s.game);
   const gameStage = useGameStore((s) => s.getGameStage());
@@ -13,11 +14,7 @@ function MainContent() {
   useEffect(() => {
     if (gameStage !== "end_game") {
       // Navigate away when game ends
-      router.push(
-        `/gameStats/${game.game_id}/${
-          game.isHome ? game.home_team_season_id : game.away_team_season_id
-        }/live`
-      );
+      router.push(`/gamestats/${teamSeasonId}/${id}/live`);
     }
   }, [gameStage, game.id, router]);
 

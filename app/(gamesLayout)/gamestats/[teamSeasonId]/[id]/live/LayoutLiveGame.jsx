@@ -9,7 +9,7 @@ import TeamStats from "./gameMain/TeamStats";
 import PendingSubs from "./gameMain/PendingSubs";
 import LiveGameHeader from "./gameHeader/LiveGameHeader";
 
-function GamePlayersLayout() {
+function LayoutLiveGame() {
   const {
     subModalOpen,
     triggerPlayer,
@@ -40,4 +40,4 @@ function GamePlayersLayout() {
   );
 }
 
-export default GamePlayersLayout;
+export default LayoutLiveGame;

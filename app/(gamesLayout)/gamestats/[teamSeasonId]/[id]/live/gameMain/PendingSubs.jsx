@@ -7,7 +7,7 @@ import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import Dialog from "@/components/ui/Dialog";
 
-function PendingSubs({ hideIndividualEnter = false }) {
+function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
   const allPlayers = useGamePlayersStore((s) => s.players);
   const game = useGameStore((s) => s.game);
 
@@ -314,21 +314,34 @@ function PendingSubs({ hideIndividualEnter = false }) {
         }}
       />
 
-      {/* Header with Enter All Button */}
-      {(completeSubs.length > 0 || incompleteSubs.length > 0) && (
-        <div className='mb-3 pb-3 border-b border-border'>
-          <div className='flex items-center justify-between gap-2 mb-2'>
-            <div className='text-xs text-muted'>
+      {/* Header with Enter All Button - conditionally shown */}
+      {!hideEnterAll &&
+        (completeSubs.length > 0 || incompleteSubs.length > 0) && (
+          <div className='mb-3 pb-3 border-b border-border'>
+            <div className='flex items-center justify-between gap-2 mb-2'>
+              <div className='text-xs text-muted'>
+                {completeSubs.length} ready
+                {incompleteSubs.length > 0 &&
+                  `, ${incompleteSubs.length} incomplete`}
+              </div>
+              <Button onClick={handleConfirmAll} variant='success' size='sm'>
+                Enter All
+              </Button>
+            </div>
+          </div>
+        )}
+
+      {/* Show sub count when Enter All is hidden */}
+      {hideEnterAll &&
+        (completeSubs.length > 0 || incompleteSubs.length > 0) && (
+          <div className='mb-3 pb-3 border-b border-border'>
+            <div className='text-xs text-muted text-center'>
               {completeSubs.length} ready
               {incompleteSubs.length > 0 &&
                 `, ${incompleteSubs.length} incomplete`}
             </div>
-            <Button onClick={handleConfirmAll} variant='success' size='sm'>
-              Enter All
-            </Button>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Error Display */}
       {confirmError && (
