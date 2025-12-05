@@ -6,6 +6,7 @@ import useGamePlayersStore from "@/stores/gamePlayersStore";
 
 import LayoutLiveGame from "./LayoutLiveGame";
 import LayoutBetweenPeriods from "./LayoutBetweenPeriods";
+import LayoutLiveBeforeGame from "./LayoutLiveBeforeGame";
 
 function LiveGamePageClient() {
   const router = useRouter();
@@ -26,7 +27,6 @@ function LiveGamePageClient() {
 
     return starterCount === game.settings.playersOnField - 1 && gkCount === 1;
   }, [players, game?.settings?.playersOnField]);
-
   // Handle redirects based on game state
   useEffect(() => {
     const basePath = `/gamestats/${teamSeasonId}/${id}`;
@@ -42,20 +42,10 @@ function LiveGamePageClient() {
       router.push(`${basePath}/summary`);
       return;
     }
-
-    // Redirect to lineup before game starts
-    if (gameStage === "before_start") {
-      router.push(`${basePath}/lineup`);
-      return;
-    }
   }, [gameStage, isLineupValid, router, teamSeasonId, id]);
 
   // Show loading while redirecting
-  if (
-    !isLineupValid ||
-    gameStage === "end_game" ||
-    gameStage === "before_start"
-  ) {
+  if (!isLineupValid || gameStage === "end_game") {
     return (
       <div className='h-screen flex items-center justify-center bg-background'>
         <div className='text-center'>
@@ -69,6 +59,7 @@ function LiveGamePageClient() {
   // Render appropriate layout for live game states
   const layoutMap = {
     between_periods: <LayoutBetweenPeriods />,
+    before_start: <LayoutLiveBeforeGame />,
     during_period: <LayoutLiveGame />,
     in_stoppage: <LayoutLiveGame />,
   };

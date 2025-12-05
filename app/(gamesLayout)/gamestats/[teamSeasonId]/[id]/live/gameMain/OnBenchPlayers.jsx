@@ -42,7 +42,7 @@ function OnBenchPlayers({ handleSubClick }) {
     <div className='shadow-lg overflow-hidden'>
       <PlayersTable
         filterPlayers={filterBenchPlayers}
-        caption={<span className='text-2xl font-bold'>Bench</span>}
+        caption={<span className='text-2xl font-bold'>Game Changers</span>}
         columns={benchColumns}
         onActionClick={(row) => handleSubClick(row.id)}
         getActionButton={getBenchActionButton}
