@@ -30,38 +30,38 @@ function LiveGameHeader() {
     const fetchScore = async () => {
       if (!game?.game_id) return;
 
-      try {
-        const [scoreData] = await apiFetch("game_scores", "GET", null, null, {
-          filters: { game_id: game.game_id },
-        });
+      // try {
+      //   const [scoreData] = await apiFetch("game_scores", "GET", null, null, {
+      //     filters: { game_id: game.game_id },
+      //   });
 
-        if (scoreData) {
-          setScore({
-            home: scoreData.home_score || 0,
-            away: scoreData.away_score || 0,
-          });
-        } else {
-          // Count goals from events if no score record yet
-          const events = await apiFetch("game_events", "GET", null, null, {
-            filters: { game_id: game.game_id, event_type: "goal" },
-          });
+      //   if (scoreData) {
+      //     setScore({
+      //       home: scoreData.home_score || 0,
+      //       away: scoreData.away_score || 0,
+      //     });
+      //   } else {
+      // Count goals from events if no score record yet
+      const events = await apiFetch("game_events", "GET", null, null, {
+        filters: { game_id: game.game_id, event_type: "goal" },
+      });
 
-          let homeGoals = 0;
-          let awayGoals = 0;
+      let homeGoals = 0;
+      let awayGoals = 0;
 
-          events.forEach((event) => {
-            if (event.team_season_id === game.home_team_season_id) {
-              homeGoals++;
-            } else if (event.team_season_id === game.away_team_season_id) {
-              awayGoals++;
-            }
-          });
-
-          setScore({ home: homeGoals, away: awayGoals });
+      events.forEach((event) => {
+        if (event.team_season_id === game.home_team_season_id) {
+          homeGoals++;
+        } else if (event.team_season_id === game.away_team_season_id) {
+          awayGoals++;
         }
-      } catch (error) {
-        console.error("Error fetching score:", error);
-      }
+      });
+
+      setScore({ home: homeGoals, away: awayGoals });
+      // }
+      // } catch (error) {
+      //   console.error("Error fetching score:", error);
+      // }
     };
 
     fetchScore();

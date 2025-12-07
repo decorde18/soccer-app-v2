@@ -13,7 +13,7 @@ const useGamePlayersStore = create((set, get) => ({
 
   loadPlayers: async (gameId, teamSeasonId) => {
     set({ isLoading: true, error: null });
-    console.log(gameId, teamSeasonId);
+
     try {
       const existingPlayerGames = await apiFetch(
         "v_player_games",

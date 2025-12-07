@@ -10,7 +10,7 @@ import { formatTimestamp, formatSecondsToMmss } from "@/lib/dateTimeUtils";
 function GameManagementPage() {
   const game = useGameStore((s) => s.game);
   const players = useGamePlayersStore((s) => s.players);
-  const refreshPlayerStats = useGamePlayersStore((s) => s.refreshPlayerStats);
+  // const refreshPlayerStats = useGamePlayersStore((s) => s.refreshPlayerStats);
 
   const [periods, setPeriods] = useState(game.periods);
   const [events, setEvents] = useState([]);
@@ -110,7 +110,7 @@ function GameManagementPage() {
     try {
       await apiFetch(`game_events?id=${eventId}`, "DELETE");
       await loadData();
-      await refreshPlayerStats(game.id);
+      // await refreshPlayerStats(game.id);
     } catch (error) {
       console.error("Error deleting event:", error);
       alert("Failed to delete event");
@@ -129,7 +129,7 @@ function GameManagementPage() {
         period: parseInt(period),
       });
       await loadData();
-      await refreshPlayerStats(game.id);
+      // await refreshPlayerStats(game.id);
     } catch (error) {
       console.error("Error updating event:", error);
       alert("Failed to update event");
@@ -218,7 +218,7 @@ function GameManagementPage() {
       </div>
     );
   }
-  console.log(periodData);
+
   return (
     <div className='container mx-auto p-6 max-w-7xl'>
       {/* Header */}
