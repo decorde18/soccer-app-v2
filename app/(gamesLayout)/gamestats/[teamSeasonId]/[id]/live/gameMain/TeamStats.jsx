@@ -24,7 +24,7 @@ function TeamStats() {
   const recordOpponentEvent = useGameEventsStore((s) => s.recordOpponentEvent);
   const recordTeamEvent = useGameEventsStore((s) => s.recordTeamEvent);
   const recordPenaltyKick = useGameEventsStore((s) => s.recordPenaltyKick);
-  const refreshPlayerStats = useGameEventsStore((s) => s.refreshPlayerStats);
+  // const refreshPlayerStats = useGameEventsStore((s) => s.refreshPlayerStats);
 
   // Modal states
   const [showTeamSelectModal, setShowTeamSelectModal] = useState(false);
