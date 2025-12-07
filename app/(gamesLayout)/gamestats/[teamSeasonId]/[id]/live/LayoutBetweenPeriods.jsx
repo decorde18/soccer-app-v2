@@ -36,7 +36,11 @@ function BetweenPeriodsLayout() {
       </div>
 
       {/* Left side - Pending Subs (top) and Stats (bottom) */}
-      <div className='row-start-2 row-span-2 grid grid-rows-[1.5fr_1fr] gap-4 h-full'>
+      <div className='row-start-2 row-span-2 grid grid-rows-[1fr_1.5fr] gap-4 h-full'>
+        {/* Team Stats - Smaller section */}
+        <div className='overflow-y-auto'>
+          <TeamStatsBetweenPeriods />
+        </div>
         {/* Pending Subs - Larger section */}
         <div className='overflow-y-auto border-b-2 border-border pb-4'>
           <div className='bg-surface rounded-lg border-2 border-primary p-6 shadow-lg mb-4'>
@@ -53,11 +57,6 @@ function BetweenPeriodsLayout() {
               </p>
             </div>
           </div>
-        </div>
-
-        {/* Team Stats - Smaller section */}
-        <div className='overflow-y-auto'>
-          <TeamStatsBetweenPeriods />
         </div>
       </div>
 

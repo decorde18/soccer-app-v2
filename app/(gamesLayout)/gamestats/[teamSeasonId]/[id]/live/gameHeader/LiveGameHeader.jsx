@@ -5,6 +5,7 @@ import Dialog from "@/components/ui/Dialog";
 import useGameStore from "@/stores/gameStore";
 import useGameSubsStore from "@/stores/gameSubsStore";
 import LiveGameHeaderClock from "./LiveGameHeaderClock";
+import { apiFetch } from "@/app/api/fetcher";
 
 function LiveGameHeader() {
   const game = useGameStore((s) => s.game);
@@ -17,12 +18,63 @@ function LiveGameHeader() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPendingSubsDialog, setShowPendingSubsDialog] = useState(false);
   const [pendingSubsCount, setPendingSubsCount] = useState(0);
+  const [score, setScore] = useState({ home: 0, away: 0 });
 
   const isGameLive = gameStage === "during_period";
   const isGameEnded = gameStage === "end_game";
   const isBetweenPeriods = gameStage === "between_periods";
   const isBeforeStart = gameStage === "before_start";
 
+  // Fetch score from DB
+  useEffect(() => {
+    const fetchScore = async () => {
+      if (!game?.game_id) return;
+
+      try {
+        const [scoreData] = await apiFetch("game_scores", "GET", null, null, {
+          filters: { game_id: game.game_id },
+        });
+
+        if (scoreData) {
+          setScore({
+            home: scoreData.home_score || 0,
+            away: scoreData.away_score || 0,
+          });
+        } else {
+          // Count goals from events if no score record yet
+          const events = await apiFetch("game_events", "GET", null, null, {
+            filters: { game_id: game.game_id, event_type: "goal" },
+          });
+
+          let homeGoals = 0;
+          let awayGoals = 0;
+
+          events.forEach((event) => {
+            if (event.team_season_id === game.home_team_season_id) {
+              homeGoals++;
+            } else if (event.team_season_id === game.away_team_season_id) {
+              awayGoals++;
+            }
+          });
+
+          setScore({ home: homeGoals, away: awayGoals });
+        }
+      } catch (error) {
+        console.error("Error fetching score:", error);
+      }
+    };
+
+    fetchScore();
+
+    // Poll for score updates every 5 seconds during game
+    const interval = setInterval(fetchScore, 5000);
+    return () => clearInterval(interval);
+  }, [game?.game_id, game?.home_team_season_id, game?.away_team_season_id]);
+
+  if (!game) return null;
+
+  const ourScore = game.isHome ? score.home : score.away;
+  const theirScore = game.isHome ? score.away : score.home;
   // Check for pending subs periodically when between periods
   useEffect(() => {
     if (!isBetweenPeriods || !game?.game_id) return;
@@ -129,11 +181,11 @@ function LiveGameHeader() {
           {/* Home Team */}
           <div className='text-center min-w-[80px]'>
             <div className='text-xs font-medium tracking-wider opacity-80 mb-1'>
-              HOME
+              {game.home_team_name === game.opponentTeamName
+                ? game.away_team_name
+                : game.home_team_name}
             </div>
-            <div className='text-5xl font-bold tabular-nums'>
-              {game.homeScore}
-            </div>
+            <div className='text-5xl font-bold tabular-nums'>{ourScore}</div>
           </div>
 
           {/* Clock / Status */}
@@ -177,11 +229,9 @@ function LiveGameHeader() {
           {/* Away Team */}
           <div className='text-center min-w-[80px]'>
             <div className='text-xs font-medium tracking-wider opacity-80 mb-1'>
-              AWAY
+              {game.opponentTeamName}
             </div>
-            <div className='text-5xl font-bold tabular-nums'>
-              {game.awayScore}
-            </div>
+            <div className='text-5xl font-bold tabular-nums'>{theirScore}</div>
           </div>
         </div>
 
@@ -200,10 +250,10 @@ function LiveGameHeader() {
         message={`You have ${pendingSubsCount} pending substitution${
           pendingSubsCount !== 1 ? "s" : ""
         }.\n\nWould you like to confirm them now before starting the period?`}
-        confirmText='Keep Pending'
-        cancelText='Start With CHanges'
-        onConfirm={() => setShowPendingSubsDialog(false)}
-        onCancel={handleStartWithoutSubs}
+        cancelText='Keep Pending'
+        confirmText='Start With Changes'
+        onCancel={() => setShowPendingSubsDialog(false)}
+        onConfirm={handleStartWithoutSubs}
       />
     </>
   );

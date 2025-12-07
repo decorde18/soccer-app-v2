@@ -2,66 +2,69 @@
 import { useState, useEffect, useMemo } from "react";
 import useGameStore from "@/stores/gameStore";
 import useGamePlayersStore from "@/stores/gamePlayersStore";
+import useGameEventsStore from "@/stores/gameEventsStore";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
-import { apiFetch } from "@/app/api/fetcher";
+import Input from "@/components/ui/Input";
 
 function TeamStats() {
   const game = useGameStore((s) => s.game);
-  const getGameTime = useGameStore((s) => s.getGameTime);
-  const getCurrentPeriodNumber = useGameStore((s) => s.getCurrentPeriodNumber);
   const players = useGamePlayersStore((s) => s.players);
 
-  const [stats, setStats] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [showMajorModal, setShowMajorModal] = useState(false);
-  const [modalType, setModalType] = useState(null);
+  // Use store state
+  const gameEvents = useGameEventsStore((s) => s.gameEvents);
+  const teamStats = useGameEventsStore((s) => s.teamStats);
+  const isLoading = useGameEventsStore((s) => s.isLoadingEvents);
+
+  // Use store methods
+  const fetchGameEvents = useGameEventsStore((s) => s.fetchGameEvents);
+  const deleteEvent = useGameEventsStore((s) => s.deleteEvent);
+  const recordEvent = useGameEventsStore((s) => s.recordEvent);
+  const recordOpponentEvent = useGameEventsStore((s) => s.recordOpponentEvent);
+  const recordTeamEvent = useGameEventsStore((s) => s.recordTeamEvent);
+  const recordPenaltyKick = useGameEventsStore((s) => s.recordPenaltyKick);
+  const refreshPlayerStats = useGameEventsStore((s) => s.refreshPlayerStats);
+
+  // Modal states
+  const [showTeamSelectModal, setShowTeamSelectModal] = useState(false);
+  const [showMajorEventModal, setShowMajorEventModal] = useState(false);
+  const [showShotModal, setShowShotModal] = useState(false);
+  const [selectedMajorEventType, setSelectedMajorEventType] = useState(null);
+  const [selectedTeam, setSelectedTeam] = useState(null); // 'us' or 'them'
+
+  // Event form states
   const [selectedPlayer, setSelectedPlayer] = useState("");
+  const [selectedAssist, setSelectedAssist] = useState("");
+  const [opponentJerseyNumber, setOpponentJerseyNumber] = useState("");
+  const [description, setDescription] = useState("");
+  const [cardReason, setCardReason] = useState("");
+  const [goalTypes, setGoalTypes] = useState([]);
+  const [penaltyResult, setPenaltyResult] = useState("");
+  const [stopClock, setStopClock] = useState(false);
 
-  // Modal types configuration
-  const EVENT_TYPES = {
-    GOAL: { label: "Goal", category: "major", needsPlayer: true },
-    DISCIPLINE: { label: "Discipline", category: "major", needsPlayer: true },
-    PENALTY: { label: "Penalty", category: "major", needsPlayer: false },
-    PAUSE: { label: "Game Paused", category: "major", needsPlayer: false },
-    CORNER: { label: "Corner Kick", category: "stat", needsPlayer: false },
-    OFFSIDE: { label: "Offside", category: "stat", needsPlayer: false },
-    FOUL: { label: "Foul", category: "stat", needsPlayer: false },
-    SHOT: { label: "Shot", category: "stat", needsPlayer: true },
-    SAVE: { label: "Save", category: "stat", needsPlayer: true },
-  };
+  // Optimistic update state - temporarily increment while waiting for server
+  const [optimisticUpdates, setOptimisticUpdates] = useState({
+    corner: { us: 0, them: 0 },
+    offside: { us: 0, them: 0 },
+    foul: { us: 0, them: 0 },
+    shot: 0,
+    save: 0,
+  });
 
-  // Fetch stats on mount and when game changes
   useEffect(() => {
     if (game?.game_id) {
-      fetchStats();
+      fetchGameEvents(game.game_id);
     }
   }, [game?.game_id]);
 
-  const fetchStats = async () => {
-    if (!game?.game_id) return;
-
-    setIsLoading(true);
-    try {
-      const events = await apiFetch("game_events", "GET", null, null, {
-        filters: { game_id: game.game_id, is_stoppage: 0 },
-      });
-
-      setStats(events || []);
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Available players for selection
   const availablePlayers = useMemo(() => {
     return players
       .filter(
-        (p) => p.fieldStatus === "onField" || p.fieldStatus === "onFieldGk"
+        (p) =>
+          p.fieldStatus === "onField" ||
+          p.fieldStatus === "onFieldGk" ||
+          p.fieldStatus === "subbingOut"
       )
       .map((p) => ({
         value: p.playerGameId,
@@ -69,124 +72,294 @@ function TeamStats() {
       }));
   }, [players]);
 
-  // Count stats by type
-  const statCounts = useMemo(() => {
-    const counts = {
+  const goalTypeOptions = [
+    { value: "header", label: "Header" },
+    { value: "free_kick", label: "Free Kick" },
+    { value: "penalty", label: "Penalty" },
+    { value: "own_goal", label: "Own Goal" },
+  ];
+
+  // Merge store stats with optimistic updates for display
+  const displayStats = {
+    corner: {
+      us: teamStats.corner.us + optimisticUpdates.corner.us,
+      them: teamStats.corner.them + optimisticUpdates.corner.them,
+    },
+    offside: {
+      us: teamStats.offside.us + optimisticUpdates.offside.us,
+      them: teamStats.offside.them + optimisticUpdates.offside.them,
+    },
+    foul: {
+      us: teamStats.foul.us + optimisticUpdates.foul.us,
+      them: teamStats.foul.them + optimisticUpdates.foul.them,
+    },
+    shot: teamStats.shot + optimisticUpdates.shot,
+    save: teamStats.save + optimisticUpdates.save,
+  };
+
+  // Optimistic update helpers
+  const addOptimisticUpdate = (statType, team, increment = 1) => {
+    setOptimisticUpdates((prev) => ({
+      ...prev,
+      [statType]: team
+        ? { ...prev[statType], [team]: prev[statType][team] + increment }
+        : prev[statType] + increment,
+    }));
+  };
+
+  const clearOptimisticUpdate = (statType, team, decrement = 1) => {
+    setOptimisticUpdates((prev) => ({
+      ...prev,
+      [statType]: team
+        ? {
+            ...prev[statType],
+            [team]: Math.max(0, prev[statType][team] - decrement),
+          }
+        : Math.max(0, prev[statType] - decrement),
+    }));
+  };
+
+  const clearAllOptimisticUpdates = () => {
+    setOptimisticUpdates({
       corner: { us: 0, them: 0 },
       offside: { us: 0, them: 0 },
       foul: { us: 0, them: 0 },
       shot: 0,
       save: 0,
-    };
-
-    stats.forEach((stat) => {
-      const isOurTeam = stat.for_team === game?.team_season_id;
-
-      if (stat.event_type === "corner") {
-        if (isOurTeam) counts.corner.us++;
-        else counts.corner.them++;
-      } else if (stat.event_type === "offside") {
-        if (isOurTeam) counts.offside.us++;
-        else counts.offside.them++;
-      } else if (stat.event_type === "foul") {
-        if (isOurTeam) counts.foul.us++;
-        else counts.foul.them++;
-      } else if (stat.event_type === "shot") {
-        counts.shot++;
-      } else if (stat.event_type === "save") {
-        counts.save++;
-      }
     });
-
-    return counts;
-  }, [stats, game]);
-
-  const handleOpenModal = (type) => {
-    setModalType(type);
-    setSelectedPlayer("");
-    setShowModal(true);
   };
 
-  const handleOpenMajorModal = () => {
-    setShowMajorModal(true);
+  // Quick stat handlers with optimistic updates
+  const handleQuickStat = async (statType, forYourTeam) => {
+    const team = forYourTeam ? "us" : "them";
+
+    // Optimistic update
+    addOptimisticUpdate(statType, team);
+
+    try {
+      await recordTeamEvent({
+        type: statType === "foul" ? "foul_committed" : statType,
+        forYourTeam,
+      });
+
+      // Store automatically refreshes, clear optimistic update
+      clearOptimisticUpdate(statType, team);
+    } catch (error) {
+      console.error("Error recording stat:", error);
+      // Rollback optimistic update on error
+      clearOptimisticUpdate(statType, team);
+      alert("Failed to record stat. Please try again.");
+    }
   };
 
-  const handleCloseMajorModal = () => {
-    setShowMajorModal(false);
-  };
-
-  const handleSelectMajorEvent = (type) => {
-    setShowMajorModal(false);
-    handleOpenModal(type);
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setModalType(null);
-    setSelectedPlayer("");
-  };
-
-  const handleCreateEvent = async (forTeam) => {
-    if (!game || !modalType) return;
-
-    const eventConfig = EVENT_TYPES[modalType];
-
-    // Validate player selection if needed
-    if (eventConfig.needsPlayer && !selectedPlayer) {
-      alert("Please select a player");
+  const handleSaveClick = async () => {
+    const currentGK = players.find((p) => p.gameStatus === "goalkeeper");
+    if (!currentGK) {
+      alert("No goalkeeper found on field");
       return;
     }
 
-    const gameTime = getGameTime();
-    const period = getCurrentPeriodNumber();
+    // Optimistic update
+    addOptimisticUpdate("save");
 
     try {
-      const eventData = {
-        game_id: game.game_id,
-        player_game_id: eventConfig.needsPlayer
-          ? parseInt(selectedPlayer)
-          : null,
-        event_category: eventConfig.category,
-        event_type: modalType.toLowerCase(),
-        game_time: gameTime,
-        period: period,
-        for_team: forTeam,
-        clock_should_run: modalType === "PAUSE" ? 0 : 1,
-        is_stoppage: 0,
-      };
+      await recordEvent({
+        playerGameId: currentGK.playerGameId,
+        category: "save",
+        type: "save",
+      });
 
-      await apiFetch("game_events", "POST", eventData);
-      await fetchStats();
-      handleCloseModal();
+      clearOptimisticUpdate("save");
     } catch (error) {
-      console.error("Error creating event:", error);
-      alert("Failed to create event");
+      console.error("Error recording save:", error);
+      clearOptimisticUpdate("save");
+      alert("Failed to record save. Please try again.");
     }
   };
 
-  const handleQuickStat = async (statType, forTeam) => {
-    if (!game) return;
+  const handleShotClick = () => {
+    setShowShotModal(true);
+  };
 
-    const gameTime = getGameTime();
-    const period = getCurrentPeriodNumber();
+  const handleShotPlayerSelect = async (playerGameId) => {
+    // Optimistic update
+    addOptimisticUpdate("shot");
+
+    setShowShotModal(false);
 
     try {
-      const eventData = {
-        game_id: game.game_id,
-        player_game_id: null,
-        event_category: "stat",
-        event_type: statType.toLowerCase(),
-        game_time: gameTime,
-        period: period,
-        for_team: forTeam,
-        clock_should_run: 1,
-        is_stoppage: 0,
-      };
+      await recordEvent({
+        playerGameId: parseInt(playerGameId),
+        category: "shot",
+        type: "shot_on_target",
+      });
 
-      await apiFetch("game_events", "POST", eventData);
-      await fetchStats();
+      clearOptimisticUpdate("shot");
     } catch (error) {
-      console.error("Error creating stat:", error);
+      console.error("Error recording shot:", error);
+      clearOptimisticUpdate("shot");
+      alert("Failed to record shot. Please try again.");
+    }
+  };
+
+  // Major event flow
+  const handleMajorEventClick = () => {
+    setShowMajorEventModal(true);
+  };
+
+  const handleSelectMajorEvent = (eventType) => {
+    setSelectedMajorEventType(eventType);
+    setShowMajorEventModal(false);
+    setShowTeamSelectModal(true);
+  };
+
+  const handleTeamSelect = (team) => {
+    setSelectedTeam(team);
+    setShowTeamSelectModal(false);
+    resetForm();
+  };
+
+  const resetForm = () => {
+    setSelectedPlayer("");
+    setSelectedAssist("");
+    setOpponentJerseyNumber("");
+    setDescription("");
+    setCardReason("");
+    setGoalTypes([]);
+    setPenaltyResult("");
+    setStopClock(false);
+  };
+
+  const handleCloseEventModal = () => {
+    setSelectedMajorEventType(null);
+    setSelectedTeam(null);
+    resetForm();
+  };
+
+  const toggleGoalType = (type) => {
+    setGoalTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    );
+  };
+
+  const handleSubmitEvent = async () => {
+    try {
+      if (selectedMajorEventType === "goal") {
+        if (selectedTeam === "us") {
+          if (!selectedPlayer) {
+            alert("Please select a player");
+            return;
+          }
+
+          await recordEvent({
+            playerGameId: parseInt(selectedPlayer),
+            category: "goal",
+            type: "goal",
+            assistPlayerGameId: selectedAssist
+              ? parseInt(selectedAssist)
+              : null,
+            goalTypes: goalTypes.length > 0 ? goalTypes : null,
+            details: description || null,
+          });
+        } else {
+          // Opponent goal
+          await recordOpponentEvent({
+            category: "goal",
+            type: "goal",
+            opponentJerseyNumber: opponentJerseyNumber || null,
+            details: description || null,
+          });
+        }
+      } else if (selectedMajorEventType === "card") {
+        if (selectedTeam === "us") {
+          if (!selectedPlayer) {
+            alert("Please select a player");
+            return;
+          }
+
+          const cardType = cardReason.toLowerCase().includes("red")
+            ? "red_card"
+            : "yellow_card";
+
+          await recordEvent({
+            playerGameId: parseInt(selectedPlayer),
+            category: "card",
+            type: cardType,
+            cardReason: cardReason || null,
+            details: description || null,
+          });
+        } else {
+          alert("Opponent cards are not tracked in detail");
+          return;
+        }
+      } else if (selectedMajorEventType === "penalty") {
+        if (!penaltyResult) {
+          alert("Please select penalty result");
+          return;
+        }
+
+        if (selectedTeam === "us") {
+          if (!selectedPlayer) {
+            alert("Please select a player");
+            return;
+          }
+
+          await recordPenaltyKick({
+            playerGameId: parseInt(selectedPlayer),
+            result: penaltyResult,
+            details: description || null,
+          });
+        } else {
+          // Opponent penalty
+          if (penaltyResult === "goal") {
+            await recordOpponentEvent({
+              category: "penalty",
+              type: "goal",
+              opponentJerseyNumber: opponentJerseyNumber || null,
+              details: description || null,
+            });
+          } else if (penaltyResult === "save") {
+            const currentGK = players.find(
+              (p) => p.gameStatus === "goalkeeper"
+            );
+            if (currentGK) {
+              await recordEvent({
+                playerGameId: currentGK.playerGameId,
+                category: "penalty",
+                type: "save",
+                details: description || null,
+              });
+            }
+          }
+        }
+      } else if (selectedMajorEventType === "injury") {
+        if (selectedTeam === "us" && !selectedPlayer) {
+          alert("Please select a player");
+          return;
+        }
+
+        if (selectedTeam === "us") {
+          await recordEvent({
+            playerGameId: parseInt(selectedPlayer),
+            category: "injury",
+            type: "injury",
+            details: description || null,
+            clockShouldRun: stopClock ? 0 : 1,
+          });
+        }
+      } else if (selectedMajorEventType === "stoppage") {
+        // Handle via gameStore stoppage methods instead
+        alert("Use the game control modal to manage stoppages");
+        return;
+      }
+
+      // Clear all optimistic updates after successful submit
+      clearAllOptimisticUpdates();
+
+      handleCloseEventModal();
+    } catch (error) {
+      console.error("Error submitting event:", error);
+      alert("Failed to record event. Please try again.");
     }
   };
 
@@ -194,8 +367,8 @@ function TeamStats() {
     if (!confirm("Delete this stat?")) return;
 
     try {
-      await apiFetch(`game_events?id=${statId}`, "DELETE");
-      await fetchStats();
+      await deleteEvent(statId);
+      // Store automatically refreshes
     } catch (error) {
       console.error("Error deleting stat:", error);
       alert("Failed to delete stat");
@@ -211,7 +384,7 @@ function TeamStats() {
       {/* Major Event Button */}
       <div className='mb-3'>
         <Button
-          onClick={handleOpenMajorModal}
+          onClick={handleMajorEventClick}
           variant='primary'
           className='w-full'
           size='md'
@@ -220,29 +393,29 @@ function TeamStats() {
         </Button>
       </div>
 
-      {/* Stat Counters - Compact with inline +/- buttons */}
+      {/* Stat Counters */}
       <div className='space-y-2 mb-3'>
-        {/* Corner Kicks */}
+        {/* Corners */}
         <div className='flex items-center justify-between py-2 px-3 bg-surface rounded-lg border border-border'>
           <span className='text-xs font-medium text-text'>Corners</span>
           <div className='flex items-center gap-3'>
             <button
-              onClick={() => handleQuickStat("CORNER", game.team_season_id)}
+              onClick={() => handleQuickStat("corner", true)}
               className='w-7 h-7 flex items-center justify-center rounded bg-primary text-white hover:bg-accent-hover transition-colors'
             >
               +
             </button>
             <div className='flex items-center gap-2 min-w-[50px] justify-center'>
               <span className='text-sm font-bold text-primary'>
-                {statCounts.corner.us}
+                {displayStats.corner.us}
               </span>
               <span className='text-xs text-muted'>-</span>
               <span className='text-sm font-bold text-accent'>
-                {statCounts.corner.them}
+                {displayStats.corner.them}
               </span>
             </div>
             <button
-              onClick={() => handleQuickStat("CORNER", game.opponentId)}
+              onClick={() => handleQuickStat("corner", false)}
               className='w-7 h-7 flex items-center justify-center rounded bg-accent text-white hover:bg-error-hover transition-colors'
             >
               +
@@ -255,22 +428,22 @@ function TeamStats() {
           <span className='text-xs font-medium text-text'>Offsides</span>
           <div className='flex items-center gap-3'>
             <button
-              onClick={() => handleQuickStat("OFFSIDE", game.team_season_id)}
+              onClick={() => handleQuickStat("offside", true)}
               className='w-7 h-7 flex items-center justify-center rounded bg-primary text-white hover:bg-accent-hover transition-colors'
             >
               +
             </button>
             <div className='flex items-center gap-2 min-w-[50px] justify-center'>
               <span className='text-sm font-bold text-primary'>
-                {statCounts.offside.us}
+                {displayStats.offside.us}
               </span>
               <span className='text-xs text-muted'>-</span>
               <span className='text-sm font-bold text-accent'>
-                {statCounts.offside.them}
+                {displayStats.offside.them}
               </span>
             </div>
             <button
-              onClick={() => handleQuickStat("OFFSIDE", game.opponentId)}
+              onClick={() => handleQuickStat("offside", false)}
               className='w-7 h-7 flex items-center justify-center rounded bg-accent text-white hover:bg-error-hover transition-colors'
             >
               +
@@ -283,22 +456,22 @@ function TeamStats() {
           <span className='text-xs font-medium text-text'>Fouls</span>
           <div className='flex items-center gap-3'>
             <button
-              onClick={() => handleQuickStat("FOUL", game.team_season_id)}
+              onClick={() => handleQuickStat("foul", true)}
               className='w-7 h-7 flex items-center justify-center rounded bg-primary text-white hover:bg-accent-hover transition-colors'
             >
               +
             </button>
             <div className='flex items-center gap-2 min-w-[50px] justify-center'>
               <span className='text-sm font-bold text-primary'>
-                {statCounts.foul.us}
+                {displayStats.foul.us}
               </span>
               <span className='text-xs text-muted'>-</span>
               <span className='text-sm font-bold text-accent'>
-                {statCounts.foul.them}
+                {displayStats.foul.them}
               </span>
             </div>
             <button
-              onClick={() => handleQuickStat("FOUL", game.opponentId)}
+              onClick={() => handleQuickStat("foul", false)}
               className='w-7 h-7 flex items-center justify-center rounded bg-accent text-white hover:bg-error-hover transition-colors'
             >
               +
@@ -306,36 +479,28 @@ function TeamStats() {
           </div>
         </div>
 
-        {/* Shots (Our Team Only) */}
+        {/* Shots */}
         <div className='flex items-center justify-between py-2 px-3 bg-surface rounded-lg border border-border'>
           <span className='text-xs font-medium text-text'>Shots</span>
           <div className='flex items-center gap-3'>
-            <Button
-              onClick={() => handleOpenModal("SHOT")}
-              variant='outline'
-              size='sm'
-            >
+            <Button onClick={handleShotClick} variant='outline' size='sm'>
               +
             </Button>
             <span className='text-sm font-bold text-primary min-w-[30px] text-center'>
-              {statCounts.shot}
+              {displayStats.shot}
             </span>
           </div>
         </div>
 
-        {/* Saves (Our Team Only) */}
+        {/* Saves */}
         <div className='flex items-center justify-between py-2 px-3 bg-surface rounded-lg border border-border'>
           <span className='text-xs font-medium text-text'>Saves</span>
           <div className='flex items-center gap-3'>
-            <Button
-              onClick={() => handleOpenModal("SAVE")}
-              variant='outline'
-              size='sm'
-            >
+            <Button onClick={handleSaveClick} variant='outline' size='sm'>
               +
             </Button>
             <span className='text-sm font-bold text-primary min-w-[30px] text-center'>
-              {statCounts.save}
+              {displayStats.save}
             </span>
           </div>
         </div>
@@ -347,19 +512,22 @@ function TeamStats() {
           Recent Events
         </h3>
         <div className='space-y-1.5 h-[105px] overflow-y-auto pr-1'>
-          {stats.length === 0 ? (
+          {gameEvents.length === 0 ? (
             <div className='text-xs text-muted text-center py-4 bg-surface rounded border border-border'>
               No events yet
             </div>
           ) : (
-            stats
+            gameEvents
               .slice()
               .reverse()
               .map((stat) => {
                 const player = players.find(
                   (p) => p.playerGameId === stat.player_game_id
                 );
-                const isOurTeam = stat.for_team === game?.team_season_id;
+                const yourTeamSeasonId = game.isHome
+                  ? game.home_team_season_id
+                  : game.away_team_season_id;
+                const isOurTeam = stat.team_season_id === yourTeamSeasonId;
 
                 return (
                   <div
@@ -369,9 +537,9 @@ function TeamStats() {
                     <div className='flex-1 min-w-0'>
                       <div className='flex items-center gap-2'>
                         <span className='text-xs font-semibold text-text capitalize'>
-                          {stat.event_type}
+                          {stat.event_type.replace("_", " ")}
                         </span>
-                        {!player && stat.for_team && (
+                        {!player && (
                           <span
                             className={`px-1.5 py-0.5 text-xs font-medium rounded ${
                               isOurTeam
@@ -380,6 +548,11 @@ function TeamStats() {
                             }`}
                           >
                             {isOurTeam ? "Us" : "Them"}
+                          </span>
+                        )}
+                        {stat.opponent_jersey_number && (
+                          <span className='text-xs text-muted'>
+                            #{stat.opponent_jersey_number}
                           </span>
                         )}
                       </div>
@@ -402,121 +575,294 @@ function TeamStats() {
         </div>
       </div>
 
+      {/* Modals remain the same... */}
       {/* Major Event Selection Modal */}
-      {showMajorModal && (
-        <Modal
-          isOpen={showMajorModal}
-          onClose={handleCloseMajorModal}
-          title='Select Major Event'
-        >
-          <div className='space-y-2'>
-            <Button
-              onClick={() => handleSelectMajorEvent("GOAL")}
-              variant='success'
-              className='w-full'
-            >
-              Goal
-            </Button>
-            <Button
-              onClick={() => handleSelectMajorEvent("DISCIPLINE")}
-              variant='danger'
-              className='w-full'
-            >
-              Discipline
-            </Button>
-            <Button
-              onClick={() => handleSelectMajorEvent("PENALTY")}
-              variant='outline'
-              className='w-full'
-            >
-              Penalty
-            </Button>
-            <Button
-              onClick={() => handleSelectMajorEvent("PAUSE")}
-              variant='outline'
-              className='w-full'
-            >
-              Game Paused
-            </Button>
-            <Button
-              onClick={handleCloseMajorModal}
-              variant='outline'
-              className='w-full mt-4'
-            >
-              Cancel
-            </Button>
-          </div>
-        </Modal>
-      )}
+      <Modal
+        isOpen={showMajorEventModal}
+        onClose={() => setShowMajorEventModal(false)}
+        title='Select Major Event'
+      >
+        <div className='space-y-2'>
+          <Button
+            onClick={() => handleSelectMajorEvent("goal")}
+            variant='success'
+            className='w-full'
+          >
+            Goal
+          </Button>
+          <Button
+            onClick={() => handleSelectMajorEvent("card")}
+            variant='danger'
+            className='w-full'
+          >
+            Card
+          </Button>
+          <Button
+            onClick={() => handleSelectMajorEvent("penalty")}
+            variant='outline'
+            className='w-full'
+          >
+            Penalty Kick
+          </Button>
+          <Button
+            onClick={() => handleSelectMajorEvent("injury")}
+            variant='outline'
+            className='w-full'
+          >
+            Injury
+          </Button>
+          <Button
+            onClick={() => setShowMajorEventModal(false)}
+            variant='outline'
+            className='w-full mt-4'
+          >
+            Cancel
+          </Button>
+        </div>
+      </Modal>
 
-      {/* Event Detail Modal (for player selection) */}
-      {showModal && modalType && (
-        <Modal
-          isOpen={showModal}
-          onClose={handleCloseModal}
-          title={EVENT_TYPES[modalType].label}
-        >
-          <div className='space-y-4'>
-            {/* Player Selection (if needed) */}
-            {EVENT_TYPES[modalType].needsPlayer && (
+      {/* Team Selection Modal */}
+      <Modal
+        isOpen={showTeamSelectModal}
+        onClose={() => setShowTeamSelectModal(false)}
+        title={`Who scored/received the ${selectedMajorEventType}?`}
+      >
+        <div className='space-y-2'>
+          <Button
+            onClick={() => handleTeamSelect("us")}
+            variant='primary'
+            className='w-full'
+          >
+            Our Team
+          </Button>
+          <Button
+            onClick={() => handleTeamSelect("them")}
+            variant='accent'
+            className='w-full'
+          >
+            Opponent
+          </Button>
+          <Button
+            onClick={() => setShowTeamSelectModal(false)}
+            variant='outline'
+            className='w-full mt-4'
+          >
+            Cancel
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Event Detail Modal */}
+      <Modal
+        isOpen={selectedMajorEventType && selectedTeam}
+        onClose={handleCloseEventModal}
+        title={`${
+          selectedTeam === "us" ? "OUR" : "OPPONENT"
+        } ${selectedMajorEventType?.toUpperCase()}`}
+        size='lg'
+      >
+        <div className='space-y-4'>
+          {/* Team Toggle */}
+          <div className='flex items-center justify-center gap-2 p-2 bg-surface rounded-lg'>
+            <button
+              onClick={() => setSelectedTeam("us")}
+              className={`px-4 py-2 rounded font-medium transition-colors ${
+                selectedTeam === "us"
+                  ? "bg-primary text-white"
+                  : "bg-white text-text hover:bg-gray-100"
+              }`}
+            >
+              Our Team
+            </button>
+            <button
+              onClick={() => setSelectedTeam("them")}
+              className={`px-4 py-2 rounded font-medium transition-colors ${
+                selectedTeam === "them"
+                  ? "bg-accent text-white"
+                  : "bg-white text-text hover:bg-gray-100"
+              }`}
+            >
+              Opponent
+            </button>
+          </div>
+
+          {/* Player Selection (Our Team) */}
+          {selectedTeam === "us" && selectedMajorEventType !== "stoppage" && (
+            <Select
+              label='Player'
+              value={selectedPlayer}
+              onChange={(e) => setSelectedPlayer(e.target.value)}
+              options={[
+                { value: "", label: "Select player..." },
+                ...availablePlayers,
+              ]}
+            />
+          )}
+
+          {/* Opponent Jersey Number */}
+          {selectedTeam === "them" && (
+            <Input
+              label='Opponent Jersey # (Optional)'
+              type='number'
+              value={opponentJerseyNumber}
+              onChange={(e) => setOpponentJerseyNumber(e.target.value)}
+              placeholder='e.g., 10'
+            />
+          )}
+
+          {/* Goal-specific fields */}
+          {selectedMajorEventType === "goal" && selectedTeam === "us" && (
+            <>
+              <Select
+                label='Assist (Optional)'
+                value={selectedAssist}
+                onChange={(e) => setSelectedAssist(e.target.value)}
+                options={[
+                  { value: "", label: "No assist" },
+                  ...availablePlayers.filter((p) => p.value !== selectedPlayer),
+                ]}
+              />
+
               <div>
                 <label className='block text-sm font-medium mb-2'>
-                  Select Player
+                  Goal Types (Optional)
                 </label>
-                <Select
-                  value={selectedPlayer}
-                  onChange={(e) => setSelectedPlayer(e.target.value)}
-                  options={[
-                    { value: "", label: "Select a player..." },
-                    ...availablePlayers,
-                  ]}
-                />
+                <div className='space-y-2'>
+                  {goalTypeOptions.map((type) => (
+                    <label
+                      key={type.value}
+                      className='flex items-center gap-2 cursor-pointer'
+                    >
+                      <input
+                        type='checkbox'
+                        checked={goalTypes.includes(type.value)}
+                        onChange={() => toggleGoalType(type.value)}
+                        className='w-4 h-4'
+                      />
+                      <span className='text-sm'>{type.label}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
-            )}
+            </>
+          )}
 
-            {/* Team Selection (for stats that track both teams) */}
-            {["CORNER", "OFFSIDE", "FOUL"].includes(modalType) && (
-              <div className='flex gap-2'>
-                <Button
-                  onClick={() => handleCreateEvent(game.team_season_id)}
-                  variant='primary'
-                  className='flex-1'
-                >
-                  Our Team
-                </Button>
-                <Button
-                  onClick={() => handleCreateEvent(game.opponentId)}
-                  variant='accent'
-                  className='flex-1'
-                >
-                  Opponent
-                </Button>
-              </div>
-            )}
+          {/* Card reason */}
+          {selectedMajorEventType === "card" && selectedTeam === "us" && (
+            <Select
+              label='Card Type'
+              value={cardReason}
+              onChange={(e) => setCardReason(e.target.value)}
+              options={[
+                { value: "", label: "Select card type..." },
+                { value: "Yellow Card - Foul", label: "Yellow Card - Foul" },
+                {
+                  value: "Yellow Card - Dissent",
+                  label: "Yellow Card - Dissent",
+                },
+                {
+                  value: "Yellow Card - Time Wasting",
+                  label: "Yellow Card - Time Wasting",
+                },
+                {
+                  value: "Red Card - Serious Foul",
+                  label: "Red Card - Serious Foul",
+                },
+                {
+                  value: "Red Card - Violent Conduct",
+                  label: "Red Card - Violent Conduct",
+                },
+                {
+                  value: "Red Card - 2nd Yellow",
+                  label: "Red Card - 2nd Yellow",
+                },
+              ]}
+            />
+          )}
 
-            {/* Direct action for player-specific or single-team events */}
-            {(EVENT_TYPES[modalType].needsPlayer ||
-              ["PENALTY", "PAUSE", "SHOT", "SAVE"].includes(modalType)) && (
-              <Button
-                onClick={() => handleCreateEvent(game.team_season_id)}
-                variant='success'
-                className='w-full'
-                disabled={EVENT_TYPES[modalType].needsPlayer && !selectedPlayer}
-              >
-                Create {EVENT_TYPES[modalType].label}
-              </Button>
-            )}
+          {/* Penalty result */}
+          {selectedMajorEventType === "penalty" && (
+            <Select
+              label='Penalty Result'
+              value={penaltyResult}
+              onChange={(e) => setPenaltyResult(e.target.value)}
+              options={[
+                { value: "", label: "Select result..." },
+                { value: "goal", label: "Goal" },
+                { value: "save", label: "Save" },
+                { value: "miss", label: "Miss" },
+              ]}
+            />
+          )}
 
+          {/* Description */}
+          <Input
+            label='Description (Optional)'
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder='Additional details...'
+          />
+
+          {/* Clock Control */}
+          <div className='flex items-center gap-3 p-3 bg-surface rounded-lg'>
+            <label className='flex items-center gap-2 cursor-pointer flex-1'>
+              <input
+                type='checkbox'
+                checked={stopClock}
+                onChange={(e) => setStopClock(e.target.checked)}
+                className='w-4 h-4'
+              />
+              <span className='text-sm font-medium'>
+                Stop clock for this event
+              </span>
+            </label>
+          </div>
+
+          {/* Submit */}
+          <div className='flex gap-2 pt-4'>
             <Button
-              onClick={handleCloseModal}
+              onClick={handleSubmitEvent}
+              variant='success'
+              className='flex-1'
+            >
+              Confirm
+            </Button>
+            <Button
+              onClick={handleCloseEventModal}
               variant='outline'
-              className='w-full'
+              className='flex-1'
             >
               Cancel
             </Button>
           </div>
-        </Modal>
-      )}
+        </div>
+      </Modal>
+
+      {/* Shot Player Selection Modal */}
+      <Modal
+        isOpen={showShotModal}
+        onClose={() => setShowShotModal(false)}
+        title='Select Player (Shot on Target)'
+      >
+        <div className='space-y-2 max-h-[400px] overflow-y-auto'>
+          {availablePlayers.map((player) => (
+            <button
+              key={player.value}
+              onClick={() => handleShotPlayerSelect(player.value)}
+              className='w-full text-left px-4 py-3 rounded-lg bg-surface hover:bg-primary hover:text-white transition-colors border border-border'
+            >
+              {player.label}
+            </button>
+          ))}
+          <Button
+            onClick={() => setShowShotModal(false)}
+            variant='outline'
+            className='w-full mt-4'
+          >
+            Cancel
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -42,8 +42,7 @@ function OnFieldGk({ handleSubClick }) {
     { name: "number", label: "#", width: "50px" },
     { name: "name", label: "Name", width: "40%" },
     { name: "saves", label: "Saves", cellClassName: "text-end" },
-    { name: "yellowCards", label: "YC", cellClassName: "text-end" },
-    { name: "redCards", label: "RC", cellClassName: "text-end" },
+    { name: "goalsAgainst", label: "GA", cellClassName: "text-end" },
     { name: "timeIn", label: "Time", cellClassName: "text-end" },
   ];
 

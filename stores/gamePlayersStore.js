@@ -13,7 +13,7 @@ const useGamePlayersStore = create((set, get) => ({
 
   loadPlayers: async (gameId, teamSeasonId) => {
     set({ isLoading: true, error: null });
-
+    console.log(gameId, teamSeasonId);
     try {
       const existingPlayerGames = await apiFetch(
         "v_player_games",
@@ -31,8 +31,9 @@ const useGamePlayersStore = create((set, get) => ({
         const pendingSubs = allSubs.filter((sub) => sub.sub_time === null);
         const confirmedSubs = allSubs.filter((sub) => sub.sub_time !== null);
 
+        // UPDATED: Use new enhanced view
         const allStats = await apiFetch(
-          "v_player_game_stats",
+          "v_player_game_stats_enhanced",
           "GET",
           null,
           null,
@@ -91,7 +92,9 @@ const useGamePlayersStore = create((set, get) => ({
             (s) => s.player_game_id === pg.player_game_id
           );
 
+          // LOCATION 1: When loading existing player_games
           const player = {
+            // Identity
             id: pg.player_id,
             playerGameId: pg.player_game_id,
             firstName: pg.first_name,
@@ -100,23 +103,44 @@ const useGamePlayersStore = create((set, get) => ({
             nickname: pg.nickname,
             jerseyNumber: pg.jersey_number,
             position: pg.primary_position,
+
+            // Team Context
             teamId: pg.team_id,
             teamSeasonId: pg.team_season_id,
+            homeAway: pg.home_away,
+
+            // Game Status
             gameStatus: pg.game_status || "dressed",
             started: pg.started === 1,
             isGuest: pg.is_guest === 1,
-            homeAway: pg.home_away,
+
+            // Substitution Tracking
             ins: playerIns,
             outs: playerOuts,
             subStatus: subStatus,
+
+            // UPDATED: All Stats from Enhanced View
+            // Offensive Stats
             goals: playerStats?.goals || 0,
+            penaltyGoals: playerStats?.penalty_goals || 0,
             assists: playerStats?.assists || 0,
             shots: playerStats?.shots || 0,
             shotsOnTarget: playerStats?.shots_on_target || 0,
+
+            // Goalkeeper Stats
             saves: playerStats?.saves || 0,
+            goalsAgainst: playerStats?.goals_against || 0,
+            penaltiesFaced: playerStats?.penalties_faced || 0,
+            penaltySaves: playerStats?.penalty_saves || 0,
+            cleanSheet: playerStats?.clean_sheet || 0,
+
+            // Disciplinary
             yellowCards: playerStats?.yellow_cards || 0,
             redCards: playerStats?.red_cards || 0,
-            corners: playerStats?.corners || 0,
+
+            // Fouls
+            foulsCommitted: playerStats?.fouls_committed || 0,
+            foulsDrawn: playerStats?.fouls_drawn || 0,
           };
 
           player.fieldStatus = get().calculateFieldStatus(player);
@@ -138,6 +162,7 @@ const useGamePlayersStore = create((set, get) => ({
       );
 
       set({ players: createdPlayers, isLoading: false });
+
       return createdPlayers;
     } catch (error) {
       console.error("Error loading players:", error);
@@ -151,16 +176,10 @@ const useGamePlayersStore = create((set, get) => ({
       const game = await apiFetch("games", "GET", null, gameId);
       if (!game) throw new Error("Game not found");
 
-      const { home_team_season_id, away_team_season_id } = game;
-      const isHome = teamSeasonId === home_team_season_id;
-      const selectedTeamSeasonId = isHome
-        ? home_team_season_id
-        : away_team_season_id;
-
       const teamPlayers =
         (await apiFetch("v_players", "GET", null, null, {
           filters: {
-            team_season_id: selectedTeamSeasonId,
+            team_season_id: teamSeasonId,
             player_is_active: 1,
           },
         })) || [];
@@ -178,10 +197,12 @@ const useGamePlayersStore = create((set, get) => ({
           })
         )
       );
-
+      console.log(game);
       const players = createdPlayerGames.map((pg, i) => {
         const p = teamPlayers[i];
+        // LOCATION 2: When creating new player_games from roster
         return {
+          // Identity
           id: pg.player_id,
           playerGameId: pg.id,
           firstName: p.first_name || "",
@@ -190,24 +211,46 @@ const useGamePlayersStore = create((set, get) => ({
           nickname: p.nickname,
           jerseyNumber: p.jersey_number,
           position: p.position,
+
+          // Team Context
           teamId: pg.team_id,
           teamSeasonId: p.team_season_id,
+          homeAway:
+            p.team_season_id === game.home_team_season_id ? "home" : "away",
+
+          // Game Status
           gameStatus: "dressed",
           fieldStatus: "onBench",
           started: false,
           isGuest: false,
-          homeAway: p.team_season_id === home_team_season_id ? "home" : "away",
+
+          // Substitution Tracking
           ins: [],
           outs: [],
           subStatus: null,
+
+          // UPDATED: Initialize All Stats to Zero
+          // Offensive Stats
           goals: 0,
+          penaltyGoals: 0,
           assists: 0,
           shots: 0,
           shotsOnTarget: 0,
+
+          // Goalkeeper Stats
           saves: 0,
+          goalsAgainst: 0,
+          penaltiesFaced: 0,
+          penaltySaves: 0,
+          cleanSheet: 0,
+
+          // Disciplinary
           yellowCards: 0,
           redCards: 0,
-          corners: 0,
+
+          // Fouls
+          foulsCommitted: 0,
+          foulsDrawn: 0,
         };
       });
 

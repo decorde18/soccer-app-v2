@@ -1,71 +1,27 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import useGameStore from "@/stores/gameStore";
 import useGamePlayersStore from "@/stores/gamePlayersStore";
-import { apiFetch } from "@/app/api/fetcher";
+import useGameEventsStore from "@/stores/gameEventsStore";
 
 function TeamStatsBetweenPeriods() {
   const game = useGameStore((s) => s.game);
   const players = useGamePlayersStore((s) => s.players);
 
-  const [stats, setStats] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Use store state
+  const gameEvents = useGameEventsStore((s) => s.gameEvents);
+  const teamStats = useGameEventsStore((s) => s.teamStats);
+  const isLoading = useGameEventsStore((s) => s.isLoadingEvents);
+
+  // Use store method
+  const fetchGameEvents = useGameEventsStore((s) => s.fetchGameEvents);
 
   // Fetch stats on mount and when game changes
   useEffect(() => {
     if (game?.game_id) {
-      fetchStats();
+      fetchGameEvents(game.game_id);
     }
   }, [game?.game_id]);
-
-  const fetchStats = async () => {
-    if (!game?.game_id) return;
-
-    setIsLoading(true);
-    try {
-      const events = await apiFetch("game_events", "GET", null, null, {
-        filters: { game_id: game.game_id, is_stoppage: 0 },
-      });
-
-      setStats(events || []);
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Count stats by type
-  const statCounts = useMemo(() => {
-    const counts = {
-      corner: { us: 0, them: 0 },
-      offside: { us: 0, them: 0 },
-      foul: { us: 0, them: 0 },
-      shot: 0,
-      save: 0,
-    };
-
-    stats.forEach((stat) => {
-      const isOurTeam = stat.for_team === game?.team_season_id;
-
-      if (stat.event_type === "corner") {
-        if (isOurTeam) counts.corner.us++;
-        else counts.corner.them++;
-      } else if (stat.event_type === "offside") {
-        if (isOurTeam) counts.offside.us++;
-        else counts.offside.them++;
-      } else if (stat.event_type === "foul") {
-        if (isOurTeam) counts.foul.us++;
-        else counts.foul.them++;
-      } else if (stat.event_type === "shot") {
-        counts.shot++;
-      } else if (stat.event_type === "save") {
-        counts.save++;
-      }
-    });
-
-    return counts;
-  }, [stats, game]);
 
   if (isLoading) {
     return <div className='text-center text-muted py-4'>Loading stats...</div>;
@@ -83,11 +39,11 @@ function TeamStatsBetweenPeriods() {
             <span className='text-xs font-medium text-text'>Corners</span>
             <div className='flex items-center gap-2'>
               <span className='text-sm font-bold text-primary w-6 text-right'>
-                {statCounts.corner.us}
+                {teamStats.corner.us}
               </span>
               <span className='text-xs text-muted'>-</span>
               <span className='text-sm font-bold text-accent w-6 text-left'>
-                {statCounts.corner.them}
+                {teamStats.corner.them}
               </span>
             </div>
           </div>
@@ -97,11 +53,11 @@ function TeamStatsBetweenPeriods() {
             <span className='text-xs font-medium text-text'>Offsides</span>
             <div className='flex items-center gap-2'>
               <span className='text-sm font-bold text-primary w-6 text-right'>
-                {statCounts.offside.us}
+                {teamStats.offside.us}
               </span>
               <span className='text-xs text-muted'>-</span>
               <span className='text-sm font-bold text-accent w-6 text-left'>
-                {statCounts.offside.them}
+                {teamStats.offside.them}
               </span>
             </div>
           </div>
@@ -111,11 +67,11 @@ function TeamStatsBetweenPeriods() {
             <span className='text-xs font-medium text-text'>Fouls</span>
             <div className='flex items-center gap-2'>
               <span className='text-sm font-bold text-primary w-6 text-right'>
-                {statCounts.foul.us}
+                {teamStats.foul.us}
               </span>
               <span className='text-xs text-muted'>-</span>
               <span className='text-sm font-bold text-accent w-6 text-left'>
-                {statCounts.foul.them}
+                {teamStats.foul.them}
               </span>
             </div>
           </div>
@@ -126,7 +82,7 @@ function TeamStatsBetweenPeriods() {
           <div className='flex items-center justify-between py-1'>
             <span className='text-xs font-medium text-text'>Shots</span>
             <span className='text-sm font-bold text-primary'>
-              {statCounts.shot}
+              {teamStats.shot}
             </span>
           </div>
 
@@ -134,7 +90,7 @@ function TeamStatsBetweenPeriods() {
           <div className='flex items-center justify-between py-1'>
             <span className='text-xs font-medium text-text'>Saves</span>
             <span className='text-sm font-bold text-primary'>
-              {statCounts.save}
+              {teamStats.save}
             </span>
           </div>
         </div>
@@ -146,19 +102,22 @@ function TeamStatsBetweenPeriods() {
           Recent Events
         </h3>
         <div className='space-y-1.5 max-h-[180px] overflow-y-auto pr-1'>
-          {stats.length === 0 ? (
+          {gameEvents.length === 0 ? (
             <div className='text-xs text-muted text-center py-3 bg-surface rounded border border-border'>
               No events yet
             </div>
           ) : (
-            stats
+            gameEvents
               .slice()
               .reverse()
               .map((stat) => {
                 const player = players.find(
                   (p) => p.playerGameId === stat.player_game_id
                 );
-                const isOurTeam = stat.for_team === game?.team_season_id;
+                const yourTeamSeasonId = game.isHome
+                  ? game.home_team_season_id
+                  : game.away_team_season_id;
+                const isOurTeam = stat.team_season_id === yourTeamSeasonId;
 
                 return (
                   <div
@@ -168,9 +127,9 @@ function TeamStatsBetweenPeriods() {
                     <div className='flex-1 min-w-0'>
                       <div className='flex items-center gap-2'>
                         <span className='text-xs font-semibold text-text capitalize'>
-                          {stat.event_type}
+                          {stat.event_type.replace("_", " ")}
                         </span>
-                        {!player && stat.for_team && (
+                        {!player && (
                           <span
                             className={`px-1.5 py-0.5 text-xs font-medium rounded ${
                               isOurTeam
@@ -179,6 +138,11 @@ function TeamStatsBetweenPeriods() {
                             }`}
                           >
                             {isOurTeam ? "Us" : "Them"}
+                          </span>
+                        )}
+                        {stat.opponent_jersey_number && (
+                          <span className='text-xs text-muted'>
+                            #{stat.opponent_jersey_number}
                           </span>
                         )}
                       </div>

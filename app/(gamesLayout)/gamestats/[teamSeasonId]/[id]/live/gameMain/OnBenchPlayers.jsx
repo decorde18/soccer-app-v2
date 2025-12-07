@@ -14,6 +14,7 @@ function OnBenchPlayers({ handleSubClick }) {
     { name: "number", label: "#", width: "50px" },
     { name: "name", label: "Name", width: "35%" },
     { name: "position", label: "Pos" },
+    { name: "shots", label: "Sh", cellClassName: "text-end" },
     { name: "goals", label: "G", cellClassName: "text-end" },
     { name: "assists", label: "A", cellClassName: "text-end" },
     { name: "timeIn", label: "Time In", cellClassName: "text-end" },

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Dec 05, 2025 at 08:52 AM
+-- Generation Time: Dec 07, 2025 at 12:55 AM
 -- Server version: 11.8.3-MariaDB-log
 -- PHP Version: 7.2.34
 
@@ -1085,10 +1085,45 @@ CREATE TABLE `v_player_game_stats` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `v_player_stats_combined`
+-- Stand-in structure for view `v_player_stats_combined`
+-- (See below for the actual view)
 --
-
-CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_player_stats_combined`  AS SELECT `p`.`id` AS `player_id`, `p`.`first_name` AS `first_name`, `p`.`last_name` AS `last_name`, `ts`.`id` AS `team_season_id`, `t`.`team_name` AS `team_name`, `c`.`name` AS `club_name`, `s`.`season_name` AS `season_name`, coalesce(sum(case when `ge`.`event_type` = 'goal' then 1 else 0 end),0) AS `calculated_goals`, coalesce(sum(case when `ge`.`event_type` = 'assist' then 1 else 0 end),0) AS `calculated_assists`, coalesce(sum(case when `ge`.`event_type` = 'yellow_card' then 1 else 0 end),0) AS `calculated_yellow_cards`, coalesce(sum(case when `ge`.`event_type` = 'red_card' then 1 else 0 end),0) AS `calculated_red_cards`, coalesce(sum(case when `ge`.`event_type` = 'shot' then 1 else 0 end),0) AS `calculated_shots`, coalesce(sum(case when `ge`.`event_type` = 'shot_on_target' then 1 else 0 end),0) AS `calculated_shots_on_target`, coalesce(sum(case when `ge`.`event_type` = 'save' then 1 else 0 end),0) AS `calculated_saves`, coalesce(count(distinct `pg`.`game_id`),0) AS `calculated_games_played`, coalesce(sum(case when `pg`.`started` = 1 then 1 else 0 end),0) AS `calculated_games_started`, `pss`.`goals` AS `manual_goals`, `pss`.`assists` AS `manual_assists`, `pss`.`yellow_cards` AS `manual_yellow_cards`, `pss`.`red_cards` AS `manual_red_cards`, `pss`.`games_played` AS `manual_games_played`, `pss`.`games_started` AS `manual_games_started`, `pss`.`shots` AS `manual_shots`, `pss`.`shots_on_target` AS `manual_shots_on_target`, `pss`.`saves` AS `manual_saves`, `pss`.`clean_sheets` AS `manual_clean_sheets`, `pss`.`stats_source` AS `stats_source`, coalesce(`pss`.`goals`,sum(case when `ge`.`event_type` = 'goal' then 1 else 0 end),0) AS `total_goals`, coalesce(`pss`.`assists`,sum(case when `ge`.`event_type` = 'assist' then 1 else 0 end),0) AS `total_assists`, coalesce(`pss`.`yellow_cards`,sum(case when `ge`.`event_type` = 'yellow_card' then 1 else 0 end),0) AS `total_yellow_cards`, coalesce(`pss`.`red_cards`,sum(case when `ge`.`event_type` = 'red_card' then 1 else 0 end),0) AS `total_red_cards`, coalesce(`pss`.`games_played`,count(distinct `pg`.`game_id`),0) AS `total_games_played`, coalesce(`pss`.`shots`,sum(case when `ge`.`event_type` = 'shot' then 1 else 0 end),0) AS `total_shots`, coalesce(`pss`.`saves`,sum(case when `ge`.`event_type` = 'save' then 1 else 0 end),0) AS `total_saves` FROM ((((((((`people` `p` join `player_teams` `pt` on(`p`.`id` = `pt`.`player_id`)) join `team_seasons` `ts` on(`pt`.`team_season_id` = `ts`.`id`)) join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `player_season_stats` `pss` on(`p`.`id` = `pss`.`player_id` and `ts`.`id` = `pss`.`team_season_id`)) left join `player_games` `pg` on(`p`.`id` = `pg`.`player_id` and `pg`.`team_id` = `t`.`id`)) left join `game_events` `ge` on(`p`.`id` = `ge`.`player_id` and `ge`.`game_id` = `pg`.`game_id`)) WHERE `pt`.`is_active` = 1 GROUP BY `p`.`id`, `p`.`first_name`, `p`.`last_name`, `ts`.`id`, `t`.`team_name`, `c`.`name`, `s`.`season_name`, `pss`.`goals`, `pss`.`assists`, `pss`.`yellow_cards`, `pss`.`red_cards`, `pss`.`games_played`, `pss`.`games_started`, `pss`.`shots`, `pss`.`shots_on_target`, `pss`.`saves`, `pss`.`clean_sheets`, `pss`.`stats_source` ORDER BY `c`.`name` ASC, `t`.`team_name` ASC, `p`.`last_name` ASC, `p`.`first_name` ASC ;
+CREATE TABLE `v_player_stats_combined` (
+`player_id` int(11)
+,`first_name` varchar(25)
+,`last_name` varchar(25)
+,`team_season_id` int(11)
+,`team_name` varchar(100)
+,`club_name` varchar(100)
+,`season_name` varchar(50)
+,`calculated_goals` decimal(22,0)
+,`calculated_assists` decimal(22,0)
+,`calculated_yellow_cards` decimal(22,0)
+,`calculated_red_cards` decimal(22,0)
+,`calculated_shots` decimal(22,0)
+,`calculated_shots_on_target` decimal(22,0)
+,`calculated_saves` decimal(22,0)
+,`calculated_games_played` bigint(21)
+,`calculated_games_started` decimal(22,0)
+,`manual_goals` int(11)
+,`manual_assists` int(11)
+,`manual_yellow_cards` int(11)
+,`manual_red_cards` int(11)
+,`manual_games_played` int(11)
+,`manual_games_started` int(11)
+,`manual_shots` int(11)
+,`manual_shots_on_target` int(11)
+,`manual_saves` int(11)
+,`manual_clean_sheets` int(11)
+,`stats_source` enum('manual','calculated','hybrid')
+,`total_goals` decimal(22,0)
+,`total_assists` decimal(22,0)
+,`total_yellow_cards` decimal(22,0)
+,`total_red_cards` decimal(22,0)
+,`total_games_played` bigint(21)
+,`total_shots` decimal(22,0)
+,`total_saves` decimal(22,0)
+);
 
 -- --------------------------------------------------------
 
@@ -1915,6 +1950,15 @@ CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL S
 DROP TABLE IF EXISTS `v_player_game_stats`;
 
 CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_player_game_stats`  AS SELECT `pg`.`id` AS `player_game_id`, `pg`.`game_id` AS `game_id`, `pg`.`player_id` AS `player_id`, `pg`.`team_id` AS `team_id`, `p`.`first_name` AS `first_name`, `p`.`last_name` AS `last_name`, concat(`p`.`first_name`,' ',`p`.`last_name`) AS `full_name`, `pt`.`jersey_number` AS `jersey_number`, `pt`.`position` AS `position`, `pg`.`game_status` AS `game_status`, `pg`.`started` AS `started`, count(case when `ge`.`event_type` = 'goal' then 1 end) AS `goals`, count(case when `ge`.`assist_player_game_id` = `pg`.`id` then 1 end) AS `assists`, count(case when `ge`.`event_type` = 'shot' then 1 end) AS `shots`, count(case when `ge`.`event_type` = 'shot_on_target' then 1 end) AS `shots_on_target`, count(case when `ge`.`event_type` = 'save' then 1 end) AS `saves`, count(case when `ge`.`event_type` = 'yellow_card' then 1 end) AS `yellow_cards`, count(case when `ge`.`event_type` = 'red_card' then 1 end) AS `red_cards`, count(case when `ge`.`event_type` = 'corner' then 1 end) AS `corners` FROM (((`player_games` `pg` left join `game_events` `ge` on(`pg`.`id` = `ge`.`player_game_id`)) left join `people` `p` on(`pg`.`player_id` = `p`.`id`)) left join `player_teams` `pt` on(`pg`.`player_id` = `pt`.`player_id` and exists(select 1 from `team_seasons` `ts` where `ts`.`id` = `pt`.`team_season_id` and `ts`.`team_id` = `pg`.`team_id` limit 1))) GROUP BY `pg`.`id`, `pg`.`game_id`, `pg`.`player_id`, `pg`.`team_id`, `p`.`first_name`, `p`.`last_name`, `pt`.`jersey_number`, `pt`.`position`, `pg`.`game_status`, `pg`.`started` ;
+
+-- --------------------------------------------------------
+
+--
+-- Structure for view `v_player_stats_combined`
+--
+DROP TABLE IF EXISTS `v_player_stats_combined`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_player_stats_combined`  AS SELECT `p`.`id` AS `player_id`, `p`.`first_name` AS `first_name`, `p`.`last_name` AS `last_name`, `ts`.`id` AS `team_season_id`, `t`.`team_name` AS `team_name`, `c`.`name` AS `club_name`, `s`.`season_name` AS `season_name`, coalesce(sum(case when `ge`.`event_type` = 'goal' then 1 else 0 end),0) AS `calculated_goals`, coalesce(sum(case when `ge`.`assist_player_game_id` = `pg`.`id` then 1 else 0 end),0) AS `calculated_assists`, coalesce(sum(case when `ge`.`event_type` = 'yellow_card' then 1 else 0 end),0) AS `calculated_yellow_cards`, coalesce(sum(case when `ge`.`event_type` = 'red_card' then 1 else 0 end),0) AS `calculated_red_cards`, coalesce(sum(case when `ge`.`event_type` = 'shot' then 1 else 0 end),0) AS `calculated_shots`, coalesce(sum(case when `ge`.`event_type` = 'shot_on_target' then 1 else 0 end),0) AS `calculated_shots_on_target`, coalesce(sum(case when `ge`.`event_type` = 'save' then 1 else 0 end),0) AS `calculated_saves`, coalesce(count(distinct `pg`.`game_id`),0) AS `calculated_games_played`, coalesce(sum(case when `pg`.`started` = 1 then 1 else 0 end),0) AS `calculated_games_started`, `pss`.`goals` AS `manual_goals`, `pss`.`assists` AS `manual_assists`, `pss`.`yellow_cards` AS `manual_yellow_cards`, `pss`.`red_cards` AS `manual_red_cards`, `pss`.`games_played` AS `manual_games_played`, `pss`.`games_started` AS `manual_games_started`, `pss`.`shots` AS `manual_shots`, `pss`.`shots_on_target` AS `manual_shots_on_target`, `pss`.`saves` AS `manual_saves`, `pss`.`clean_sheets` AS `manual_clean_sheets`, `pss`.`stats_source` AS `stats_source`, coalesce(`pss`.`goals`,sum(case when `ge`.`event_type` = 'goal' then 1 end),0) AS `total_goals`, coalesce(`pss`.`assists`,sum(case when `ge`.`assist_player_game_id` = `pg`.`id` then 1 end),0) AS `total_assists`, coalesce(`pss`.`yellow_cards`,sum(case when `ge`.`event_type` = 'yellow_card' then 1 end),0) AS `total_yellow_cards`, coalesce(`pss`.`red_cards`,sum(case when `ge`.`event_type` = 'red_card' then 1 end),0) AS `total_red_cards`, coalesce(`pss`.`games_played`,count(distinct `pg`.`game_id`),0) AS `total_games_played`, coalesce(`pss`.`shots`,sum(case when `ge`.`event_type` = 'shot' then 1 end),0) AS `total_shots`, coalesce(`pss`.`saves`,sum(case when `ge`.`event_type` = 'save' then 1 end),0) AS `total_saves` FROM ((((((((`people` `p` join `player_teams` `pt` on(`p`.`id` = `pt`.`player_id` and `pt`.`is_active` = 1)) join `team_seasons` `ts` on(`pt`.`team_season_id` = `ts`.`id`)) join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `player_season_stats` `pss` on(`p`.`id` = `pss`.`player_id` and `ts`.`id` = `pss`.`team_season_id`)) left join `player_games` `pg` on(`p`.`id` = `pg`.`player_id` and `pg`.`team_id` = `t`.`id`)) left join `game_events` `ge` on(`ge`.`player_game_id` = `pg`.`id`)) GROUP BY `p`.`id`, `p`.`first_name`, `p`.`last_name`, `ts`.`id`, `t`.`team_name`, `c`.`name`, `s`.`season_name`, `pss`.`goals`, `pss`.`assists`, `pss`.`yellow_cards`, `pss`.`red_cards`, `pss`.`games_played`, `pss`.`games_started`, `pss`.`shots`, `pss`.`shots_on_target`, `pss`.`saves`, `pss`.`clean_sheets`, `pss`.`stats_source` ORDER BY `c`.`name` ASC, `t`.`team_name` ASC, `p`.`last_name` ASC, `p`.`first_name` ASC ;
 
 -- --------------------------------------------------------
 

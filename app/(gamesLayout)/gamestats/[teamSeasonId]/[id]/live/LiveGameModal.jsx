@@ -86,12 +86,9 @@ function GameControlModal({ onClose }) {
 
   const eventTypes = [
     { value: "goal", label: "Goal" },
-    { value: "shot", label: "Shot" },
-    { value: "shot_on_target", label: "Shot on Target" },
-    { value: "save", label: "Save" },
+
     { value: "yellow_card", label: "Yellow Card" },
     { value: "red_card", label: "Red Card" },
-    { value: "corner", label: "Corner" },
   ];
 
   const handleStartStoppage = async () => {

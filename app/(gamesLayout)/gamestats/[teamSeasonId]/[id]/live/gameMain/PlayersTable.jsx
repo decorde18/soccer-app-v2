@@ -59,15 +59,18 @@ function PlayersTable({
 
   const gameTime = getGameTime();
 
-  // Default columns based on timeMode
-  const getDefaultColumns = () => {
+  // Default columns based on timeMode - different for GK vs field players
+  const getDefaultColumns = (isGoalkeeper) => {
     const baseColumns = [
       { name: "number", label: "#", width: "50px" },
       { name: "name", label: "Name", width: "30%" },
+    ];
+
+    baseColumns.push(
       { name: "shots", label: "Sh", cellClassName: "text-end" },
       { name: "goals", label: "G", cellClassName: "text-end" },
-      { name: "assists", label: "A", cellClassName: "text-end" },
-    ];
+      { name: "assists", label: "A", cellClassName: "text-end" }
+    );
 
     if (timeMode === "onField") {
       return [
@@ -85,8 +88,6 @@ function PlayersTable({
 
     return baseColumns;
   };
-
-  const columns = customColumns || getDefaultColumns();
 
   // Default row className
   const defaultGetRowClassName = (row) => {
@@ -155,6 +156,7 @@ function PlayersTable({
             goals: player.goals || 0,
             assists: player.assists || 0,
             saves: player.saves || 0,
+            goalsAgainst: player.goalsAgainst || 0,
             yellowCards: player.yellowCards || 0,
             redCards: player.redCards || 0,
             fieldStatus: player.fieldStatus,
@@ -162,6 +164,7 @@ function PlayersTable({
             subStatus: player.subStatus,
             pendingSubId: player.outs?.find((out) => out.gameTime === null)
               ?.subId,
+            isGoalkeeper: player.gameStatus === "goalkeeper",
           };
 
           // Add time columns based on mode
@@ -185,6 +188,22 @@ function PlayersTable({
       timeMode,
     ]
   );
+
+  // Determine if we need special columns (if table has goalkeepers)
+  const hasGoalkeepers = players.some((p) => p.isGoalkeeper);
+  const hasFieldPlayers = players.some((p) => !p.isGoalkeeper);
+
+  // Use custom columns or generate based on player types
+  const columns =
+    customColumns ||
+    (() => {
+      // If mixed, use field player columns (more common)
+      // Individual tables can still override with custom columns
+      if (hasGoalkeepers && !hasFieldPlayers) {
+        return getDefaultColumns(true);
+      }
+      return getDefaultColumns(false);
+    })();
 
   return (
     <Table
