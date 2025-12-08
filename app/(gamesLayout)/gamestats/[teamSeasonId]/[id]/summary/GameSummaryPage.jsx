@@ -2,15 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import useGameStore from "@/stores/gameStore";
-import useGamePlayersStore from "@/stores/gamePlayersStore";
 import Button from "@/components/ui/Button";
 import Table from "@/components/ui/Table";
 import { apiFetch } from "@/app/api/fetcher";
 import {
-  formatMySqlDate,
-  formatMySqlTime,
   formatSecondsToMmss,
+  formatMySqlTime,
+  formatMySqlDate,
 } from "@/lib/dateTimeUtils";
 
 function GameSummaryPage() {
@@ -19,12 +17,9 @@ function GameSummaryPage() {
   const gameId = params?.id;
   const teamSeasonId = params?.teamSeasonId;
 
-  const game = useGameStore((s) => s.game);
-  const initializeGame = useGameStore((s) => s.initializeGame);
-  const players = useGamePlayersStore((s) => s.players);
-  const loadPlayers = useGamePlayersStore((s) => s.loadPlayers);
-
-  const [score, setScore] = useState({ home: 0, away: 0, mode: "calculated" });
+  const [game, setGame] = useState(null);
+  const [players, setPlayers] = useState([]);
+  const [score, setScore] = useState({ home: 0, away: 0 });
   const [majorEvents, setMajorEvents] = useState([]);
   const [teamStats, setTeamStats] = useState(null);
   const [substitutions, setSubs] = useState([]);
@@ -33,199 +28,151 @@ function GameSummaryPage() {
   const [gameNotes, setGameNotes] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
-  const gameStage = useGameStore((s) => s.getGameStage());
-
+  //todo goal counts just need to be done on players, not game_events
+  //todo this should be universal (header), result verification
+  // Single useEffect with proper dependencies
   useEffect(() => {
-    if (gameStage !== "end_game") {
-      // Navigate away when game ends
-      router.push(`/gamestats/${teamSeasonId}/${gameId}/live`);
-    }
-  }, [gameStage, game.id, router]);
+    if (!gameId || !teamSeasonId) return;
 
-  useEffect(() => {
-    if (gameId && teamSeasonId) {
-      loadGameData();
-    }
-  }, [gameId, teamSeasonId]);
-
-  const loadGameData = async () => {
-    setIsLoading(true);
-    try {
-      // Load game and players
-      // await initializeGame(parseInt(gameId), parseInt(teamSeasonId));
-      // await loadPlayers(parseInt(gameId), parseInt(teamSeasonId));
-      // Fetch score
-      await fetchScore();
-      // Fetch major events
-      await fetchMajorEvents();
-      // Fetch team stats
-      await fetchTeamStats();
-      // Fetch substitutions
-      await fetchSubstitutions();
-      // Calculate period breakdown
-      await calculatePeriodBreakdown();
-      // Calculate top performers
-      calculateTopPerformers();
-      // Load game notes
-      await fetchGameNotes();
-    } catch (error) {
-      console.error("Error loading game summary:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchScore = async () => {
-    try {
-      // Check manual score first
-      const [manualScore] = await apiFetch("game_scores", "GET", null, null, {
-        filters: { game_id: gameId },
-      });
-
-      if (manualScore) {
-        setScore({
-          home: manualScore.home_score || 0,
-          away: manualScore.away_score || 0,
-          mode: "manual",
+    const loadAllData = async () => {
+      setIsLoading(true);
+      try {
+        // 1. Fetch basic game data (no store needed)
+        const [gameData] = await apiFetch("v_games", "GET", null, null, {
+          filters: { game_id: gameId },
         });
-      } else {
-        // Calculate from events
-        const events = await apiFetch("game_events", "GET", null, null, {
+        if (!gameData) {
+          console.error("Game not found");
+          setIsLoading(false);
+          return;
+        }
+
+        setGame(gameData);
+
+        // 2. Fetch player stats (from enhanced view)
+        const playerStats = await apiFetch(
+          "v_player_game_stats_enhanced",
+          "GET",
+          null,
+          null,
+          { filters: { game_id: gameId } }
+        );
+
+        setPlayers(playerStats || []);
+
+        // 3. Fetch score from goal events
+        const goalEvents = await apiFetch("game_events", "GET", null, null, {
           filters: { game_id: gameId, event_type: "goal" },
         });
-
+        console.log(goalEvents);
         let homeGoals = 0;
         let awayGoals = 0;
 
-        events.forEach((event) => {
-          if (event.team_season_id === game?.home_team_season_id) {
+        goalEvents.forEach((event) => {
+          if (event.team_season_id === gameData.home_team_season_id) {
             homeGoals++;
-          } else if (event.team_season_id === game?.away_team_season_id) {
+          } else if (event.team_season_id === gameData.away_team_season_id) {
             awayGoals++;
           }
         });
 
-        setScore({ home: homeGoals, away: awayGoals, mode: "calculated" });
+        setScore({ home: homeGoals, away: awayGoals });
+
+        // 4. Fetch major events
+        const events = await apiFetch("game_events", "GET", null, null, {
+          filters: {
+            game_id: gameId,
+          },
+        });
+
+        // Filter major events
+        const majorEventsList = events
+          .filter((e) =>
+            ["goal", "card", "penalty", "injury"].includes(e.event_category)
+          )
+          .sort((a, b) => a.game_time - b.game_time);
+
+        setMajorEvents(majorEventsList);
+
+        // 5. Calculate period breakdown from goal events
+        const periods = {};
+        goalEvents.forEach((event) => {
+          const period = event.period;
+          if (!periods[period]) {
+            periods[period] = { home: 0, away: 0 };
+          }
+
+          if (event.team_season_id === gameData.home_team_season_id) {
+            periods[period].home++;
+          } else if (event.team_season_id === gameData.away_team_season_id) {
+            periods[period].away++;
+          }
+        });
+
+        const breakdown = Object.keys(periods)
+          .sort((a, b) => parseInt(a) - parseInt(b))
+          .map((period) => ({
+            period: parseInt(period),
+            label:
+              period <= 2
+                ? `${period === 1 ? "1st" : "2nd"} Half`
+                : `OT ${period - 2}`,
+            home: periods[period].home,
+            away: periods[period].away,
+          }));
+
+        setPeriodBreakdown(breakdown);
+
+        // 6. Fetch team stats
+        const [stats] = await apiFetch("v_team_game_stats", "GET", null, null, {
+          filters: { game_id: gameId, team_season_id: teamSeasonId },
+        });
+        setTeamStats(stats);
+
+        // 7. Fetch substitutions
+        const subs = await apiFetch("game_subs", "GET", null, null, {
+          filters: { game_id: gameId },
+        });
+
+        const completedSubs = subs
+          .filter((sub) => sub.sub_time !== null)
+          .sort((a, b) => a.sub_time - b.sub_time);
+
+        setSubs(completedSubs);
+
+        // 8. Calculate top performers
+        if (playerStats && playerStats.length > 0) {
+          const sortedByGoals = [...playerStats]
+            .filter((p) => p.goals > 0)
+            .sort((a, b) => b.goals - a.goals);
+
+          const sortedByAssists = [...playerStats]
+            .filter((p) => p.assists > 0)
+            .sort((a, b) => b.assists - a.assists);
+
+          const sortedBySaves = [...playerStats]
+            .filter((p) => p.saves > 0)
+            .sort((a, b) => b.saves - a.saves);
+
+          setTopPerformers({
+            topScorer: sortedByGoals[0] || null,
+            topAssist: sortedByAssists[0] || null,
+            topGK: sortedBySaves[0] || null,
+          });
+        }
+
+        // 9. Fetch game notes
+        const gameDetails = await apiFetch("games", "GET", null, gameId);
+        setGameNotes(gameDetails?.notes || "");
+      } catch (error) {
+        console.error("Error loading game summary:", error);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching score:", error);
-    }
-  };
+    };
 
-  const fetchMajorEvents = async () => {
-    try {
-      const events = await apiFetch("game_events", "GET", null, null, {
-        filters: {
-          game_id: gameId,
-          event_type: ["goal", "card", "penalty", "injury"],
-        },
-      });
-
-      // Sort by game time
-      const sortedEvents = events.sort((a, b) => a.game_time - b.game_time);
-      setMajorEvents(sortedEvents);
-    } catch (error) {
-      console.error("Error fetching major events:", error);
-    }
-  };
-
-  const fetchTeamStats = async () => {
-    try {
-      const [stats] = await apiFetch("v_team_game_stats", "GET", null, null, {
-        filters: { game_id: gameId, team_season_id: teamSeasonId },
-      });
-      setTeamStats(stats);
-    } catch (error) {
-      console.error("Error fetching team stats:", error);
-    }
-  };
-
-  const fetchSubstitutions = async () => {
-    try {
-      const subs = await apiFetch("game_subs", "GET", null, null, {
-        filters: { game_id: gameId },
-      });
-
-      // Filter out pending subs and sort by time
-      const completedSubs = subs
-        .filter((sub) => sub.sub_time !== null)
-        .sort((a, b) => a.sub_time - b.sub_time);
-
-      setSubs(completedSubs);
-    } catch (error) {
-      console.error("Error fetching substitutions:", error);
-    }
-  };
-
-  const calculatePeriodBreakdown = async () => {
-    try {
-      const events = await apiFetch("game_events", "GET", null, null, {
-        filters: { game_id: gameId, event_type: "goal" },
-      });
-
-      const periods = {};
-
-      events.forEach((event) => {
-        const period = event.period;
-        if (!periods[period]) {
-          periods[period] = { home: 0, away: 0 };
-        }
-
-        if (event.team_season_id === game?.home_team_season_id) {
-          periods[period].home++;
-        } else if (event.team_season_id === game?.away_team_season_id) {
-          periods[period].away++;
-        }
-      });
-
-      const breakdown = Object.keys(periods)
-        .sort((a, b) => parseInt(a) - parseInt(b))
-        .map((period) => ({
-          period: parseInt(period),
-          label:
-            period <= 2
-              ? `${period === 1 ? "1st" : "2nd"} Half`
-              : `OT ${period - 2}`,
-          home: periods[period].home,
-          away: periods[period].away,
-        }));
-
-      setPeriodBreakdown(breakdown);
-    } catch (error) {
-      console.error("Error calculating period breakdown:", error);
-    }
-  };
-
-  const calculateTopPerformers = () => {
-    if (!players || players.length === 0) return;
-
-    const sortedByGoals = [...players]
-      .filter((p) => p.goals > 0)
-      .sort((a, b) => b.goals - a.goals);
-
-    const sortedByAssists = [...players]
-      .filter((p) => p.assists > 0)
-      .sort((a, b) => b.assists - a.assists);
-
-    const sortedBySaves = [...players]
-      .filter((p) => p.saves > 0)
-      .sort((a, b) => b.saves - a.saves);
-
-    setTopPerformers({
-      topScorer: sortedByGoals[0] || null,
-      topAssist: sortedByAssists[0] || null,
-      topGK: sortedBySaves[0] || null,
-    });
-  };
-
-  const fetchGameNotes = async () => {
-    try {
-      const gameData = await apiFetch("games", "GET", null, gameId);
-      setGameNotes(gameData?.notes || "");
-    } catch (error) {
-      console.error("Error fetching game notes:", error);
-    }
-  };
+    loadAllData();
+  }, [gameId, teamSeasonId]); // Only these two dependencies
 
   const handleSaveNotes = async () => {
     try {
@@ -242,7 +189,7 @@ function GameSummaryPage() {
   };
 
   const handleBackToGame = () => {
-    router.push(`/gamestats/${teamSeasonId}/${gameId}/manage`);
+    router.push(`/games/${gameId}/manage?teamSeasonId=${teamSeasonId}`);
   };
 
   if (isLoading || !game) {
@@ -253,8 +200,9 @@ function GameSummaryPage() {
     );
   }
 
-  const ourScore = game.isHome ? score.home : score.away;
-  const theirScore = game.isHome ? score.away : score.home;
+  const isHome = parseInt(teamSeasonId) === game.home_team_season_id;
+  const ourScore = isHome ? score.home : score.away;
+  const theirScore = isHome ? score.away : score.home;
   const result =
     ourScore > theirScore ? "WIN" : ourScore < theirScore ? "LOSS" : "DRAW";
   const resultColor =
@@ -278,20 +226,18 @@ function GameSummaryPage() {
     { name: "rc", label: "RC", cellClassName: "text-end" },
   ];
 
-  const playerData = players
-    .filter((p) => ["dressed", "starter", "goalkeeper"].includes(p.gameStatus))
-    .map((p) => ({
-      number: p.jerseyNumber ?? "—",
-      name: p.fullName,
-      position: p.position || "—",
-      goals: p.goals || 0,
-      assists: p.assists || 0,
-      shots: p.shots || 0,
-      saves: p.saves || 0,
-      ga: p.goalsAgainst || 0,
-      yc: p.yellowCards || 0,
-      rc: p.redCards || 0,
-    }));
+  const playerData = players.map((p) => ({
+    number: p.jersey_number ?? "—",
+    name: p.full_name,
+    position: p.position || "—",
+    goals: p.goals || 0,
+    assists: p.assists || 0,
+    shots: p.shots || 0,
+    saves: p.saves || 0,
+    ga: p.goals_against || 0,
+    yc: p.yellow_cards || 0,
+    rc: p.red_cards || 0,
+  }));
 
   return (
     <div className='min-h-screen bg-gray-50'>
@@ -319,7 +265,8 @@ function GameSummaryPage() {
             </h1>
             <div className='text-sm text-gray-600'>
               {formatMySqlDate(game.start_date)} •{" "}
-              {formatMySqlTime(game.start_time)} • {game.location_name || "TBD"}
+              {game.start_time && formatMySqlTime(game.start_time)} •{" "}
+              {game.location_name || "TBD"}
             </div>
             {game.league_names && (
               <div className='text-sm text-gray-500 mt-1'>
@@ -332,7 +279,7 @@ function GameSummaryPage() {
           <div className='flex justify-center items-center gap-8 mb-4'>
             <div className='text-center'>
               <div className='text-xl font-semibold text-gray-700 mb-1'>
-                {game.isHome
+                {isHome
                   ? `${game.home_club_name} ${game.home_team_name}`
                   : `${game.away_club_name} ${game.away_team_name}`}
               </div>
@@ -344,7 +291,7 @@ function GameSummaryPage() {
 
             <div className='text-center'>
               <div className='text-xl font-semibold text-gray-700 mb-1'>
-                {game.isHome
+                {isHome
                   ? `${game.away_club_name} ${game.away_team_name}`
                   : `${game.home_club_name} ${game.home_team_name}`}
               </div>
@@ -382,9 +329,10 @@ function GameSummaryPage() {
             <div className='space-y-2'>
               {majorEvents.map((event) => {
                 const player = players.find(
-                  (p) => p.playerGameId === event.player_game_id
+                  (p) => p.player_game_id === event.player_game_id
                 );
-                const isOurTeam = event.team_season_id === teamSeasonId;
+                const isOurTeam =
+                  event.team_season_id === parseInt(teamSeasonId);
                 const eventIcon = {
                   goal: "⚽",
                   card: event.event_type === "yellow_card" ? "🟨" : "🟥",
@@ -402,7 +350,7 @@ function GameSummaryPage() {
                       <div className='font-semibold text-gray-900'>
                         {event.event_type.replace("_", " ").toUpperCase()}
                         {player &&
-                          ` - ${player.fullName} (#${player.jerseyNumber})`}
+                          ` - ${player.full_name} (#${player.jersey_number})`}
                         {!player &&
                           event.opponent_jersey_number &&
                           ` - Opponent #${event.opponent_jersey_number}`}
@@ -524,8 +472,8 @@ function GameSummaryPage() {
             </h2>
             <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
               {periodBreakdown.map((period) => {
-                const ourGoals = game.isHome ? period.home : period.away;
-                const theirGoals = game.isHome ? period.away : period.home;
+                const ourGoals = isHome ? period.home : period.away;
+                const theirGoals = isHome ? period.away : period.home;
                 return (
                   <div
                     key={period.period}
@@ -555,10 +503,10 @@ function GameSummaryPage() {
             <div className='space-y-2'>
               {substitutions.map((sub) => {
                 const playerIn = players.find(
-                  (p) => p.playerGameId === sub.in_player_id
+                  (p) => p.player_game_id === sub.in_player_id
                 );
                 const playerOut = players.find(
-                  (p) => p.playerGameId === sub.out_player_id
+                  (p) => p.player_game_id === sub.out_player_id
                 );
                 return (
                   <div
@@ -568,10 +516,11 @@ function GameSummaryPage() {
                     <div className='text-lg'>🔄</div>
                     <div className='flex-1'>
                       <div className='font-semibold text-green-600'>
-                        IN: {playerIn?.fullName} (#{playerIn?.jerseyNumber})
+                        IN: {playerIn?.full_name} (#{playerIn?.jersey_number})
                       </div>
                       <div className='font-semibold text-red-600'>
-                        OUT: {playerOut?.fullName} (#{playerOut?.jerseyNumber})
+                        OUT: {playerOut?.full_name} (#{playerOut?.jersey_number}
+                        )
                       </div>
                     </div>
                     <div className='text-sm text-gray-600'>
@@ -594,10 +543,10 @@ function GameSummaryPage() {
               <div className='text-center p-4 bg-blue-50 rounded-lg'>
                 <div className='text-sm text-gray-600 mb-1'>Goalkeeper</div>
                 <div className='text-lg font-bold text-gray-900'>
-                  {topPerformers.topGK.fullName}
+                  {topPerformers.topGK.full_name}
                 </div>
                 <div className='text-sm text-gray-500'>
-                  #{topPerformers.topGK.jerseyNumber}
+                  #{topPerformers.topGK.jersey_number}
                 </div>
               </div>
               <div className='text-center p-4 bg-blue-50 rounded-lg'>
@@ -609,7 +558,7 @@ function GameSummaryPage() {
               <div className='text-center p-4 bg-blue-50 rounded-lg'>
                 <div className='text-sm text-gray-600 mb-1'>Goals Against</div>
                 <div className='text-3xl font-bold text-accent'>
-                  {topPerformers.topGK.goalsAgainst}
+                  {topPerformers.topGK.goals_against}
                 </div>
               </div>
             </div>
@@ -629,8 +578,8 @@ function GameSummaryPage() {
                     ⚽ Top Scorer
                   </div>
                   <div className='text-xl font-bold text-gray-900'>
-                    {topPerformers.topScorer.fullName} (#
-                    {topPerformers.topScorer.jerseyNumber})
+                    {topPerformers.topScorer.full_name} (#
+                    {topPerformers.topScorer.jersey_number})
                   </div>
                   <div className='text-3xl font-bold text-green-600 mt-1'>
                     {topPerformers.topScorer.goals}{" "}
@@ -644,8 +593,8 @@ function GameSummaryPage() {
                     🎯 Most Assists
                   </div>
                   <div className='text-xl font-bold text-gray-900'>
-                    {topPerformers.topAssist.fullName} (#
-                    {topPerformers.topAssist.jerseyNumber})
+                    {topPerformers.topAssist.full_name} (#
+                    {topPerformers.topAssist.jersey_number})
                   </div>
                   <div className='text-3xl font-bold text-blue-600 mt-1'>
                     {topPerformers.topAssist.assists}{" "}
