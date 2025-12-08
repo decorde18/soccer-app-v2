@@ -4,7 +4,6 @@ import { create } from "zustand";
 import useGameStore from "./gameStore";
 import useGamePlayersStore from "./gamePlayersStore";
 import { apiFetch } from "@/app/api/fetcher";
-import { updateGameScore } from "@/lib/scoreUtils";
 
 const useGameEventsStore = create((set, get) => ({
   // ==================== STATE ====================
@@ -186,16 +185,6 @@ const useGameEventsStore = create((set, get) => ({
         }
       }
 
-      // Update game score if goal
-      if (eventData.type === "goal" && teamSeasonId) {
-        await updateGameScore(
-          game.game_id,
-          teamSeasonId,
-          game.home_team_season_id,
-          game.away_team_season_id
-        );
-      }
-
       // Refresh events to update stats
       await get().fetchGameEvents(game.game_id);
 
@@ -263,14 +252,6 @@ const useGameEventsStore = create((set, get) => ({
             get().incrementPlayerStat(gk.id, "goalsAgainst");
           }
         }
-
-        // Update game score
-        await updateGameScore(
-          game.game_id,
-          opponentTeamSeasonId,
-          game.home_team_season_id,
-          game.away_team_season_id
-        );
       }
 
       // Refresh events to update stats
@@ -394,14 +375,6 @@ const useGameEventsStore = create((set, get) => ({
           );
           if (gk) get().incrementPlayerStat(gk.id, "goalsAgainst");
         }
-
-        // Update game score
-        await updateGameScore(
-          game.game_id,
-          teamSeasonId,
-          game.home_team_season_id,
-          game.away_team_season_id
-        );
       } else if (eventData.result === "save" && defendingPlayerGameId) {
         const gk = playersStore.getPlayerByPlayerGameId(defendingPlayerGameId);
         if (gk) {

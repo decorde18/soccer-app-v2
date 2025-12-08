@@ -159,19 +159,10 @@ export default function GameMenuPage() {
           buttons: [
             {
               label: "Game Summary",
-              path: `/games/${id}/summary`,
+              path: `/gamestats/${teamSeasonId}/${id}/summary`,
               variant: "primary",
             },
-            {
-              label: "Final Stats",
-              path: `/games/${id}/stats`,
-              variant: "secondary",
-            },
-            {
-              label: "Highlights",
-              path: `/games/${id}/highlights`,
-              variant: "secondary",
-            },
+
             {
               label: "Manual Game Management",
               path: `/gamestats/${teamSeasonId}/${id}/manage`,

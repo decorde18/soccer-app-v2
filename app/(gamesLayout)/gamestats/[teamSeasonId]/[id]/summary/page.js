@@ -1,12 +1,7 @@
-import MainContent from "./MainContent";
+import GameSummaryPage from "./GameSummaryPage";
 
 function page() {
-  return (
-    <div>
-      THIS IS THE SUMMARY PAGE
-      <MainContent />
-    </div>
-  );
+  return <GameSummaryPage />;
 }
 
 export default page;
