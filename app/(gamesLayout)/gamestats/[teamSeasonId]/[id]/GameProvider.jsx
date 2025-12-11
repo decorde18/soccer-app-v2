@@ -48,7 +48,7 @@ export default function GameProvider({ children }) {
     return (
       <div className='flex items-center justify-center min-h-screen bg-background'>
         <div className='text-center'>
-          <div className='text-red-500 text-xl font-bold mb-4'>Error</div>
+          <div className='text-danger text-xl font-bold mb-4'>Error</div>
           <p className='text-muted'>{initError}</p>
           <button
             onClick={() => router.push("/games")}

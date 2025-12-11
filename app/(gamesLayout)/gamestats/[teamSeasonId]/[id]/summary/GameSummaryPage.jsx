@@ -1,167 +1,216 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Button from "@/components/ui/Button";
-import Table from "@/components/ui/Table";
+import useGameStore from "@/stores/gameStore";
+import useGamePlayersStore from "@/stores/gamePlayersStore";
+import useGameEventsStore from "@/stores/gameEventsStore";
+import useGamePlayerTimeStore from "@/stores/gamePlayerTimeStore";
 import { apiFetch } from "@/app/api/fetcher";
-import {
-  formatSecondsToMmss,
-  formatMySqlTime,
-  formatMySqlDate,
-} from "@/lib/dateTimeUtils";
+import GameSummaryHeader from "./GameSummaryHeader";
+import GameSummaryTitle from "./GameSummaryTitle";
+import GameSummaryPerformers from "./GameSummaryPerformers";
+import GameSummaryTeamStats from "./GameSummaryTeamStats";
+import GameSummaryPlayerStats from "./GameSummaryPlayerStats";
+import GameSummaryPeriods from "./GameSummaryPeriods";
+import GameSummarySubs from "./GameSummarySubs";
+import GameSummaryNotes from "./GameSummaryNotes";
+import GameSummaryEvents from "./GameSummaryEvents";
 
 function GameSummaryPage() {
   const router = useRouter();
   const params = useParams();
   const gameId = params?.id;
-  const teamSeasonId = params?.teamSeasonId;
+  const teamSeasonId = parseInt(params?.teamSeasonId);
 
-  const [game, setGame] = useState(null);
-  const [players, setPlayers] = useState([]);
-  const [score, setScore] = useState({ home: 0, away: 0 });
-  const [majorEvents, setMajorEvents] = useState([]);
+  // Store state - use shallow comparison to prevent unnecessary re-renders
+  const game = useGameStore(
+    (state) => state.game,
+    (a, b) => a?.game_id === b?.game_id
+  );
+  const players = useGamePlayersStore((state) => state.players);
+  const events = useGameEventsStore((state) => state.gameEvents);
+  const calculateTotalTimeOnField = useGamePlayerTimeStore(
+    (state) => state.calculateTotalTimeOnField
+  );
+
+  // Local state
   const [teamStats, setTeamStats] = useState(null);
-  const [substitutions, setSubs] = useState([]);
-  const [periodBreakdown, setPeriodBreakdown] = useState([]);
-  const [topPerformers, setTopPerformers] = useState(null);
   const [gameNotes, setGameNotes] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
-  //todo goal counts just need to be done on players, not game_events
-  //todo this should be universal (header), result verification
-  // Single useEffect with proper dependencies
+  // Calculate ours/theirs immediately
+  const { ourTeamName, theirTeamName, isHome } = useMemo(() => {
+    if (!game) return { ourTeamName: "", theirTeamName: "", isHome: false };
+
+    const isHome = game.home_team_season_id === teamSeasonId;
+    return {
+      ourTeamName: isHome
+        ? `${game.home_club_name} ${game.home_team_name}`
+        : `${game.away_club_name} ${game.away_team_name}`,
+      theirTeamName: isHome
+        ? `${game.away_club_name} ${game.away_team_name}`
+        : `${game.home_club_name} ${game.home_team_name}`,
+      isHome,
+    };
+  }, [game, teamSeasonId]);
+
+  // Calculate score from events (ours/theirs)
+  const score = useMemo(() => {
+    const goalEvents = events.filter((e) => e.event_type === "goal");
+    let ours = 0;
+    let theirs = 0;
+
+    goalEvents.forEach((event) => {
+      if (event.team_season_id === teamSeasonId) {
+        ours++;
+      } else {
+        theirs++;
+      }
+    });
+
+    return { ours, theirs };
+  }, [events, teamSeasonId]);
+
+  // Major events with isOurs flag
+  const majorEvents = useMemo(() => {
+    return events
+      .filter((e) =>
+        ["goal", "card", "penalty", "injury"].includes(e.event_category)
+      )
+      .sort((a, b) => a.game_time - b.game_time)
+      .map((event) => ({
+        ...event,
+        isOurs: event.team_season_id === teamSeasonId,
+      }));
+  }, [events, teamSeasonId]);
+
+  // Period breakdown (ours/theirs)
+  const periodBreakdown = useMemo(() => {
+    const goalEvents = events.filter((e) => e.event_type === "goal");
+    const periods = {};
+
+    goalEvents.forEach((event) => {
+      const period = event.period;
+      if (!periods[period]) {
+        periods[period] = { ours: 0, theirs: 0 };
+      }
+
+      if (event.team_season_id === teamSeasonId) {
+        periods[period].ours++;
+      } else {
+        periods[period].theirs++;
+      }
+    });
+
+    return Object.keys(periods)
+      .sort((a, b) => parseInt(a) - parseInt(b))
+      .map((period) => ({
+        period: parseInt(period),
+        label:
+          period <= "2"
+            ? `${period === "1" ? "1st" : "2nd"} Half`
+            : `OT ${period - 2}`,
+        ours: periods[period].ours,
+        theirs: periods[period].theirs,
+      }));
+  }, [events, teamSeasonId]);
+
+  // Substitutions with confirmed sub_time
+  const substitutions = useMemo(() => {
+    const subs = [];
+    players.forEach((player) => {
+      (player.ins || []).forEach((sub) => {
+        if (sub.gameTime !== null) {
+          const existing = subs.find((s) => s.subId === sub.subId);
+          if (existing) {
+            existing.inPlayer = player;
+          } else {
+            subs.push({
+              subId: sub.subId,
+              gameTime: sub.gameTime,
+              inPlayer: player,
+              outPlayer: null,
+            });
+          }
+        }
+      });
+
+      (player.outs || []).forEach((sub) => {
+        if (sub.gameTime !== null) {
+          const existing = subs.find((s) => s.subId === sub.subId);
+          if (existing) {
+            existing.outPlayer = player;
+          } else {
+            subs.push({
+              subId: sub.subId,
+              gameTime: sub.gameTime,
+              inPlayer: null,
+              outPlayer: player,
+            });
+          }
+        }
+      });
+    });
+
+    return subs.sort((a, b) => a.gameTime - b.gameTime);
+  }, [players]);
+
+  // Enhanced players with minutes played
+  const playersWithMinutes = useMemo(() => {
+    if (!game || !players.length) return [];
+
+    const gameTime = useGameStore.getState().getGameTime();
+
+    return players.map((player) => ({
+      ...player,
+      minutesPlayed: Math.floor(
+        calculateTotalTimeOnField(player, gameTime) / 60
+      ),
+    }));
+  }, [players, game, calculateTotalTimeOnField]);
+
+  // Top performers
+  const topPerformers = useMemo(() => {
+    if (!playersWithMinutes.length) return null;
+
+    const sortedByGoals = [...playersWithMinutes]
+      .filter((p) => p.goals > 0)
+      .sort((a, b) => b.goals - a.goals);
+
+    const sortedByAssists = [...playersWithMinutes]
+      .filter((p) => p.assists > 0)
+      .sort((a, b) => b.assists - a.assists);
+
+    const sortedBySaves = [...playersWithMinutes]
+      .filter((p) => p.saves > 0)
+      .sort((a, b) => b.saves - a.saves);
+
+    return {
+      topScorer: sortedByGoals[0] || null,
+      topAssist: sortedByAssists[0] || null,
+      topGK: sortedBySaves[0] || null,
+    };
+  }, [playersWithMinutes]);
+
+  // Load data on mount
   useEffect(() => {
     if (!gameId || !teamSeasonId) return;
 
     const loadAllData = async () => {
       setIsLoading(true);
+
       try {
-        // 1. Fetch basic game data (no store needed)
-        const [gameData] = await apiFetch("v_games", "GET", null, null, {
-          filters: { game_id: gameId },
-        });
-        if (!gameData) {
-          console.error("Game not found");
-          setIsLoading(false);
-          return;
-        }
+        // Fetch game events and team stats
+        await useGameEventsStore.getState().fetchGameEvents(gameId);
 
-        setGame(gameData);
-
-        // 2. Fetch player stats (from enhanced view)
-        const playerStats = await apiFetch(
-          "v_player_game_stats_enhanced",
-          "GET",
-          null,
-          null,
-          { filters: { game_id: gameId } }
-        );
-
-        setPlayers(playerStats || []);
-
-        // 3. Fetch score from goal events
-        const goalEvents = await apiFetch("game_events", "GET", null, null, {
-          filters: { game_id: gameId, event_type: "goal" },
-        });
-        console.log(goalEvents);
-        let homeGoals = 0;
-        let awayGoals = 0;
-
-        goalEvents.forEach((event) => {
-          if (event.team_season_id === gameData.home_team_season_id) {
-            homeGoals++;
-          } else if (event.team_season_id === gameData.away_team_season_id) {
-            awayGoals++;
-          }
-        });
-
-        setScore({ home: homeGoals, away: awayGoals });
-
-        // 4. Fetch major events
-        const events = await apiFetch("game_events", "GET", null, null, {
-          filters: {
-            game_id: gameId,
-          },
-        });
-
-        // Filter major events
-        const majorEventsList = events
-          .filter((e) =>
-            ["goal", "card", "penalty", "injury"].includes(e.event_category)
-          )
-          .sort((a, b) => a.game_time - b.game_time);
-
-        setMajorEvents(majorEventsList);
-
-        // 5. Calculate period breakdown from goal events
-        const periods = {};
-        goalEvents.forEach((event) => {
-          const period = event.period;
-          if (!periods[period]) {
-            periods[period] = { home: 0, away: 0 };
-          }
-
-          if (event.team_season_id === gameData.home_team_season_id) {
-            periods[period].home++;
-          } else if (event.team_season_id === gameData.away_team_season_id) {
-            periods[period].away++;
-          }
-        });
-
-        const breakdown = Object.keys(periods)
-          .sort((a, b) => parseInt(a) - parseInt(b))
-          .map((period) => ({
-            period: parseInt(period),
-            label:
-              period <= 2
-                ? `${period === 1 ? "1st" : "2nd"} Half`
-                : `OT ${period - 2}`,
-            home: periods[period].home,
-            away: periods[period].away,
-          }));
-
-        setPeriodBreakdown(breakdown);
-
-        // 6. Fetch team stats
-        const [stats] = await apiFetch("v_team_game_stats", "GET", null, null, {
-          filters: { game_id: gameId, team_season_id: teamSeasonId },
-        });
+        // Fetch team stats (not in store)
+        const stats = await useGameEventsStore
+          .getState()
+          .getTeamStats(gameId, teamSeasonId);
         setTeamStats(stats);
 
-        // 7. Fetch substitutions
-        const subs = await apiFetch("game_subs", "GET", null, null, {
-          filters: { game_id: gameId },
-        });
-
-        const completedSubs = subs
-          .filter((sub) => sub.sub_time !== null)
-          .sort((a, b) => a.sub_time - b.sub_time);
-
-        setSubs(completedSubs);
-
-        // 8. Calculate top performers
-        if (playerStats && playerStats.length > 0) {
-          const sortedByGoals = [...playerStats]
-            .filter((p) => p.goals > 0)
-            .sort((a, b) => b.goals - a.goals);
-
-          const sortedByAssists = [...playerStats]
-            .filter((p) => p.assists > 0)
-            .sort((a, b) => b.assists - a.assists);
-
-          const sortedBySaves = [...playerStats]
-            .filter((p) => p.saves > 0)
-            .sort((a, b) => b.saves - a.saves);
-
-          setTopPerformers({
-            topScorer: sortedByGoals[0] || null,
-            topAssist: sortedByAssists[0] || null,
-            topGK: sortedBySaves[0] || null,
-          });
-        }
-
-        // 9. Fetch game notes
+        // Fetch game notes
         const gameDetails = await apiFetch("games", "GET", null, gameId);
         setGameNotes(gameDetails?.notes || "");
       } catch (error) {
@@ -172,7 +221,7 @@ function GameSummaryPage() {
     };
 
     loadAllData();
-  }, [gameId, teamSeasonId]); // Only these two dependencies
+  }, [gameId, teamSeasonId]);
 
   const handleSaveNotes = async () => {
     try {
@@ -194,433 +243,217 @@ function GameSummaryPage() {
 
   if (isLoading || !game) {
     return (
-      <div className='flex items-center justify-center min-h-screen'>
-        <div className='text-lg'>Loading game summary...</div>
+      <div className='flex items-center justify-center min-h-screen bg-background'>
+        <div className='text-lg text-text'>Loading game summary...</div>
       </div>
     );
   }
 
-  const isHome = parseInt(teamSeasonId) === game.home_team_season_id;
-  const ourScore = isHome ? score.home : score.away;
-  const theirScore = isHome ? score.away : score.home;
   const result =
-    ourScore > theirScore ? "WIN" : ourScore < theirScore ? "LOSS" : "DRAW";
-  const resultColor =
-    result === "WIN"
-      ? "text-green-600"
-      : result === "LOSS"
-      ? "text-red-600"
-      : "text-yellow-600";
-
-  // Player stats table columns
-  const playerColumns = [
-    { name: "number", label: "#", width: "50px" },
-    { name: "name", label: "Name", width: "25%" },
-    { name: "position", label: "Pos", width: "80px" },
-    { name: "goals", label: "G", cellClassName: "text-end" },
-    { name: "assists", label: "A", cellClassName: "text-end" },
-    { name: "shots", label: "Sh", cellClassName: "text-end" },
-    { name: "saves", label: "Sv", cellClassName: "text-end" },
-    { name: "ga", label: "GA", cellClassName: "text-end" },
-    { name: "yc", label: "YC", cellClassName: "text-end" },
-    { name: "rc", label: "RC", cellClassName: "text-end" },
-  ];
-
-  const playerData = players.map((p) => ({
-    number: p.jersey_number ?? "—",
-    name: p.full_name,
-    position: p.position || "—",
-    goals: p.goals || 0,
-    assists: p.assists || 0,
-    shots: p.shots || 0,
-    saves: p.saves || 0,
-    ga: p.goals_against || 0,
-    yc: p.yellow_cards || 0,
-    rc: p.red_cards || 0,
-  }));
+    score.ours > score.theirs
+      ? "WIN"
+      : score.ours < score.theirs
+      ? "LOSS"
+      : "DRAW";
 
   return (
-    <div className='min-h-screen bg-gray-50'>
-      {/* Action Buttons - No Print */}
-      <div className='print:hidden bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-10'>
-        <div className='max-w-7xl mx-auto flex justify-between items-center'>
-          <Button onClick={handleBackToGame} variant='outline'>
-            ← Back to Game Management
-          </Button>
-          <div className='flex gap-2'>
-            <Button onClick={handlePrint} variant='primary'>
-              🖨️ Print Summary
-            </Button>
-          </div>
+    <div className='min-h-screen bg-background'>
+      <GameSummaryHeader
+        handleBackToGame={handleBackToGame}
+        handlePrint={handlePrint}
+      />
+
+      {/* Print-only clean text summary */}
+      <div className='hidden print:block p-8 max-w-4xl mx-auto font-body'>
+        <div className='text-center mb-6'>
+          <h1 className='text-3xl font-heading font-bold mb-2'>GAME SUMMARY</h1>
+          <p className='text-base mb-1'>
+            {game.start_date} • {game.start_time || "TBD"}
+          </p>
+          <p className='text-sm'>{game.location_name || "TBD"}</p>
+          {game.league_names && (
+            <p className='text-xs text-muted mt-1'>{game.league_names}</p>
+          )}
         </div>
+
+        <div className='text-center mb-6 pb-4 border-b-2 border-text'>
+          <h2 className='text-xl font-bold mb-3'>FINAL SCORE</h2>
+          <p className='text-lg mb-1'>
+            {ourTeamName}: <strong className='text-2xl'>{score.ours}</strong>
+          </p>
+          <p className='text-lg mb-2'>
+            {theirTeamName}:{" "}
+            <strong className='text-2xl'>{score.theirs}</strong>
+          </p>
+          <p className='text-2xl font-bold mt-2'>{result}</p>
+        </div>
+
+        {majorEvents.filter((e) => e.event_type === "goal").length > 0 && (
+          <div className='mb-6'>
+            <h2 className='text-lg font-bold mb-3 border-b border-text pb-1'>
+              SCORING SUMMARY
+            </h2>
+            {majorEvents
+              .filter((e) => e.event_type === "goal")
+              .map((event, idx) => {
+                const player = playersWithMinutes.find(
+                  (p) => p.playerGameId === event.player_game_id
+                );
+                const teamName = event.isOurs ? ourTeamName : theirTeamName;
+                return (
+                  <p key={idx} className='mb-1 text-sm'>
+                    {Math.floor(event.game_time / 60)}' - {teamName}
+                    {player &&
+                      ` - ${player.fullName} (#${player.jerseyNumber})`}
+                    {!player &&
+                      event.opponent_jersey_number &&
+                      ` - #${event.opponent_jersey_number}`}
+                  </p>
+                );
+              })}
+          </div>
+        )}
+
+        {topPerformers &&
+          (topPerformers.topScorer ||
+            topPerformers.topAssist ||
+            topPerformers.topGK) && (
+            <div className='mb-6'>
+              <h2 className='text-lg font-bold mb-3 border-b border-text pb-1'>
+                TOP PERFORMERS
+              </h2>
+              {topPerformers.topScorer && (
+                <p className='mb-1 text-sm'>
+                  Top Scorer: {topPerformers.topScorer.fullName} -{" "}
+                  {topPerformers.topScorer.goals} goal(s)
+                </p>
+              )}
+              {topPerformers.topAssist && (
+                <p className='mb-1 text-sm'>
+                  Most Assists: {topPerformers.topAssist.fullName} -{" "}
+                  {topPerformers.topAssist.assists} assist(s)
+                </p>
+              )}
+              {topPerformers.topGK && (
+                <p className='mb-1 text-sm'>
+                  Goalkeeper: {topPerformers.topGK.fullName} -{" "}
+                  {topPerformers.topGK.saves} saves,{" "}
+                  {topPerformers.topGK.goalsAgainst} goals against
+                </p>
+              )}
+            </div>
+          )}
+
+        {teamStats && (
+          <div className='mb-6'>
+            <h2 className='text-lg font-bold mb-3 border-b border-text pb-1'>
+              TEAM STATISTICS
+            </h2>
+            <div className='grid grid-cols-2 gap-x-4 gap-y-1 text-sm'>
+              <p>Shots: {teamStats.shots || 0}</p>
+              <p>On Target: {teamStats.shots_on_target || 0}</p>
+              <p>Saves: {teamStats.saves || 0}</p>
+              <p>
+                Corners: {teamStats.corners_for || 0} -{" "}
+                {teamStats.corners_against || 0}
+              </p>
+              <p>
+                Fouls: {teamStats.fouls_committed || 0} /{" "}
+                {teamStats.fouls_drawn || 0}
+              </p>
+              <p>
+                Cards: {teamStats.yellow_cards || 0}Y /{" "}
+                {teamStats.red_cards || 0}R
+              </p>
+            </div>
+          </div>
+        )}
+
+        {playersWithMinutes.length > 0 && (
+          <div>
+            <h2 className='text-lg font-bold mb-3 border-b border-text pb-1'>
+              PLAYER STATISTICS
+            </h2>
+            <table className='w-full text-xs border-collapse'>
+              <thead>
+                <tr className='border-b border-text'>
+                  <th className='text-left py-1 pr-2'>#</th>
+                  <th className='text-left py-1 pr-2'>Name</th>
+                  <th className='text-center py-1 px-1'>Pos</th>
+                  <th className='text-center py-1 px-1'>Min</th>
+                  <th className='text-center py-1 px-1'>G</th>
+                  <th className='text-center py-1 px-1'>A</th>
+                  <th className='text-center py-1 px-1'>Sh</th>
+                  <th className='text-center py-1 px-1'>Sv</th>
+                </tr>
+              </thead>
+              <tbody>
+                {playersWithMinutes.map((p, idx) => (
+                  <tr key={idx} className='border-b border-gray-300'>
+                    <td className='py-1 pr-2'>{p.jerseyNumber ?? "—"}</td>
+                    <td className='py-1 pr-2'>{p.fullName}</td>
+                    <td className='text-center py-1 px-1'>
+                      {p.position || "—"}
+                    </td>
+                    <td className='text-center py-1 px-1'>{p.minutesPlayed}</td>
+                    <td className='text-center py-1 px-1'>{p.goals || 0}</td>
+                    <td className='text-center py-1 px-1'>{p.assists || 0}</td>
+                    <td className='text-center py-1 px-1'>{p.shots || 0}</td>
+                    <td className='text-center py-1 px-1'>{p.saves || 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* Main Content */}
-      <div className='max-w-7xl mx-auto px-6 py-8'>
-        {/* 1. Game Info Header */}
-        <div className='bg-white rounded-lg shadow-md p-6 mb-6'>
-          <div className='text-center mb-4'>
-            <h1 className='text-3xl font-bold text-gray-900 mb-2'>
-              Game Summary
-            </h1>
-            <div className='text-sm text-gray-600'>
-              {formatMySqlDate(game.start_date)} •{" "}
-              {game.start_time && formatMySqlTime(game.start_time)} •{" "}
-              {game.location_name || "TBD"}
-            </div>
-            {game.league_names && (
-              <div className='text-sm text-gray-500 mt-1'>
-                {game.league_names}
-              </div>
+      {/* Screen view - 3-column responsive desktop layout */}
+      <div className='print:hidden max-w-[1600px] mx-auto px-4 py-4'>
+        {/* 3-column layout for desktop */}
+        <div className='grid grid-cols-1 lg:grid-cols-3 gap-4'>
+          {/* Left Column */}
+          <div className='space-y-4'>
+            <GameSummaryTitle
+              game={game}
+              score={score}
+              result={result}
+              ourTeamName={ourTeamName}
+              theirTeamName={theirTeamName}
+            />
+
+            <GameSummaryPerformers topPerformers={topPerformers} />
+
+            {periodBreakdown.length > 0 && (
+              <GameSummaryPeriods periodBreakdown={periodBreakdown} />
             )}
           </div>
 
-          {/* Score Display */}
-          <div className='flex justify-center items-center gap-8 mb-4'>
-            <div className='text-center'>
-              <div className='text-xl font-semibold text-gray-700 mb-1'>
-                {isHome
-                  ? `${game.home_club_name} ${game.home_team_name}`
-                  : `${game.away_club_name} ${game.away_team_name}`}
-              </div>
-              <div className='text-6xl font-bold text-primary'>{ourScore}</div>
-              <div className='text-xs text-gray-500 mt-1'>Us</div>
-            </div>
+          {/* Middle Column */}
+          <div className='space-y-4'>
+            <GameSummaryTeamStats teamStats={teamStats} />
 
-            <div className='text-4xl font-light text-gray-400'>-</div>
-
-            <div className='text-center'>
-              <div className='text-xl font-semibold text-gray-700 mb-1'>
-                {isHome
-                  ? `${game.away_club_name} ${game.away_team_name}`
-                  : `${game.home_club_name} ${game.home_team_name}`}
-              </div>
-              <div className='text-6xl font-bold text-accent'>{theirScore}</div>
-              <div className='text-xs text-gray-500 mt-1'>Them</div>
-            </div>
+            <GameSummaryEvents
+              majorEvents={majorEvents}
+              players={playersWithMinutes}
+              ourTeamName={ourTeamName}
+              theirTeamName={theirTeamName}
+            />
           </div>
 
-          {/* Result Badge */}
-          <div className='text-center'>
-            <span
-              className={`inline-block px-6 py-2 rounded-full text-2xl font-bold ${resultColor} bg-opacity-10 ${
-                result === "WIN"
-                  ? "bg-green-100"
-                  : result === "LOSS"
-                  ? "bg-red-100"
-                  : "bg-yellow-100"
-              }`}
-            >
-              {result}
-            </span>
-          </div>
-        </div>
+          {/* Right Column */}
+          <div className='space-y-4'>
+            <GameSummaryPlayerStats players={playersWithMinutes} />
 
-        {/* 2. Major Events Timeline */}
-        <div className='bg-white rounded-lg shadow-md p-6 mb-6'>
-          <h2 className='text-2xl font-bold text-gray-900 mb-4'>
-            Major Events
-          </h2>
-          {majorEvents.length === 0 ? (
-            <div className='text-center text-gray-500 py-4'>
-              No major events recorded
-            </div>
-          ) : (
-            <div className='space-y-2'>
-              {majorEvents.map((event) => {
-                const player = players.find(
-                  (p) => p.player_game_id === event.player_game_id
-                );
-                const isOurTeam =
-                  event.team_season_id === parseInt(teamSeasonId);
-                const eventIcon = {
-                  goal: "⚽",
-                  card: event.event_type === "yellow_card" ? "🟨" : "🟥",
-                  penalty: "🎯",
-                  injury: "🚑",
-                }[event.event_category];
+            {substitutions.length > 0 && (
+              <GameSummarySubs substitutions={substitutions} />
+            )}
 
-                return (
-                  <div
-                    key={event.id}
-                    className='flex items-center gap-4 p-3 border border-gray-200 rounded-lg'
-                  >
-                    <div className='text-2xl'>{eventIcon}</div>
-                    <div className='flex-1'>
-                      <div className='font-semibold text-gray-900'>
-                        {event.event_type.replace("_", " ").toUpperCase()}
-                        {player &&
-                          ` - ${player.full_name} (#${player.jersey_number})`}
-                        {!player &&
-                          event.opponent_jersey_number &&
-                          ` - Opponent #${event.opponent_jersey_number}`}
-                      </div>
-                      <div className='text-sm text-gray-600'>
-                        {formatSecondsToMmss(event.game_time)} • Period{" "}
-                        {event.period}
-                        {event.details && ` • ${event.details}`}
-                      </div>
-                    </div>
-                    <div>
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-medium ${
-                          isOurTeam
-                            ? "bg-primary text-white"
-                            : "bg-accent text-white"
-                        }`}
-                      >
-                        {isOurTeam ? "Us" : "Them"}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* 3. Team Stats Table */}
-        <div className='bg-white rounded-lg shadow-md p-6 mb-6'>
-          <h2 className='text-2xl font-bold text-gray-900 mb-4'>
-            Team Statistics
-          </h2>
-          {teamStats ? (
-            <div className='grid grid-cols-2 md:grid-cols-3 gap-4'>
-              <div className='text-center p-4 bg-gray-50 rounded-lg'>
-                <div className='text-sm text-gray-600 mb-1'>Shots</div>
-                <div className='text-3xl font-bold text-primary'>
-                  {teamStats.shots || 0}
-                </div>
-                <div className='text-xs text-gray-500'>
-                  on target: {teamStats.shots_on_target || 0}
-                </div>
-              </div>
-              <div className='text-center p-4 bg-gray-50 rounded-lg'>
-                <div className='text-sm text-gray-600 mb-1'>Saves</div>
-                <div className='text-3xl font-bold text-primary'>
-                  {teamStats.saves || 0}
-                </div>
-              </div>
-              <div className='text-center p-4 bg-gray-50 rounded-lg'>
-                <div className='text-sm text-gray-600 mb-1'>Corners</div>
-                <div className='text-xl font-bold'>
-                  <span className='text-primary'>
-                    {teamStats.corners_for || 0}
-                  </span>
-                  <span className='text-gray-400 mx-2'>-</span>
-                  <span className='text-accent'>
-                    {teamStats.corners_against || 0}
-                  </span>
-                </div>
-              </div>
-              <div className='text-center p-4 bg-gray-50 rounded-lg'>
-                <div className='text-sm text-gray-600 mb-1'>Offsides</div>
-                <div className='text-xl font-bold text-primary'>
-                  {teamStats.offsides || 0}
-                </div>
-              </div>
-              <div className='text-center p-4 bg-gray-50 rounded-lg'>
-                <div className='text-sm text-gray-600 mb-1'>Fouls</div>
-                <div className='text-xl font-bold'>
-                  <span className='text-primary'>
-                    {teamStats.fouls_committed || 0}
-                  </span>
-                  <span className='text-gray-400 mx-2'>-</span>
-                  <span className='text-accent'>
-                    {teamStats.fouls_drawn || 0}
-                  </span>
-                </div>
-              </div>
-              <div className='text-center p-4 bg-gray-50 rounded-lg'>
-                <div className='text-sm text-gray-600 mb-1'>Cards</div>
-                <div className='text-xl font-bold'>
-                  <span className='text-yellow-500'>
-                    {teamStats.yellow_cards || 0}
-                  </span>
-                  <span className='text-gray-400 mx-2'>/</span>
-                  <span className='text-red-500'>
-                    {teamStats.red_cards || 0}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className='text-center text-gray-500 py-4'>
-              No team stats available
-            </div>
-          )}
-        </div>
-
-        {/* 4. Player Stats Table */}
-        <div className='bg-white rounded-lg shadow-md p-6 mb-6'>
-          <h2 className='text-2xl font-bold text-gray-900 mb-4'>
-            Player Statistics
-          </h2>
-          <Table
-            columns={playerColumns}
-            data={playerData}
-            size='sm'
-            hoverable={false}
-          />
-        </div>
-
-        {/* 5. Period Breakdown */}
-        {periodBreakdown.length > 0 && (
-          <div className='bg-white rounded-lg shadow-md p-6 mb-6'>
-            <h2 className='text-2xl font-bold text-gray-900 mb-4'>
-              Score by Period
-            </h2>
-            <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
-              {periodBreakdown.map((period) => {
-                const ourGoals = isHome ? period.home : period.away;
-                const theirGoals = isHome ? period.away : period.home;
-                return (
-                  <div
-                    key={period.period}
-                    className='text-center p-4 bg-gray-50 rounded-lg'
-                  >
-                    <div className='text-sm text-gray-600 mb-2'>
-                      {period.label}
-                    </div>
-                    <div className='text-2xl font-bold'>
-                      <span className='text-primary'>{ourGoals}</span>
-                      <span className='text-gray-400 mx-2'>-</span>
-                      <span className='text-accent'>{theirGoals}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* 6. Substitutions Log */}
-        {substitutions.length > 0 && (
-          <div className='bg-white rounded-lg shadow-md p-6 mb-6'>
-            <h2 className='text-2xl font-bold text-gray-900 mb-4'>
-              Substitutions
-            </h2>
-            <div className='space-y-2'>
-              {substitutions.map((sub) => {
-                const playerIn = players.find(
-                  (p) => p.player_game_id === sub.in_player_id
-                );
-                const playerOut = players.find(
-                  (p) => p.player_game_id === sub.out_player_id
-                );
-                return (
-                  <div
-                    key={sub.id}
-                    className='flex items-center gap-4 p-3 border border-gray-200 rounded-lg'
-                  >
-                    <div className='text-lg'>🔄</div>
-                    <div className='flex-1'>
-                      <div className='font-semibold text-green-600'>
-                        IN: {playerIn?.full_name} (#{playerIn?.jersey_number})
-                      </div>
-                      <div className='font-semibold text-red-600'>
-                        OUT: {playerOut?.full_name} (#{playerOut?.jersey_number}
-                        )
-                      </div>
-                    </div>
-                    <div className='text-sm text-gray-600'>
-                      {formatSecondsToMmss(sub.sub_time)}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* 7. Goalkeeper Performance */}
-        {topPerformers?.topGK && (
-          <div className='bg-white rounded-lg shadow-md p-6 mb-6'>
-            <h2 className='text-2xl font-bold text-gray-900 mb-4'>
-              Goalkeeper Performance
-            </h2>
-            <div className='grid grid-cols-3 gap-4'>
-              <div className='text-center p-4 bg-blue-50 rounded-lg'>
-                <div className='text-sm text-gray-600 mb-1'>Goalkeeper</div>
-                <div className='text-lg font-bold text-gray-900'>
-                  {topPerformers.topGK.full_name}
-                </div>
-                <div className='text-sm text-gray-500'>
-                  #{topPerformers.topGK.jersey_number}
-                </div>
-              </div>
-              <div className='text-center p-4 bg-blue-50 rounded-lg'>
-                <div className='text-sm text-gray-600 mb-1'>Saves</div>
-                <div className='text-3xl font-bold text-primary'>
-                  {topPerformers.topGK.saves}
-                </div>
-              </div>
-              <div className='text-center p-4 bg-blue-50 rounded-lg'>
-                <div className='text-sm text-gray-600 mb-1'>Goals Against</div>
-                <div className='text-3xl font-bold text-accent'>
-                  {topPerformers.topGK.goals_against}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 8. Top Performers */}
-        {(topPerformers?.topScorer || topPerformers?.topAssist) && (
-          <div className='bg-white rounded-lg shadow-md p-6 mb-6'>
-            <h2 className='text-2xl font-bold text-gray-900 mb-4'>
-              Top Performers
-            </h2>
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-              {topPerformers.topScorer && (
-                <div className='p-4 bg-green-50 rounded-lg'>
-                  <div className='text-sm text-gray-600 mb-2'>
-                    ⚽ Top Scorer
-                  </div>
-                  <div className='text-xl font-bold text-gray-900'>
-                    {topPerformers.topScorer.full_name} (#
-                    {topPerformers.topScorer.jersey_number})
-                  </div>
-                  <div className='text-3xl font-bold text-green-600 mt-1'>
-                    {topPerformers.topScorer.goals}{" "}
-                    {topPerformers.topScorer.goals === 1 ? "goal" : "goals"}
-                  </div>
-                </div>
-              )}
-              {topPerformers.topAssist && (
-                <div className='p-4 bg-blue-50 rounded-lg'>
-                  <div className='text-sm text-gray-600 mb-2'>
-                    🎯 Most Assists
-                  </div>
-                  <div className='text-xl font-bold text-gray-900'>
-                    {topPerformers.topAssist.full_name} (#
-                    {topPerformers.topAssist.jersey_number})
-                  </div>
-                  <div className='text-3xl font-bold text-blue-600 mt-1'>
-                    {topPerformers.topAssist.assists}{" "}
-                    {topPerformers.topAssist.assists === 1
-                      ? "assist"
-                      : "assists"}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* 9. Game Notes - No Print */}
-        <div className='bg-white rounded-lg shadow-md p-6 mb-6 print:hidden'>
-          <h2 className='text-2xl font-bold text-gray-900 mb-4'>Coach Notes</h2>
-          <textarea
-            value={gameNotes}
-            onChange={(e) => setGameNotes(e.target.value)}
-            className='w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-primary focus:border-transparent'
-            placeholder='Add notes about the game, player performance, areas to improve...'
-          />
-          <div className='mt-3'>
-            <Button onClick={handleSaveNotes} variant='primary'>
-              Save Notes
-            </Button>
+            <GameSummaryNotes
+              gameNotes={gameNotes}
+              setGameNotes={setGameNotes}
+              handleSaveNotes={handleSaveNotes}
+            />
           </div>
         </div>
       </div>
@@ -634,12 +467,6 @@ function GameSummaryPage() {
           }
           .print\\:hidden {
             display: none !important;
-          }
-          .shadow-md {
-            box-shadow: none !important;
-          }
-          .rounded-lg {
-            border: 1px solid #e5e7eb;
           }
         }
       `}</style>
