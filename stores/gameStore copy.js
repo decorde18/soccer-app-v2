@@ -2,7 +2,7 @@
 import { create } from "zustand";
 import { apiFetch } from "@/app/api/fetcher";
 import { calculateGameTime, calculatePeriodTime } from "@/lib/dateTimeUtils";
-import useGameSubsStore from "./gameSubsStore";
+import useGameSubsStore from "./gameSubsStore"; // ADD THIS IMPORT
 
 const GAME_STAGES = {
   BEFORE_START: "before_start",
@@ -46,7 +46,6 @@ const useGameStore = create((set, get) => {
           set({ error: "Game not found", isLoading: false });
           return { notFound: true };
         }
-
         // Fetch OT configuration
         const [otConfig] = await apiFetch(
           "games_overtimes",
@@ -57,7 +56,6 @@ const useGameStore = create((set, get) => {
             filters: { game_id: gameId },
           }
         );
-
         // Fetch existing periods (start_time and end_time are BIGINT Unix ms)
         const existingPeriods = await apiFetch(
           "game_periods",
@@ -68,55 +66,47 @@ const useGameStore = create((set, get) => {
             filters: { game_id: gameId },
           }
         );
-
-        // Fetch subs
         const allSubs = await apiFetch("game_subs", "GET", null, null, {
           filters: { game_id: gameId },
         });
         const gameSubs = allSubs.filter((s) => s.sub_time !== null);
         const pendingSubs = allSubs.filter((s) => s.sub_time === null);
-
-        // Fetch all game events in parallel
-        const [
-          gameEventsGoals,
-          gameEventsDiscipline,
-          gameEventsPenalties,
-          gameEventsMajor,
-          playerActions,
-          gameEventsTeam,
-        ] = await Promise.all([
-          apiFetch("v_game_events_goals_complete", "GET", null, null, {
+        // Fetch stoppages (stored as game seconds in INT columns)
+        const stoppageEvents = await apiFetch(
+          "game_events",
+          "GET",
+          null,
+          null,
+          {
             filters: { game_id: gameId },
-          }),
-          apiFetch("v_game_events_discipline_complete", "GET", null, null, {
+          }
+        );
+        const playerActions = await apiFetch(
+          "game_events_player_actions",
+          "GET",
+          null,
+          null,
+          { filters: { game_id: gameId } }
+        );
+        const gameEventsTeam = await apiFetch(
+          "game_events_team",
+          "GET",
+          null,
+          null,
+          { filters: { game_id: gameId } }
+        );
+        const gameEventsMajor = await apiFetch(
+          "game_events_major",
+          "GET",
+          null,
+          null,
+          {
             filters: { game_id: gameId },
-          }),
-          apiFetch("v_game_events_penalties_complete", "GET", null, null, {
-            filters: { game_id: gameId },
-          }),
-          apiFetch("game_events_major", "GET", null, null, {
-            filters: { game_id: gameId },
-          }),
-          apiFetch("game_events_player_actions", "GET", null, null, {
-            filters: { game_id: gameId },
-          }),
-          apiFetch("game_events_team", "GET", null, null, {
-            filters: { game_id: gameId },
-          }),
-        ]);
-        // Build opponent info
-        const { home_team_season_id, away_team_season_id } = dbGame;
-        const isHome = teamSeasonId == home_team_season_id;
-        const opponent = {
-          opponentId: isHome ? away_team_season_id : home_team_season_id,
-          opponentClub: isHome ? dbGame.away_club_name : dbGame.home_club_name,
-          opponentTeamName: isHome
-            ? dbGame.away_team_name
-            : dbGame.home_team_name,
-          opponentName: isHome
-            ? `${dbGame.away_club_name} ${dbGame.away_team_name}`
-            : `${dbGame.home_club_name} ${dbGame.home_team_name}`,
-        };
+          }
+        );
+        //todo need goals data
+        //todo need discipline data
+        //todo need pk data
 
         // Build game settings
         const settings = {
@@ -143,19 +133,49 @@ const useGameStore = create((set, get) => {
             endTime: p.end_time || null, // Unix ms or null
           }));
 
-        // Calculate scores based on goals
-        // Goals FOR our team (team_season_id matches )
-        const goalsFor = gameEventsGoals.filter(
-          (g) => g.team_season_id == teamSeasonId
-        ).length;
-        // Goals AGAINST our team (opponent scored )
-        const goalsAgainst = gameEventsGoals.filter(
-          (g) => g.team_season_id != teamSeasonId
-        ).length;
+        // Build stoppages array (times are game seconds)
+        const stoppages = stoppageEvents
+          .filter((event) => event.event_category !== "team")
+          .map((e) => ({
+            id: e.id,
+            startTime: e.stoppage_start_time || e.game_time, // game seconds
+            endTime: e.stoppage_end_time, // game seconds or null
+            reason: e.details || "",
+            periodNumber: e.period,
+            category: e.event_category,
+            type: e.event_type,
+            teamSeasonId: e.team_season_id,
+          }));
 
+        const gameEvents = gameEventsMajor.map((e) => ({
+          //Show none goal game stoppages
+          id: e.id,
+          startTime: e.game_time,
+          endTime: e.end_time, // game seconds or null
+          details: e.details || "",
+          periodNumber: e.period,
+          type: e.event_type,
+          clock_should_run: e.clock_should_run === 1,
+        }));
+        //todo delete stoppages and stoppageEvents
+        //todo create goalsFor and goalsAgainst - add to finalGame
         // Determine current state
         const gameStartTime = periods.length > 0 ? periods[0].startTime : null;
         const currentPeriodIndex = periods.length > 0 ? periods.length - 1 : -1;
+
+        // Build opponent info
+        const { home_team_season_id, away_team_season_id } = dbGame;
+        const isHome = teamSeasonId == home_team_season_id;
+        const opponent = {
+          opponentId: isHome ? away_team_season_id : home_team_season_id,
+          opponentClub: isHome ? dbGame.away_club_name : dbGame.home_club_name,
+          opponentTeamName: isHome
+            ? dbGame.away_team_name
+            : dbGame.home_team_name,
+          opponentName: isHome
+            ? `${dbGame.away_club_name} ${dbGame.away_team_name}`
+            : `${dbGame.home_club_name} ${dbGame.home_team_name}`,
+        };
 
         const finalGame = {
           ...dbGame,
@@ -163,23 +183,18 @@ const useGameStore = create((set, get) => {
           isHome,
           settings,
           periods,
-          gameEventsGoals,
-          gameEventsDiscipline,
-          gameEventsPenalties,
-          gameEventsMajor,
-          playerActions,
-          gameEventsTeam,
+          gameEvents,
+          stoppages, //todo remove
           currentPeriodIndex,
           gameStartTime,
           gameSubs,
           pendingSubs,
-          goalsFor,
-          goalsAgainst,
-          ourName: isHome
-            ? `${dbGame.home_club_name} ${dbGame.home_team_name}`
-            : `${dbGame.away_club_name} ${dbGame.away_team_name}`,
+          playerActions,
+          gameEventsTeam,
+          homeScore: dbGame.home_score || 0, //todo refactor
+          awayScore: dbGame.away_score || 0, //todo refactor
         };
-
+        console.log(finalGame);
         set({
           game: finalGame,
           otConfig,
@@ -203,16 +218,13 @@ const useGameStore = create((set, get) => {
       const updatedGame = { ...currentGame, ...updates };
       set({ game: updatedGame });
     },
-    startGame: () => {
-      //be sure to change status to in_progress
-    },
+    startGame: () => {},
     endGame: () => {
       //be sure to change status to completed
       // remove any pending subs
     },
     startPeriod: () => {},
     endPeriod: () => {},
-
     // ==================== GAME STAGE CALCULATION ====================
 
     getGameStage: () => {
@@ -221,12 +233,10 @@ const useGameStore = create((set, get) => {
 
       const currentPeriod = game.periods[game.currentPeriodIndex];
 
-      // Check for active stoppage in major events
-      const activeStoppage = game.gameEventsMajor.find(
+      // Check for active stoppage
+      const activeStoppage = game.stoppages.find(
         (s) =>
-          s.end_time === null &&
-          s.period === game.currentPeriodIndex + 1 &&
-          s.clock_should_run === 0
+          s.endTime === null && s.periodNumber === game.currentPeriodIndex + 1
       );
       if (activeStoppage && currentPeriod && !currentPeriod.endTime) {
         return GAME_STAGES.IN_STOPPAGE;
@@ -248,7 +258,7 @@ const useGameStore = create((set, get) => {
         game.currentPeriodIndex >= regularPeriods - 1 && currentPeriod?.endTime;
 
       if (allRegularPeriodsComplete) {
-        const isTied = game.goalsFor === game.goalsAgainst;
+        const isTied = game.homeScore === game.awayScore;
 
         if (isTied && game.settings.hasOvertime) {
           if (game.currentPeriodIndex >= maxPeriods - 1) {
@@ -262,7 +272,6 @@ const useGameStore = create((set, get) => {
 
       return GAME_STAGES.BETWEEN_PERIODS;
     },
-
     syncGameStatus: async () => {
       const game = get().game;
       if (!game) return;
@@ -338,17 +347,9 @@ const useGameStore = create((set, get) => {
       if (!currentPeriod?.startTime) return 0;
 
       const currentMs = currentPeriod.endTime || Date.now();
-
-      // Get stoppages from major events where clock should not run
-      const periodStoppages = game.gameEventsMajor
-        .filter(
-          (s) =>
-            s.period === currentPeriod.periodNumber && s.clock_should_run === 0
-        )
-        .map((e) => ({
-          startTime: e.game_time,
-          endTime: e.end_time,
-        }));
+      const periodStoppages = game.stoppages.filter(
+        (s) => s.periodNumber === currentPeriod.periodNumber
+      );
 
       return calculatePeriodTime(
         currentPeriod.startTime,
@@ -398,14 +399,7 @@ const useGameStore = create((set, get) => {
         get().updateGame({
           ...(isFirstPeriod && {
             gameStartTime: nowMs,
-            gameEventsGoals: [],
-            gameEventsDiscipline: [],
-            gameEventsPenalties: [],
-            gameEventsMajor: [],
-            playerActions: [],
-            gameEventsTeam: [],
-            goalsFor: 0,
-            goalsAgainst: 0,
+            stoppages: [],
           }),
           currentPeriodIndex: nextIndex,
           periods: [...game.periods, newPeriod],
@@ -416,6 +410,7 @@ const useGameStore = create((set, get) => {
         }
 
         // Auto-confirm any pending subs at time 0 of new period
+        // FIXED: Access gameSubsStore correctly
         const gameSubsStore = useGameSubsStore.getState();
         const pendingSubs = await gameSubsStore.getPendingSubs(game.game_id);
         const completeSubs = pendingSubs.filter((sub) => sub.isComplete);
@@ -439,7 +434,6 @@ const useGameStore = create((set, get) => {
         console.error("Error starting next period:", error);
       }
     },
-
     endPeriod: async () => {
       const game = get().game;
       if (!game) return;
@@ -467,7 +461,7 @@ const useGameStore = create((set, get) => {
       }
     },
 
-    startStoppage: async (reason = "", eventType = "other") => {
+    startStoppage: async (reason = "") => {
       const game = get().game;
       if (!game) return;
 
@@ -475,30 +469,31 @@ const useGameStore = create((set, get) => {
       const period = get().getCurrentPeriodNumber();
 
       try {
-        // Create major stoppage event
-        const stoppageEvent = await apiFetch("game_events_major", "POST", {
+        // Create stoppage event (times stored as game seconds)
+        const stoppageEvent = await apiFetch("game_events", "POST", {
           game_id: game.game_id,
-          event_type: eventType, // 'weather', 'injury', 'other', etc.
+          player_game_id: null,
+          event_category: "major",
+          event_type: "stoppage",
           game_time: gameTime, // INT game seconds
-          end_time: null,
           period: period,
+
+          stoppage_start_time: gameTime, // INT game seconds
+          stoppage_end_time: null,
           clock_should_run: 0,
           details: reason,
         });
 
         const newStoppage = {
           id: stoppageEvent.id,
-          game_id: game.game_id,
-          event_type: eventType,
-          game_time: gameTime,
-          end_time: null,
-          period: period,
-          clock_should_run: 0,
-          details: reason,
+          startTime: gameTime,
+          endTime: null,
+          reason,
+          periodNumber: period,
         };
 
         get().updateGame({
-          gameEventsMajor: [...game.gameEventsMajor, newStoppage],
+          stoppages: [...game.stoppages, newStoppage],
         });
       } catch (error) {
         console.error("Error starting stoppage:", error);
@@ -512,15 +507,15 @@ const useGameStore = create((set, get) => {
       const gameTime = get().getGameTime();
 
       try {
-        await apiFetch(`game_events_major?id=${stoppageId}`, "PUT", {
-          end_time: gameTime, // INT game seconds
+        await apiFetch(`game_events?id=${stoppageId}`, "PUT", {
+          stoppage_end_time: gameTime, // INT game seconds
         });
 
-        const updatedStoppages = game.gameEventsMajor.map((s) =>
-          s.id === stoppageId ? { ...s, end_time: gameTime } : s
+        const updatedStoppages = game.stoppages.map((s) =>
+          s.id === stoppageId ? { ...s, endTime: gameTime } : s
         );
 
-        get().updateGame({ gameEventsMajor: updatedStoppages });
+        get().updateGame({ stoppages: updatedStoppages });
       } catch (error) {
         console.error("Error ending stoppage:", error);
       }
@@ -589,70 +584,16 @@ const useGameStore = create((set, get) => {
       }
     },
 
-    deleteEvent: async (eventId, eventType = "major") => {
+    deleteEvent: async (eventId) => {
       try {
-        // Determine which table based on event type
-        const tableMap = {
-          major: "game_events_major",
-          goal: "game_events_goals",
-          discipline: "game_events_discipline",
-          penalty: "game_events_penalties",
-          player_action: "game_events_player_actions",
-          team: "game_events_team",
-        };
-
-        const table = tableMap[eventType] || "game_events_major";
-        await apiFetch(`${table}?id=${eventId}`, "DELETE");
+        await apiFetch(`game_events?id=${eventId}`, "DELETE");
 
         const game = get().game;
         if (game) {
-          // Update the appropriate array based on event type
-          const updates = {};
-          switch (eventType) {
-            case "major":
-              updates.gameEventsMajor = game.gameEventsMajor.filter(
-                (s) => s.id !== eventId
-              );
-              break;
-            case "goal":
-              updates.gameEventsGoals = game.gameEventsGoals.filter(
-                (g) => g.goal_id !== eventId
-              );
-              // Recalculate scores
-              const teamSeasonId = game.isHome
-                ? game.home_team_season_id
-                : game.away_team_season_id;
-              updates.goalsFor = updates.gameEventsGoals.filter(
-                (g) => g.team_season_id === teamSeasonId && !g.is_own_goal
-              ).length;
-              updates.goalsAgainst = updates.gameEventsGoals.filter(
-                (g) =>
-                  (g.team_season_id !== teamSeasonId && !g.is_own_goal) ||
-                  (g.team_season_id === teamSeasonId && g.is_own_goal)
-              ).length;
-              break;
-            case "discipline":
-              updates.gameEventsDiscipline = game.gameEventsDiscipline.filter(
-                (d) => d.discipline_id !== eventId
-              );
-              break;
-            case "penalty":
-              updates.gameEventsPenalties = game.gameEventsPenalties.filter(
-                (p) => p.penalty_id !== eventId
-              );
-              break;
-            case "player_action":
-              updates.playerActions = game.playerActions.filter(
-                (a) => a.action_id !== eventId
-              );
-              break;
-            case "team":
-              updates.gameEventsTeam = game.gameEventsTeam.filter(
-                (t) => t.team_event_id !== eventId
-              );
-              break;
-          }
-          get().updateGame(updates);
+          const updatedStoppages = game.stoppages.filter(
+            (s) => s.id !== eventId
+          );
+          get().updateGame({ stoppages: updatedStoppages });
         }
       } catch (error) {
         console.error("Error deleting event:", error);
@@ -660,19 +601,9 @@ const useGameStore = create((set, get) => {
       }
     },
 
-    updateEvent: async (eventId, updates, eventType = "major") => {
+    updateEvent: async (eventId, updates) => {
       try {
-        const tableMap = {
-          major: "game_events_major",
-          goal: "game_events_goals",
-          discipline: "game_events_discipline",
-          penalty: "game_events_penalties",
-          player_action: "game_events_player_actions",
-          team: "game_events_team",
-        };
-
-        const table = tableMap[eventType] || "game_events_major";
-        await apiFetch(`${table}?id=${eventId}`, "PUT", updates);
+        await apiFetch(`game_events?id=${eventId}`, "PUT", updates);
       } catch (error) {
         console.error("Error updating event:", error);
         throw error;

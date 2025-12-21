@@ -18,9 +18,9 @@ export default function Checkbox({
         onChange={onChange}
         disabled={disabled}
         className={cn(
-          "w-5 h-5 accent-[hsl(var(--color-primary))] rounded-[var(--radius-sm)] border border-[hsl(var(--color-border))]",
+          "w-5 h-5 accent-primary rounded-[var(--radius-sm)] border border-border",
           disabled && "opacity-60 cursor-not-allowed",
-          error && "border-[hsl(var(--color-danger))]",
+          error && "border-danger",
           className
         )}
       />
@@ -28,7 +28,7 @@ export default function Checkbox({
         <span
           className={cn(
             "text-[var(--color-text-label)] text-[var(--font-size-small)]",
-            error && "text-[hsl(var(--color-danger))]"
+            error && "text-danger"
           )}
         >
           {label}

@@ -18,19 +18,17 @@ export default function ScheduleClient({ teamSeasonId, canEdit }) {
   const handleEnterGameStats = (game) => {
     window.open(`/gamestats/${teamSeasonId}/${game.game_id}`);
   };
-  // Add new game
+
   const handleAddGame = () => {
     setEditingGame(null);
     setIsModalOpen(true);
   };
 
-  // Edit existing game
   const handleEditGame = (game) => {
     setEditingGame(game);
     setIsModalOpen(true);
   };
 
-  // Delete game
   const handleDeleteGame = async (gameId) => {
     if (!confirm("Are you sure you want to delete this game?")) return;
 
@@ -42,19 +40,15 @@ export default function ScheduleClient({ teamSeasonId, canEdit }) {
     }
   };
 
-  // Save game (create or update)
   const handleSaveGame = async (gameData) => {
     try {
       if (editingGame) {
-        // Update existing game
         const gameId = editingGame.id || editingGame.game_id;
         await updateGame(gameId, gameData);
       } else {
-        // Create new game
         await addGame(gameData);
       }
 
-      // Close modal on success
       setIsModalOpen(false);
       setEditingGame(null);
     } catch (error) {
@@ -65,7 +59,6 @@ export default function ScheduleClient({ teamSeasonId, canEdit }) {
 
   // Transform games data for display
   const gamesData = games.map((game) => {
-    // Handle both data structures (API view vs direct DB)
     const isHome = game.home_team_season_id
       ? game.home_team_season_id === parseInt(teamSeasonId)
       : game.home_away === "home";
@@ -73,20 +66,25 @@ export default function ScheduleClient({ teamSeasonId, canEdit }) {
     const opponent = isHome ? game.away_team_name : game.home_team_name;
     const opponentClub = isHome ? game.away_club_name : game.home_club_name;
 
-    // Score logic
-    const scoreUs = isHome ? game.home_score : game.away_score;
-    const scoreThem = isHome ? game.away_score : game.home_score;
-
     const gameDate = game.start_date || game.game_date;
     const gameTime = game.start_time || game.game_time;
     const location = game.location_name || game.location;
     const sublocation = game.sublocation_name;
 
+    // Check if game has been played and has scores
     const hasScore =
-      scoreUs !== undefined &&
-      scoreThem !== undefined &&
-      scoreUs !== null &&
-      scoreThem !== null;
+      game.score_source !== null && game.score_source !== undefined;
+
+    const scoreUs = hasScore
+      ? isHome
+        ? game.home_score
+        : game.away_score
+      : null;
+    const scoreThem = hasScore
+      ? isHome
+        ? game.away_score
+        : game.home_score
+      : null;
 
     const result = hasScore
       ? scoreUs > scoreThem
@@ -94,13 +92,25 @@ export default function ScheduleClient({ teamSeasonId, canEdit }) {
         : scoreUs < scoreThem
         ? "L"
         : "D"
-      : "-";
+      : null;
+
+    // Status display helper
+    const statusDisplay =
+      game.status === "completed"
+        ? "Final"
+        : game.status === "in_progress"
+        ? "Live"
+        : game.status === "postponed"
+        ? "Postponed"
+        : game.status === "cancelled"
+        ? "Cancelled"
+        : "Scheduled";
 
     return {
       id: game.id || game.game_id,
       date: gameDate,
       time: gameTime,
-      timezone: game.timezone_label,
+      timezone: game.timezone_label || "CST",
       homeAway: isHome ? "HOME" : "AWAY",
       opponent:
         opponentClub !== opponent
@@ -109,14 +119,16 @@ export default function ScheduleClient({ teamSeasonId, canEdit }) {
       opponentClub,
       location: location || "-",
       sublocation: sublocation || "",
-      league: game.league_names || "-",
-      scoreUs: scoreUs ?? "-",
-      scoreThem: scoreThem ?? "-",
-      result,
+      league: game.league_names || "Friendly",
+      scoreUs: hasScore ? scoreUs ?? 0 : "-",
+      scoreThem: hasScore ? scoreThem ?? 0 : "-",
+      result: result || "-",
       status: game.status,
+      statusDisplay,
       isHome,
       hasScore,
-      rawGame: game, // Keep original for edit
+      scoreSource: game.score_source, // 'manual', 'calculated', or null
+      rawGame: game,
     };
   });
 
@@ -148,7 +160,6 @@ export default function ScheduleClient({ teamSeasonId, canEdit }) {
           />
         }
       >
-        {/* Only show Add button if user can edit */}
         {canEdit && (
           <Button variant='primary' onClick={handleAddGame}>
             + Add Game
@@ -156,7 +167,6 @@ export default function ScheduleClient({ teamSeasonId, canEdit }) {
         )}
       </ViewWrapper>
 
-      {/* Only render modal if user can edit */}
       {canEdit && (
         <GameModal
           isOpen={isModalOpen}

@@ -1,6 +1,6 @@
 import React from "react";
 
-import { useFormClasses } from "@/lib/useFormClasses";
+import { useFormClasses } from "@/hooks/useFormClasses";
 import { cn } from "@/lib/utils";
 
 export default function Input({
@@ -19,9 +19,7 @@ export default function Input({
         <label
           className={cn(
             "font-medium mb-1 text-[var(--font-size-small)]",
-            error
-              ? "text-[hsl(var(--color-danger))]"
-              : "text-[hsl(var(--color-text-label))]"
+            error ? "text-danger" : "text-text-label"
           )}
         >
           {label}

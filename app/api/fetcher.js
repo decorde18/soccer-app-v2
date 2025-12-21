@@ -69,6 +69,7 @@ export async function apiFetch(
           };
           const suffix = operatorSuffixMap[operator];
           params.append(`${key}_${suffix}`, value);
+          console.log(params);
         } else {
           params.append(key, value);
         }

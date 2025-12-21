@@ -12,9 +12,7 @@ export default function Label({
     <label
       className={cn(
         "font-medium text-[var(--font-size-small)] mb-1 block",
-        error
-          ? "text-[hsl(var(--color-danger))]"
-          : "text-[hsl(var(--color-text-label))]",
+        error ? "text-danger" : "text-text-label",
         className
       )}
       {...props}

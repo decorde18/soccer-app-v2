@@ -10,7 +10,6 @@ import { formatTimestamp, formatSecondsToMmss } from "@/lib/dateTimeUtils";
 function GameManagementPage() {
   const game = useGameStore((s) => s.game);
   const players = useGamePlayersStore((s) => s.players);
-  // const refreshPlayerStats = useGamePlayersStore((s) => s.refreshPlayerStats);
 
   const [periods, setPeriods] = useState(game.periods);
   const [events, setEvents] = useState([]);
@@ -20,24 +19,24 @@ function GameManagementPage() {
 
   // Load data
   useEffect(() => {
-    if (!game?.id) return;
+    if (!game?.game_id) return;
     loadData();
-  }, [game?.id]);
+  }, [game?.game_id]);
 
   const loadData = async () => {
-    if (!game?.id) return;
+    if (!game?.game_id) return;
     setIsLoading(true);
 
     try {
       // Load events
       const eventsData = await apiFetch("game_events", "GET", null, null, {
-        filters: { game_id: game.id },
+        filters: { game_id: game.game_id },
       });
       setEvents(eventsData || []);
 
       // Load subs
       const subsData = await apiFetch("game_subs", "GET", null, null, {
-        filters: { game_id: game.id },
+        filters: { game_id: game.game_id },
       });
       setSubs(subsData || []);
     } catch (error) {
@@ -70,7 +69,7 @@ function GameManagementPage() {
 
     const endTime = prompt(
       "Enter end time (YYYY-MM-DD HH:MM:SS) or leave blank:",
-      period.end_time || ""
+      period.endTime || ""
     );
 
     try {
@@ -89,17 +88,15 @@ function GameManagementPage() {
     { name: "periodNumber", label: "Period #" },
     { name: "startTime", label: "Start Time" },
     { name: "endTime", label: "End Time" },
-    { name: "addedTime", label: "Added Time (s)" },
   ];
 
   const periodData = periods.map((p) => ({
     id: p.id,
     periodNumber: p.periodNumber,
     startTime: formatTimestamp(p.startTime, "timeShort"),
-    endTime: formatTimestamp(p.end_time, "timeShort")
-      ? formatTimestamp(p.end_time, "timeShort")
+    endTime: formatTimestamp(p.endTime, "timeShort")
+      ? formatTimestamp(p.endTime, "timeShort")
       : "—",
-    addedTime: formatSecondsToMmss(p.addedTime) || 0,
   }));
 
   // ==================== EVENTS ====================
@@ -110,7 +107,7 @@ function GameManagementPage() {
     try {
       await apiFetch(`game_events?id=${eventId}`, "DELETE");
       await loadData();
-      // await refreshPlayerStats(game.id);
+      // await refreshPlayerStats(game.game_id);
     } catch (error) {
       console.error("Error deleting event:", error);
       alert("Failed to delete event");
@@ -129,25 +126,46 @@ function GameManagementPage() {
         period: parseInt(period),
       });
       await loadData();
-      // await refreshPlayerStats(game.id);
+      // await refreshPlayerStats(game.game_id);
     } catch (error) {
       console.error("Error updating event:", error);
       alert("Failed to update event");
     }
   };
   const eventColumns = [
-    { key: "player_name", label: "Player" },
-    { key: "event_type", label: "Event Type" },
-    { key: "game_time", label: "Game Time" },
-    { key: "period", label: "Period" },
-    { key: "details", label: "Details" },
+    { name: "player_name", label: "Player" },
+    { name: "event_type", label: "Event Type" },
+    { name: "game_time", label: "Game Time" },
+    { name: "period", label: "Period" },
+    { name: "details", label: "Details" },
   ];
+  const eventTypes = {
+    yellow_card: "Yellow Card",
+    offside: "Offside",
+    foul_committed: "Foul",
+    goal: "Goal",
+    save: "Save",
+    shot: "Shot",
+    shot_on_target: "Shot",
+    corner: "Corner Kick",
+  };
+
   const eventData = events.map((e) => {
-    const player = players.find((p) => p.playerGameId === e.player_game_id);
+    const player = players.find(
+      (p) =>
+        p.playerGameId === e.player_game_id ||
+        p.playerGameId === e.defending_player_game_id
+    );
+    const team = e.team_season_id === game.opponentId ? "Opponent" : "";
     return {
       id: e.id,
-      player_name: player ? player.fullName : "Unknown",
-      event_type: e.event_type,
+      player_name:
+        e.event_category !== "team"
+          ? player
+            ? player.fullName
+            : "Unknown"
+          : ``,
+      event_type: `${team} ${eventTypes[e.event_type]}`,
       game_time: `${Math.floor(e.game_time / 60)}:${String(
         e.game_time % 60
       ).padStart(2, "0")}`,
@@ -190,15 +208,16 @@ function GameManagementPage() {
     }
   };
   const subColumns = [
-    { key: "in_player", label: "In" },
-    { key: "out_player", label: "Out" },
-    { key: "sub_time", label: "Time" },
-    { key: "period", label: "Period" },
-    { key: "gk_sub", label: "GK Sub" },
+    { name: "in_player", label: "In" },
+    { name: "out_player", label: "Out" },
+    { name: "sub_time", label: "Time" },
+    { name: "period", label: "Period" },
+    { name: "gk_sub", label: "GK Sub" },
   ];
+
   const subData = subs.map((s) => {
-    const inPlayer = players.find((p) => p.id === s.in_player_id);
-    const outPlayer = players.find((p) => p.id === s.out_player_id);
+    const inPlayer = players.find((p) => p.playerGameId === s.in_player_id);
+    const outPlayer = players.find((p) => p.playerGameId === s.out_player_id);
     return {
       id: s.id,
       in_player: inPlayer ? inPlayer.fullName : "Unknown",

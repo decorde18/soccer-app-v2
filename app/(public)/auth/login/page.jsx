@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import useAuthStore from "@/stores/authStore";
-
 import Button from "@/components/ui/Button";
 
 export default function LoginPage() {
@@ -13,13 +11,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const { login, isLoading, error } = useAuthStore();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
       await login({ email, password });
-      router.push("/dashboard");
+
+      // ✅ Check for redirect parameter
+      const redirectTo = searchParams.get("redirect") || "/dashboard";
+
+      router.push(redirectTo);
       router.refresh();
     } catch (err) {
       console.error("Login failed");
@@ -37,12 +40,14 @@ export default function LoginPage() {
             type='email'
             placeholder='Email'
             className='w-full rounded-lg border p-3'
+            value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
           <input
             type='password'
             placeholder='Password'
             className='w-full rounded-lg border p-3'
+            value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
           <Button type='submit' disabled={isLoading}>

@@ -11,7 +11,7 @@ export default function Button({
   ...props
 }) {
   const base =
-    "inline-flex items-center justify-center rounded-[var(--radius-default)] font-semibold transition-colors duration-200 mb-0";
+    "inline-flex items-center justify-center rounded-DEFAULT font-semibold transition-colors duration-200 mb-0";
 
   const sizes = {
     xs: "text-[0.7rem] px-1.5 py-0.5",
@@ -22,17 +22,12 @@ export default function Button({
   };
 
   const variants = {
-    primary:
-      "bg-[hsl(var(--color-primary))] text-white hover:bg-[hsl(var(--color-accent-hover))]",
-    secondary: "bg-[hsl(var(--color-secondary))] text-white hover:opacity-90",
-    success:
-      "border border-[hsl(var(--color-border))] bg-[hsl(var(--color-success))] text-white hover:opacity-80",
-    danger:
-      "border border-[hsl(var(--color-border))] bg-danger text-white hover:opacity-90",
-    muted:
-      "border border-[hsl(var(--color-border))] bg-[hsl(var(--color-muted))] text-white hover:bg-[hsl(var(--color-background))]",
-    outline:
-      "border border-[hsl(var(--color-border))] text-[hsl(var(--color-text))] hover:bg-[hsl(var(--color-background))]",
+    primary: "bg-primary text-white hover:bg-accent-hover",
+    secondary: "bg-secondary text-white hover:opacity-90",
+    success: "border border-border bg-success text-white hover:opacity-80",
+    danger: "border border-border bg-danger text-white hover:opacity-90",
+    muted: "border border-border bg-muted text-white hover:bg-background",
+    outline: "border border-border text-text hover:bg-background",
   };
 
   return (

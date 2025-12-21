@@ -1,5 +1,6 @@
 // stores/gamePlayersStore.js
 // Core player data management - loading, basic updates, field status
+// UPDATED: Added plusMinus field to player objects
 import { create } from "zustand";
 import { apiFetch } from "@/app/api/fetcher";
 
@@ -31,7 +32,6 @@ const useGamePlayersStore = create((set, get) => ({
         const pendingSubs = allSubs.filter((sub) => sub.sub_time === null);
         const confirmedSubs = allSubs.filter((sub) => sub.sub_time !== null);
 
-        // UPDATED: Use new enhanced view
         const allStats = await apiFetch(
           "v_player_game_stats_enhanced",
           "GET",
@@ -92,7 +92,6 @@ const useGamePlayersStore = create((set, get) => ({
             (s) => s.player_game_id === pg.player_game_id
           );
 
-          // LOCATION 1: When loading existing player_games
           const player = {
             // Identity
             id: pg.player_id,
@@ -119,7 +118,7 @@ const useGamePlayersStore = create((set, get) => ({
             outs: playerOuts,
             subStatus: subStatus,
 
-            // UPDATED: All Stats from Enhanced View
+            // All Stats from Enhanced View
             // Offensive Stats
             goals: playerStats?.goals || 0,
             penaltyGoals: playerStats?.penalty_goals || 0,
@@ -149,6 +148,10 @@ const useGamePlayersStore = create((set, get) => ({
         });
 
         set({ players, isLoading: false });
+
+        // Calculate plus/minus for all players after loading
+        get().calculateAndUpdatePlusMinus(gameId);
+
         return players;
       }
 
@@ -197,10 +200,9 @@ const useGamePlayersStore = create((set, get) => ({
           })
         )
       );
-      console.log(game);
+
       const players = createdPlayerGames.map((pg, i) => {
         const p = teamPlayers[i];
-        // LOCATION 2: When creating new player_games from roster
         return {
           // Identity
           id: pg.player_id,
@@ -229,7 +231,7 @@ const useGamePlayersStore = create((set, get) => ({
           outs: [],
           subStatus: null,
 
-          // UPDATED: Initialize All Stats to Zero
+          // Initialize All Stats to Zero
           // Offensive Stats
           goals: 0,
           penaltyGoals: 0,
@@ -404,6 +406,48 @@ const useGamePlayersStore = create((set, get) => ({
     } catch (error) {
       console.error("Error updating sub statuses:", error);
     }
+  },
+
+  // ==================== PLUS/MINUS MANAGEMENT ====================
+
+  /**
+   * Calculate and update plus/minus for all players
+   * Called automatically on load and can be called manually after goals
+   */
+  calculateAndUpdatePlusMinus: async (gameId) => {
+    try {
+      const useGamePlayerTimeStore = (await import("./gamePlayerTimeStore"))
+        .default;
+      const gamePlayerTimeStore = useGamePlayerTimeStore.getState();
+
+      const plusMinusMap = gamePlayerTimeStore.calculateAllPlusMinus(gameId);
+      get().updateAllPlusMinus(plusMinusMap);
+    } catch (error) {
+      console.error("Error calculating plus/minus:", error);
+    }
+  },
+
+  /**
+   * Update plusMinus for a single player
+   */
+  updatePlayerPlusMinus: (playerId, plusMinus) => {
+    set((state) => ({
+      players: state.players.map((player) =>
+        player.id === playerId ? { ...player, plusMinus } : player
+      ),
+    }));
+  },
+
+  /**
+   * Update plusMinus for all players (bulk update)
+   */
+  updateAllPlusMinus: (plusMinusMap) => {
+    set((state) => ({
+      players: state.players.map((player) => ({
+        ...player,
+        plusMinus: plusMinusMap[player.id] ?? player.plusMinus ?? 0,
+      })),
+    }));
   },
 
   // ==================== QUERY HELPERS ====================

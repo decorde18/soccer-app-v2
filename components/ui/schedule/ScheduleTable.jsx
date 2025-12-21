@@ -1,4 +1,5 @@
 "use client";
+import { useMemo } from "react";
 import TableContainer from "@/components/ui/TableContainer";
 import Button from "@/components/ui/Button";
 import { formatMySqlTime } from "@/lib/dateTimeUtils";
@@ -6,25 +7,74 @@ import { formatMySqlTime } from "@/lib/dateTimeUtils";
 export default function ScheduleTable({
   games,
   teamSeasonId,
-  // Optional admin props
   onEdit,
   onDelete,
   showActions = false,
 }) {
+  const pageSize = 10;
+
+  // Sort games and calculate initial page
+  const { sortedGames, initialPage } = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayTime = today.getTime();
+
+    // Helper function to get date-only comparison (ignoring time/timezone)
+    const getDateOnly = (dateString) => {
+      const date = new Date(dateString);
+      // Create date in local timezone using just the date parts
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    };
+
+    // Always sort chronologically (oldest to newest)
+    const sorted = [...games].sort((a, b) => {
+      const dateA = getDateOnly(a.date);
+      const dateB = getDateOnly(b.date);
+      return dateA - dateB; // Ascending order
+    });
+
+    // Find the index of the first upcoming game (>= today)
+    const firstUpcomingIndex = sorted.findIndex((game) => {
+      const gameDate = getDateOnly(game.date);
+      return gameDate.getTime() >= todayTime;
+    });
+
+    // Calculate which page that game is on (0-indexed)
+    const page =
+      firstUpcomingIndex >= 0 ? Math.floor(firstUpcomingIndex / pageSize) : 0;
+
+    return { sortedGames: sorted, initialPage: page };
+  }, [games, pageSize]);
+
+  // Helper function for date comparison (reused in render)
+  const getDateOnly = (dateString) => {
+    const date = new Date(dateString);
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayTime = today.getTime();
+
   const columns = [
     {
       name: "date",
       label: "Date",
       key: "date",
-      render: (value) => (
-        <span className='text-sm'>
-          {new Date(value).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
-        </span>
-      ),
+      render: (value, row) => {
+        const gameDate = getDateOnly(value);
+        const isPast = gameDate.getTime() < todayTime;
+
+        return (
+          <span className={`text-sm ${isPast ? "text-muted" : "font-medium"}`}>
+            {gameDate.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </span>
+        );
+      },
     },
     {
       name: "time",
@@ -72,7 +122,6 @@ export default function ScheduleTable({
       label: "League",
       key: "league",
       render: (value, row) => {
-        // Format leagues to show abbreviations if available
         const leagueDisplay = row.leagues_array
           ? JSON.parse(row.leagues_array)
               .map((l) => l.league_abbreviation || l.league_name)
@@ -143,7 +192,7 @@ export default function ScheduleTable({
   return (
     <TableContainer
       columns={columns}
-      data={games}
+      data={sortedGames}
       enableSorting={true}
       defaultSortKey='date'
       defaultSortDirection='asc'
@@ -151,11 +200,11 @@ export default function ScheduleTable({
       filterPlaceholder='Search games...'
       filterKeys={["opponent", "location", "league"]}
       enablePagination={true}
-      pageSize={10}
+      pageSize={pageSize}
+      initialPage={initialPage}
       size='sm'
       hoverable={true}
       emptyMessage='No games scheduled yet.'
-      // Conditionally add actions column if showActions is true
       actions={
         showActions && onEdit && onDelete
           ? (row) => (

@@ -29,9 +29,8 @@ const useGameEventsStore = create((set, get) => ({
 
     try {
       const events = await apiFetch("game_events", "GET", null, null, {
-        filters: { game_id: gameId, is_stoppage: 0 },
+        filters: { game_id: gameId },
       });
-
       const game = useGameStore.getState().game;
 
       // Determine which team is "yours"
@@ -47,7 +46,9 @@ const useGameEventsStore = create((set, get) => ({
         shot: 0,
         save: 0,
       };
-
+      const gameEvents = events.filter(
+        (event) => event.event_category !== "team"
+      );
       events.forEach((stat) => {
         const isOurTeam = stat.team_season_id === yourTeamSeasonId;
 
@@ -68,7 +69,7 @@ const useGameEventsStore = create((set, get) => ({
       });
 
       set({
-        gameEvents: events || [],
+        gameEvents,
         teamStats: counts,
         isLoadingEvents: false,
       });
@@ -153,7 +154,7 @@ const useGameEventsStore = create((set, get) => ({
         event_type: eventData.type,
         game_time: gameTime,
         period: period,
-        is_stoppage: eventData.isStoppage || 0,
+
         stoppage_start_time: eventData.stoppageStartTime || null,
         stoppage_end_time: eventData.stoppageEndTime || null,
         clock_should_run: eventData.clockShouldRun ?? 1,
@@ -237,7 +238,7 @@ const useGameEventsStore = create((set, get) => ({
         event_type: eventData.type,
         game_time: gameTime,
         period: period,
-        is_stoppage: 0,
+
         clock_should_run: 1,
         details: eventData.details || `Opponent ${eventData.type}`,
       });
@@ -299,7 +300,7 @@ const useGameEventsStore = create((set, get) => ({
         event_type: eventData.type, // 'corner', 'offside', 'foul_committed'
         game_time: gameTime,
         period: period,
-        is_stoppage: 0,
+
         clock_should_run: 1,
         details: eventData.details || null,
       });
@@ -360,7 +361,7 @@ const useGameEventsStore = create((set, get) => ({
         event_type: eventData.result, // 'goal', 'save', 'miss'
         game_time: gameTime,
         period: period,
-        is_stoppage: 0,
+
         clock_should_run: 1,
         details: eventData.details || null,
       });

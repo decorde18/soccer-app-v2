@@ -417,28 +417,26 @@ function RosterUpload({ teamSeasonId, canManage }) {
       <div className='mb-6'>
         <Link
           href={`/teams/${teamSeasonId}/roster`}
-          className='flex items-center text-[hsl(var(--color-text-label))] hover:text-[hsl(var(--color-text))] mb-4'
+          className='flex items-center text-text-label hover:text-text mb-4'
         >
           <ArrowLeft className='w-4 h-4 mr-2' />
           Back to Roster
         </Link>
-        <h2 className='text-2xl font-bold text-[hsl(var(--color-text))]'>
-          Upload Roster
-        </h2>
-        <p className='text-[hsl(var(--color-text-label))] mt-2'>
+        <h2 className='text-2xl font-bold text-text'>Upload Roster</h2>
+        <p className='text-text-label mt-2'>
           Upload a CSV/TSV file to bulk import players
         </p>
       </div>
 
       {/* Upload Area */}
-      <div className='bg-[hsl(var(--color-surface))] rounded-[var(--radius-default)] border border-[hsl(var(--color-border))] p-6 mb-6'>
-        <div className='border-2 border-dashed border-[hsl(var(--color-border))] rounded-[var(--radius-default)] p-8 text-center'>
-          <FileSpreadsheet className='w-12 h-12 mx-auto text-[hsl(var(--color-muted))] mb-4' />
+      <div className='bg-surface rounded-[var(--radius-default)] border border-border p-6 mb-6'>
+        <div className='border-2 border-dashed border-border rounded-[var(--radius-default)] p-8 text-center'>
+          <FileSpreadsheet className='w-12 h-12 mx-auto text-muted mb-4' />
 
           <div className='mb-4'>
             <label
               htmlFor='file-upload'
-              className='cursor-pointer inline-flex items-center space-x-2 bg-[hsl(var(--color-primary))] text-white px-4 py-2 rounded-[var(--radius-default)] hover:bg-[hsl(var(--color-accent-hover))]'
+              className='cursor-pointer inline-flex items-center space-x-2 bg-primary text-white px-4 py-2 rounded-[var(--radius-default)] hover:bg-accent-hover'
             >
               <Upload className='w-4 h-4' />
               <span>Choose File</span>
@@ -453,25 +451,23 @@ function RosterUpload({ teamSeasonId, canManage }) {
             />
           </div>
 
-          <div className='text-center text-[hsl(var(--color-muted))] my-4'>
-            - OR -
-          </div>
+          <div className='text-center text-muted my-4'>- OR -</div>
 
           <div>
-            <label className='block text-sm font-medium text-[hsl(var(--color-text))] mb-2'>
+            <label className='block text-sm font-medium text-text mb-2'>
               Paste Data (Tab-separated)
             </label>
             <textarea
               onChange={handlePasteData}
               placeholder='player_id	first_name	last_name	birth_date	grade	jersey_number	parent1_email	parent1_first	parent1_last	parent1_phone	parent2_email	parent2_first	parent2_last	parent2_phone'
-              className='w-full h-32 px-4 py-2 border border-[hsl(var(--color-border))] rounded-[var(--radius-default)] focus:ring-2 focus:ring-[hsl(var(--color-primary))] focus:border-transparent font-mono text-sm'
+              className='w-full h-32 px-4 py-2 border border-border rounded-[var(--radius-default)] focus:ring-2 focus:ring-primary focus:border-transparent font-mono text-sm'
               disabled={processing}
             />
           </div>
 
           {fileData.length > 0 && (
-            <div className='mt-4 p-4 bg-[hsl(var(--color-success)/0.1)] border border-[hsl(var(--color-success))] rounded-[var(--radius-default)]'>
-              <p className='text-[hsl(var(--color-success))] font-medium'>
+            <div className='mt-4 p-4 bg-[hsl(var(--color-success)/0.1)] border border-success rounded-[var(--radius-default)]'>
+              <p className='text-success font-medium'>
                 ✓ {fileData.length} rows loaded
               </p>
             </div>
@@ -481,17 +477,17 @@ function RosterUpload({ teamSeasonId, canManage }) {
         {/* Preview */}
         {preview.length > 0 && (
           <div className='mt-6'>
-            <h3 className='font-semibold mb-3 text-[hsl(var(--color-text))]'>
+            <h3 className='font-semibold mb-3 text-text'>
               Preview (first 5 rows):
             </h3>
             <div className='overflow-x-auto'>
-              <table className='w-full text-sm border border-[hsl(var(--color-border))]'>
-                <thead className='bg-[hsl(var(--color-background))]'>
+              <table className='w-full text-sm border border-border'>
+                <thead className='bg-background'>
                   <tr>
                     {Object.keys(preview[0]).map((header) => (
                       <th
                         key={header}
-                        className='px-3 py-2 text-left border border-[hsl(var(--color-border))] text-[hsl(var(--color-text))]'
+                        className='px-3 py-2 text-left border border-border text-text'
                       >
                         {header}
                       </th>
@@ -504,7 +500,7 @@ function RosterUpload({ teamSeasonId, canManage }) {
                       {Object.values(row).map((value, i) => (
                         <td
                           key={i}
-                          className='px-3 py-2 border border-[hsl(var(--color-border))] text-[hsl(var(--color-text))]'
+                          className='px-3 py-2 border border-border text-text'
                         >
                           {value}
                         </td>
@@ -519,10 +515,10 @@ function RosterUpload({ teamSeasonId, canManage }) {
 
         {/* Instructions */}
         <div className='mt-6 p-4 bg-[hsl(var(--color-primary)/0.05)] border border-[hsl(var(--color-primary)/0.2)] rounded-[var(--radius-default)]'>
-          <h3 className='font-semibold text-sm mb-2 text-[hsl(var(--color-primary))]'>
+          <h3 className='font-semibold text-sm mb-2 text-primary'>
             📋 Data Format Requirements:
           </h3>
-          <ul className='text-sm text-[hsl(var(--color-text-label))] space-y-1 list-disc list-inside'>
+          <ul className='text-sm text-text-label space-y-1 list-disc list-inside'>
             <li>Tab-separated columns (copy from spreadsheet)</li>
             <li>
               <strong>Columns:</strong> player_id (optional), first_name,
@@ -544,43 +540,41 @@ function RosterUpload({ teamSeasonId, canManage }) {
 
         {/* Error Display */}
         {error && (
-          <div className='mt-4 p-4 bg-[hsl(var(--color-danger)/0.1)] border border-[hsl(var(--color-danger))] rounded-[var(--radius-default)] flex items-start'>
-            <AlertCircle className='w-5 h-5 text-[hsl(var(--color-danger))] mr-3 flex-shrink-0 mt-0.5' />
-            <div className='text-sm text-[hsl(var(--color-danger))]'>
-              {error}
-            </div>
+          <div className='mt-4 p-4 bg-[hsl(var(--color-danger)/0.1)] border border-danger rounded-[var(--radius-default)] flex items-start'>
+            <AlertCircle className='w-5 h-5 text-danger mr-3 flex-shrink-0 mt-0.5' />
+            <div className='text-sm text-danger'>{error}</div>
           </div>
         )}
 
         {/* Results */}
         {results && (
-          <div className='mt-6 p-6 bg-[hsl(var(--color-surface))] border border-[hsl(var(--color-border))] rounded-[var(--radius-default)]'>
-            <h2 className='text-lg font-semibold text-[hsl(var(--color-text))] mb-4'>
+          <div className='mt-6 p-6 bg-surface border border-border rounded-[var(--radius-default)]'>
+            <h2 className='text-lg font-semibold text-text mb-4'>
               Import Results
             </h2>
 
             <div className='grid grid-cols-1 md:grid-cols-3 gap-4 mb-6'>
-              <div className='bg-[hsl(var(--color-success)/0.1)] border border-[hsl(var(--color-success))] rounded-[var(--radius-default)] p-4'>
-                <p className='text-sm text-[hsl(var(--color-success))] font-medium'>
+              <div className='bg-[hsl(var(--color-success)/0.1)] border border-success rounded-[var(--radius-default)] p-4'>
+                <p className='text-sm text-success font-medium'>
                   Players Processed
                 </p>
-                <p className='text-3xl font-bold text-[hsl(var(--color-success))]'>
+                <p className='text-3xl font-bold text-success'>
                   {results.players?.processed || 0}
                 </p>
-                <p className='text-xs text-[hsl(var(--color-success))] mt-1'>
+                <p className='text-xs text-success mt-1'>
                   {results.players?.created || 0} created,{" "}
                   {results.players?.updated || 0} updated
                 </p>
               </div>
 
-              <div className='bg-[hsl(var(--color-primary)/0.1)] border border-[hsl(var(--color-primary))] rounded-[var(--radius-default)] p-4'>
-                <p className='text-sm text-[hsl(var(--color-primary))] font-medium'>
+              <div className='bg-[hsl(var(--color-primary)/0.1)] border border-primary rounded-[var(--radius-default)] p-4'>
+                <p className='text-sm text-primary font-medium'>
                   Parents Processed
                 </p>
-                <p className='text-3xl font-bold text-[hsl(var(--color-primary))]'>
+                <p className='text-3xl font-bold text-primary'>
                   {results.parents?.processed || 0}
                 </p>
-                <p className='text-xs text-[hsl(var(--color-primary))] mt-1'>
+                <p className='text-xs text-primary mt-1'>
                   {results.parents?.created || 0} created,{" "}
                   {results.parents?.linked || 0} linked
                 </p>
@@ -601,11 +595,11 @@ function RosterUpload({ teamSeasonId, canManage }) {
             </div>
 
             {results.errors && results.errors.length > 0 && (
-              <div className='bg-[hsl(var(--color-warningbg))] border border-[hsl(var(--color-warningborder))] rounded-[var(--radius-default)] p-4'>
-                <p className='font-semibold text-[hsl(var(--color-warningtext))] mb-2'>
+              <div className='bg-warning-bg border border-warning-border rounded-[var(--radius-default)] p-4'>
+                <p className='font-semibold text-warning-text mb-2'>
                   ⚠️ Warnings:
                 </p>
-                <ul className='text-sm text-[hsl(var(--color-warningtext))] space-y-1 ml-5 list-disc'>
+                <ul className='text-sm text-warning-text space-y-1 ml-5 list-disc'>
                   {results.errors.map((err, idx) => (
                     <li key={idx}>{err}</li>
                   ))}

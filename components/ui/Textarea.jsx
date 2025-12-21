@@ -1,6 +1,6 @@
 import React from "react";
 
-import { useFormClasses } from "@/lib/useFormClasses";
+import { useFormClasses } from "@/hooks/useFormClasses";
 import { cn } from "@/lib/utils";
 
 export default function Textarea({
@@ -20,9 +20,7 @@ export default function Textarea({
         <label
           className={cn(
             "font-medium mb-1 text-[var(--font-size-small)]",
-            error
-              ? "text-[hsl(var(--color-danger))]"
-              : "text-[hsl(var(--color-text-label))]"
+            error ? "text-danger" : "text-text-label"
           )}
         >
           {label}

@@ -7,7 +7,7 @@ import { TeamContext } from "./TeamLayoutClient";
 
 export default function TeamOverviewClient({ dashboardData }) {
   // ✅ Get team info from layout context (already fetched once)
-  const { teamInfo, access, user, isAuthenticated } = useContext(TeamContext);
+  const { teamInfo, access, user } = useContext(TeamContext);
 
   if (!teamInfo) {
     return <div>No Team Selected</div>;

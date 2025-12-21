@@ -106,7 +106,7 @@ function GameNavBar() {
       {/* Hamburger Button */}
       <button
         onClick={() => setSidebarOpen((prev) => !prev)}
-        className='w-14 fixed top-4 left-4 z-[1200] bg-transparent border-none cursor-pointer transition-transform hover:scale-110'
+        className=' print:hidden w-14 fixed top-4 left-4 z-[1200] bg-transparent border-none cursor-pointer transition-transform hover:scale-110'
         aria-label='Toggle menu'
       >
         {sidebarOpen ? (
@@ -123,7 +123,7 @@ function GameNavBar() {
 
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 bg-black/50 z-[1000] transition-opacity duration-300 ${
+        className={` print:hidden fixed inset-0 bg-black/50 z-[1000] transition-opacity duration-300 ${
           sidebarOpen
             ? "opacity-100 pointer-events-auto"
             : "opacity-0 pointer-events-none"
@@ -133,7 +133,7 @@ function GameNavBar() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-full w-72 bg-gradient-to-br from-primary to-secondary text-white z-[1100] transition-transform duration-300 ease-in-out ${
+        className={` print:hidden fixed top-0 left-0 h-full w-72 bg-gradient-to-br from-primary to-secondary text-white z-[1100] transition-transform duration-300 ease-in-out ${
           sidebarOpen
             ? "translate-x-0 shadow-[4px_0_20px_rgba(0,0,0,0.2)]"
             : "-translate-x-full"

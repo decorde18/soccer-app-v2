@@ -11,7 +11,7 @@ export default function DataTable({ data = [], onEdit, onDelete }) {
     <div className='overflow-x-auto border rounded-[var(--radius-md)]'>
       <table className='min-w-full border-collapse'>
         <thead>
-          <tr className='bg-[hsl(var(--color-background))]'>
+          <tr className='bg-background'>
             {cols.map((c) => (
               <th
                 key={c}
@@ -25,7 +25,7 @@ export default function DataTable({ data = [], onEdit, onDelete }) {
         </thead>
         <tbody>
           {data.map((row) => (
-            <tr key={row.id} className='hover:bg-[hsl(var(--color-surface))]'>
+            <tr key={row.id} className='hover:bg-surface'>
               {cols.map((c) => (
                 <td key={c} className='px-3 py-2 border-b'>
                   {String(row[c] ?? "")}

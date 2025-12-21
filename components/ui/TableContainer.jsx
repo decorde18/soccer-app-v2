@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Table from "./Table";
 
 const TableContainer = ({
@@ -14,6 +14,7 @@ const TableContainer = ({
   defaultSortDirection = "asc",
   enablePagination = false,
   pageSize = 10,
+  initialPage = 0, // Add initialPage prop (0-indexed)
   pageSizeOptions = [Math.max(pageSize, 10), 25, 50, 100],
   size = "md",
   onRowClick,
@@ -27,10 +28,14 @@ const TableContainer = ({
   children,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(initialPage + 1); // Convert to 1-indexed
   const [currentPageSize, setCurrentPageSize] = useState(pageSize);
   const [sortKey, setSortKey] = useState(defaultSortKey);
   const [sortDirection, setSortDirection] = useState(defaultSortDirection);
+  // Update current page when initialPage changes (useful if data refreshes)
+  useEffect(() => {
+    setCurrentPage(initialPage + 1);
+  }, [initialPage]);
 
   // Filter data
   const filteredData = useMemo(() => {

@@ -1,8 +1,46 @@
 // stores/gamePlayerTimeStore.js
-// Player time calculations with stoppage time handling
+// Player time calculations with stoppage time handling and period boundary fixes
 import { create } from "zustand";
 import useGameStore from "./gameStore";
 import useGamePlayersStore from "./gamePlayersStore";
+
+/**
+ * Splits a game_time segment into chunks that fall within actual periods
+ * Excludes time between periods (breaks)
+ * @param {Object} segment - { start: gameTime, end: gameTime }
+ * @param {Array} periods - Array of period objects
+ * @param {Number} gameStartTime - Unix ms timestamp of first period start
+ * @returns {Array} Array of chunks with periodNumber
+ */
+const splitSegmentByPeriods = (segment, periods, gameStartTime) => {
+  const chunks = [];
+
+  periods.forEach((period) => {
+    if (!period.startTime) return;
+
+    // Convert period timestamps to game_time seconds
+    const periodStartGameTime = Math.floor(
+      (period.startTime - gameStartTime) / 1000
+    );
+    const periodEndGameTime = period.endTime
+      ? Math.floor((period.endTime - gameStartTime) / 1000)
+      : Infinity;
+
+    // Find overlap between segment and this period
+    const chunkStart = Math.max(segment.start, periodStartGameTime);
+    const chunkEnd = Math.min(segment.end, periodEndGameTime);
+
+    if (chunkEnd > chunkStart) {
+      chunks.push({
+        start: chunkStart,
+        end: chunkEnd,
+        periodNumber: period.periodNumber,
+      });
+    }
+  });
+
+  return chunks;
+};
 
 /**
  * Helper: Calculate stoppage time within a specific time range
@@ -28,25 +66,22 @@ const calculateStoppageTimeInRange = (
 
 /**
  * Helper: Find which period a game time falls into
+ * NOTE: This is kept for backwards compatibility but may not be needed
  */
-const findPeriodForGameTime = (periods, gameTime) => {
-  let cumulativeGameTime = 0;
-
+const findPeriodForGameTime = (periods, gameTime, gameStartTime) => {
   for (const period of periods) {
     if (!period.startTime) continue;
 
-    const periodDuration = period.endTime
-      ? (period.endTime - period.startTime) / 1000
-      : (Date.now() - period.startTime) / 1000;
+    const periodStartGameTime = Math.floor(
+      (period.startTime - gameStartTime) / 1000
+    );
+    const periodEndGameTime = period.endTime
+      ? Math.floor((period.endTime - gameStartTime) / 1000)
+      : Infinity;
 
-    const periodStart = cumulativeGameTime;
-    const periodEnd = cumulativeGameTime + periodDuration;
-
-    if (gameTime >= periodStart && gameTime < periodEnd) {
+    if (gameTime >= periodStartGameTime && gameTime < periodEndGameTime) {
       return period;
     }
-
-    cumulativeGameTime = periodEnd;
   }
 
   return null;
@@ -58,12 +93,13 @@ const useGamePlayerTimeStore = create((set, get) => ({
   /**
    * Calculate total active playing time for a player
    * Accounts for stoppages and only counts time during active periods
+   * Excludes time between periods (breaks)
    */
   calculateTotalTimeOnField: (player, currentGameTime) => {
     if (!player) return 0;
 
     const game = useGameStore.getState().game;
-    if (!game) return 0;
+    if (!game || !game.gameStartTime) return 0;
 
     const stoppages = game.stoppages || [];
     const periods = game.periods || [];
@@ -96,23 +132,30 @@ const useGamePlayerTimeStore = create((set, get) => ({
       }
     }
 
-    // Calculate active time for each segment, excluding stoppages
+    // Calculate active time for each segment, excluding stoppages and breaks
     let totalActiveTime = 0;
 
     for (const segment of segments) {
-      const segmentPeriod = findPeriodForGameTime(periods, segment.start);
-      if (!segmentPeriod) continue;
-
-      const segmentTime = segment.end - segment.start;
-
-      const stoppageTime = calculateStoppageTimeInRange(
-        stoppages,
-        segment.start,
-        segment.end,
-        segmentPeriod.periodNumber
+      // Split segment by period boundaries
+      const chunks = splitSegmentByPeriods(
+        segment,
+        periods,
+        game.gameStartTime
       );
 
-      totalActiveTime += Math.max(0, segmentTime - stoppageTime);
+      // Calculate time for each chunk (within a single period)
+      chunks.forEach((chunk) => {
+        const chunkTime = chunk.end - chunk.start;
+
+        const stoppageTime = calculateStoppageTimeInRange(
+          stoppages,
+          chunk.start,
+          chunk.end,
+          chunk.periodNumber
+        );
+
+        totalActiveTime += Math.max(0, chunkTime - stoppageTime);
+      });
     }
 
     return Math.round(totalActiveTime);
@@ -120,12 +163,13 @@ const useGamePlayerTimeStore = create((set, get) => ({
 
   /**
    * Calculate current continuous time on field (since last sub in)
+   * This is the duration since the player's most recent sub in
    */
   calculateCurrentTimeOnField: (player, currentGameTime) => {
     if (!player) return 0;
 
     const game = useGameStore.getState().game;
-    if (!game) return 0;
+    if (!game || !game.gameStartTime) return 0;
 
     const ins = (player.ins || []).filter((sub) => sub.gameTime !== null);
     const outs = (player.outs || []).filter((sub) => sub.gameTime !== null);
@@ -146,22 +190,37 @@ const useGamePlayerTimeStore = create((set, get) => ({
     const stoppages = game.stoppages || [];
     const periods = game.periods || [];
 
-    const segmentPeriod = findPeriodForGameTime(periods, lastIn.gameTime);
+    // Find which period the last sub occurred in
+    const segmentPeriod = findPeriodForGameTime(
+      periods,
+      lastIn.gameTime,
+      game.gameStartTime
+    );
     if (!segmentPeriod) return 0;
 
-    const timeRange = currentGameTime - lastIn.gameTime;
-    const stoppageTime = calculateStoppageTimeInRange(
-      stoppages,
-      lastIn.gameTime,
-      currentGameTime,
-      segmentPeriod.periodNumber
-    );
+    // Split the segment from last sub to now by periods
+    const segment = { start: lastIn.gameTime, end: currentGameTime };
+    const chunks = splitSegmentByPeriods(segment, periods, game.gameStartTime);
 
-    return Math.max(0, Math.round(timeRange - stoppageTime));
+    // Calculate total time excluding stoppages
+    let totalTime = 0;
+    chunks.forEach((chunk) => {
+      const chunkTime = chunk.end - chunk.start;
+      const stoppageTime = calculateStoppageTimeInRange(
+        stoppages,
+        chunk.start,
+        chunk.end,
+        chunk.periodNumber
+      );
+      totalTime += Math.max(0, chunkTime - stoppageTime);
+    });
+
+    return Math.round(totalTime);
   },
 
   /**
    * Calculate current continuous time off field (since last sub out)
+   * This is the duration since the player's most recent sub out
    */
   calculateCurrentTimeOffField: (player, currentGameTime) => {
     if (!player) return 0;
@@ -182,6 +241,9 @@ const useGamePlayerTimeStore = create((set, get) => ({
     if (outs.length === 0) return Math.round(currentGameTime);
 
     const lastOut = outs[outs.length - 1];
+
+    // Note: Time off field doesn't need stoppage adjustments
+    // as the clock being stopped doesn't affect bench time
     return Math.max(0, Math.round(currentGameTime - lastOut.gameTime));
   },
 
@@ -203,6 +265,76 @@ const useGamePlayerTimeStore = create((set, get) => ({
     }
 
     return ins.length > outs.length;
+  },
+
+  /**
+   * Check if player was on field at a specific game time
+   * Used for plus/minus calculations
+   */
+  isPlayerOnFieldAtTime: (player, gameTime) => {
+    if (!player) return false;
+
+    const ins = (player.ins || []).filter((sub) => sub.gameTime !== null);
+    const outs = (player.outs || []).filter((sub) => sub.gameTime !== null);
+
+    const isStarter = ["starter", "goalkeeper"].includes(player.gameStatus);
+
+    // Count effective ins/outs up to this game time
+    const insBeforeTime = ins.filter((sub) => sub.gameTime <= gameTime).length;
+    const outsBeforeTime = outs.filter(
+      (sub) => sub.gameTime <= gameTime
+    ).length;
+
+    const effectiveIns = isStarter ? insBeforeTime + 1 : insBeforeTime;
+
+    return effectiveIns > outsBeforeTime;
+  },
+
+  /**
+   * Calculate plus/minus for a player
+   * Plus/minus = goals for - goals against while player was on field
+   */
+  calculatePlusMinus: (player, gameId) => {
+    if (!player) return 0;
+
+    const game = useGameStore.getState().game;
+
+    if (!game || game.game_id != gameId) return 0;
+
+    // Get all goal events from game events store
+    // Note: This assumes game events are loaded in the store
+
+    const goalEvents = game.gameEventsGoals;
+    let plusMinus = 0;
+    goalEvents.forEach((goal) => {
+      const wasOnField = get().isPlayerOnFieldAtTime(player, goal.game_time);
+
+      if (wasOnField) {
+        // Check if it was your team or opponent who scored
+        if (goal.team_season_id === player.teamSeasonId) {
+          plusMinus++; // Your team scored while you were on field
+        } else {
+          plusMinus--; // Opponent scored while you were on field
+        }
+      }
+    });
+
+    return plusMinus;
+  },
+
+  /**
+   * Calculate plus/minus for all players in a game
+   * Returns map of playerId -> plusMinus
+   */
+  calculateAllPlusMinus: (gameId) => {
+    const players = useGamePlayersStore.getState().players;
+    const plusMinusMap = {};
+
+    players.forEach((player) => {
+      plusMinusMap[player.id] = get().calculatePlusMinus(player, gameId);
+    });
+
+    return plusMinusMap;
   },
 
   /**

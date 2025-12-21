@@ -7,6 +7,7 @@ function GameSummaryPlayerStats({ players }) {
     { name: "name", label: "Name", width: "25%" },
     { name: "position", label: "Pos", width: "80px" },
     { name: "minutes", label: "Min", cellClassName: "text-end" },
+    { name: "plusMinus", label: "+/-", cellClassName: "text-end" },
     { name: "goals", label: "G", cellClassName: "text-end" },
     { name: "assists", label: "A", cellClassName: "text-end" },
     { name: "shots", label: "Sh", cellClassName: "text-end" },
@@ -21,6 +22,7 @@ function GameSummaryPlayerStats({ players }) {
     name: p.fullName,
     position: p.position || "—",
     minutes: p.minutesPlayed || 0,
+    plusMinus: p.plusMinus || 0,
     goals: p.goals || 0,
     assists: p.assists || 0,
     shots: p.shots || 0,
@@ -31,8 +33,8 @@ function GameSummaryPlayerStats({ players }) {
   }));
 
   return (
-    <div className='bg-[hsl(var(--color-surface))] rounded-lg shadow-md p-4'>
-      <h2 className='text-xl font-heading font-bold text-[hsl(var(--color-text))] mb-3'>
+    <div className='bg-surface rounded-lg shadow-md p-4'>
+      <h2 className='text-xl font-heading font-bold text-text mb-3'>
         Player Statistics
       </h2>
       <Table
