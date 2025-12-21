@@ -1,14 +1,12 @@
-// ============================================
-// FILE 3: PlayerRow.jsx
-// ============================================
+// Inside PlayerRow.jsx
 import Button from "@/components/ui/Button";
 import { useState, useRef, useEffect } from "react";
 
 function PlayerRow({ player, handleStatus, section, starterLength }) {
   const [showDropdown, setShowDropdown] = useState(false);
+  const [dropUp, setDropUp] = useState(false); // New state for direction
   const dropdownRef = useRef(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -19,6 +17,30 @@ function PlayerRow({ player, handleStatus, section, starterLength }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Detect if dropdown should open upwards
+  const handleToggle = (e) => {
+    // 1. Get the button's position
+    const rect = e.currentTarget.getBoundingClientRect();
+
+    // 2. Find the scrolling container (the section div)
+    // We use the 'overflow-y-auto' parent or a specific class
+    const container = e.currentTarget.closest(".overflow-y-auto");
+
+    if (container) {
+      const containerRect = container.getBoundingClientRect();
+      // Calculate space between button bottom and container bottom
+      const spaceBelow = containerRect.bottom - rect.bottom;
+
+      // Set to true if space is less than the dropdown height (~180px)
+      setDropUp(spaceBelow < 180);
+    } else {
+      // Fallback to window logic if no scroll container is found
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setDropUp(spaceBelow < 180);
+    }
+
+    setShowDropdown(!showDropdown);
+  };
   const getActionsBySection = (section, playerStatus) => {
     const actions = [];
 
@@ -102,31 +124,47 @@ function PlayerRow({ player, handleStatus, section, starterLength }) {
           </Button>
         ))}
 
-        {/* Settings Dropdown */}
         {settingsOptions.length > 0 && (
           <div ref={dropdownRef} className='relative'>
             <Button
               size='xs'
               variant='outline'
-              onClick={() => setShowDropdown(!showDropdown)}
+              className='px-1.5'
+              onClick={handleToggle}
             >
               ⚙️
             </Button>
 
             {showDropdown && (
-              <div className='absolute right-0 top-full mt-1 bg-surface border border-border rounded shadow-lg z-10 min-w-32'>
-                {settingsOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    className='w-full text-left px-3 py-2 text-xs hover:bg-background text-text'
-                    onClick={() => {
-                      handleStatus(player.id, option.value);
-                      setShowDropdown(false);
-                    }}
-                  >
-                    {option.label}
-                  </button>
-                ))}
+              <div
+                className={`absolute px-2 right-0 z-50 min-w-[140px] py-2 bg-surface border border-border rounded-md shadow-xl ring-1 ring-black ring-opacity-5 
+    ${dropUp ? "bottom-full mb-2" : "top-full mt-1"}`}
+              >
+                <div className='px-3 py-1 border-b border-border mb-2'>
+                  <span className='text-[10px] uppercase tracking-wider font-bold text-muted'>
+                    Move to:
+                  </span>
+                </div>
+                <div className='flex flex-col space-y-1.5'>
+                  {settingsOptions.map((option) => (
+                    <Button
+                      key={option.value}
+                      variant='outline'
+                      size='xs'
+                      /* Reduced vertical padding (py-1) and ensured full width */
+                      className='w-full text-left px-3 py-1 text-xs transition-colors hover:bg-muted/50 text-text flex items-center justify-between border-none shadow-none group'
+                      onClick={() => {
+                        handleStatus(player.id, option.value);
+                        setShowDropdown(false);
+                      }}
+                    >
+                      {option.label}
+                      <span className='text-[10px] opacity-0 group-hover:opacity-100 transition-opacity'>
+                        →
+                      </span>
+                    </Button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -137,28 +175,26 @@ function PlayerRow({ player, handleStatus, section, starterLength }) {
 
   return (
     <div
-      className={`flex items-center justify-between p-2.5 rounded border-2 transition-all ${
+      className={`flex items-center justify-between p-2.5 rounded-lg border-2 transition-all duration-200 ${
         player.gameStatus === "goalkeeper"
-          ? "bg-success/10 border-success"
-          : "bg-surface border-border hover:border-primary"
+          ? "bg-success/5 border-success shadow-sm"
+          : "bg-surface border-border hover:border-primary/50 hover:shadow-sm"
       }`}
     >
       <div className='flex items-center gap-3'>
-        <div className='w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white font-bold text-sm'>
+        <div className='w-8 h-8 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-bold text-sm'>
           {player.jerseyNumber}
         </div>
-        <div className='text-sm font-semibold text-text'>{player.fullName}</div>
-        {section === "unavailable" && (
-          <div
-            className={`text-[0.65rem] font-bold px-1.5 py-0.5 rounded ${
-              player.gameStatus === "injured"
-                ? "bg-danger/10 text-danger"
-                : "bg-muted/20 text-muted"
-            }`}
-          >
-            {player.gameStatus.toUpperCase()}
+        <div className='flex flex-col'>
+          <div className='text-sm font-semibold text-text leading-tight'>
+            {player.fullName}
           </div>
-        )}
+          {section === "unavailable" && (
+            <span className='text-[10px] font-bold text-danger/80 uppercase'>
+              {player.gameStatus}
+            </span>
+          )}
+        </div>
       </div>
       <ActionButtons />
     </div>

@@ -11,8 +11,7 @@ export default function Button({
   ...props
 }) {
   const base =
-    "inline-flex items-center justify-center rounded-DEFAULT font-semibold transition-colors duration-200 mb-0";
-
+    "inline-flex flex-col items-center justify-center rounded-xl font-bold transition-all duration-200 active:scale-95 mb-0 select-none shadow-sm";
   const sizes = {
     xs: "text-[0.7rem] px-1.5 py-0.5",
 
@@ -22,12 +21,12 @@ export default function Button({
   };
 
   const variants = {
-    primary: "bg-primary text-white hover:bg-accent-hover",
-    secondary: "bg-secondary text-white hover:opacity-90",
-    success: "border border-border bg-success text-white hover:opacity-80",
+    primary: "bg-primary text-white hover:bg-accent-hover shadow-primary/20",
+    success: "bg-success text-white hover:opacity-90 shadow-success/20",
+    muted: "bg-muted text-white cursor-not-allowed border-none",
+    outline: "border-2 border-border text-text hover:bg-background",
     danger: "border border-border bg-danger text-white hover:opacity-90",
-    muted: "border border-border bg-muted text-white hover:bg-background",
-    outline: "border border-border text-text hover:bg-background",
+    secondary: "bg-secondary text-white hover:opacity-90",
   };
 
   return (

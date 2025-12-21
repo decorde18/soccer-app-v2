@@ -134,7 +134,7 @@ function PlayerStatusSections() {
       </div>
 
       {/* BOTTOM/RIGHT: Available + Unavailable (SECONDARY) */}
-      <div className='w-full sm:flex sm:flex-row sm:gap-4 lg:w-80 lg:flex-col space-y-4 sm:space-y-0 lg:space-y-4'>
+      <div className='w-full sm:flex sm:flex-row sm:gap-4 lg:w-80 lg:flex-col lg:min-h-[600px]'>
         {statusArray
           .filter((s) => !s.prominent)
           .map((statusObj) => {
@@ -159,21 +159,27 @@ function PlayerStatusSections() {
             return (
               <div
                 key={statusObj.section}
-                className='bg-surface rounded-lg shadow border border-border p-3 flex flex-col flex-1'
+                className='bg-surface rounded-lg shadow border border-border p-4 flex flex-col flex-1 min-h-[200px]'
               >
-                <div className='flex items-center justify-between mb-2'>
-                  <h2 className='text-sm font-bold text-text'>
+                <div className='flex items-center justify-between mb-3'>
+                  <h2 className='text-sm font-bold text-text uppercase tracking-wide'>
                     {statusObj.label}
                   </h2>
-                  <span className='text-xs text-muted font-medium'>
+                  <span className='bg-muted/10 text-muted text-xs px-2 py-0.5 rounded-full font-bold'>
                     {filteredPlayers.length}
                   </span>
                 </div>
 
-                <div className='space-y-1.5 max-h-60 overflow-y-auto'>
+                {/* Changed overflow behavior: 
+              We use flex-1 so the container grows, and visible overflow 
+              so the dropdown isn't clipped unless the list is actually huge.
+          */}
+                <div className='flex-1 space-y-2'>
                   {sortedPlayers.length === 0 ? (
-                    <div className='text-center text-muted text-xs py-4'>
-                      No players
+                    <div className='flex flex-col items-center justify-center h-full border-2 border-dashed border-muted/20 rounded-lg py-8'>
+                      <span className='text-muted text-xs italic'>
+                        No players
+                      </span>
                     </div>
                   ) : (
                     sortedPlayers.map((player) => (
