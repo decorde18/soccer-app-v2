@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import useGameStore from "@/stores/gameStore";
 import useGamePlayersStore from "@/stores/gamePlayersStore";
-import useGameEventsStore from "@/stores/gameEventsStore";
+
 import useGamePlayerTimeStore from "@/stores/gamePlayerTimeStore";
 import { apiFetch } from "@/app/api/fetcher";
 import GameSummaryHeader from "./GameSummaryHeader";
@@ -31,7 +31,7 @@ function GameSummaryPage() {
     (a, b) => a?.game_id === b?.game_id
   );
   const players = useGamePlayersStore((state) => state.players);
-  const events = useGameEventsStore((state) => state.gameEvents);
+
   const calculateTotalTimeOnField = useGamePlayerTimeStore(
     (state) => state.calculateTotalTimeOnField
   );
@@ -161,9 +161,6 @@ function GameSummaryPage() {
       setIsLoading(true);
 
       try {
-        // Fetch game events and team stats
-        await useGameEventsStore.getState().fetchGameEvents(gameId);
-
         // Fetch game notes
         const gameDetails = await apiFetch("games", "GET", null, gameId);
         setGameNotes(gameDetails?.notes || "");

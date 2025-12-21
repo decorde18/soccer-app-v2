@@ -352,6 +352,137 @@ const useGamePlayerTimeStore = create((set, get) => ({
     const players = useGamePlayersStore.getState().players;
     return players.filter((player) => !get().isPlayerOnField(player));
   },
-}));
+  // ==================== GOALKEEPER TIME CALCULATIONS ====================
 
+  /**
+   * Calculate total time spent as goalkeeper
+   * Accounts for stoppages and only counts time during active periods
+   * Tracks GK status via gk_sub flag in substitutions
+   */
+  calculateGoalkeeperTime: (player, currentGameTime) => {
+    if (!player) return 0;
+
+    const game = useGameStore.getState().game;
+    if (!game || !game.gameStartTime) return 0;
+
+    const stoppages =
+      game.gameEventsMajor.filter((s) => s.clock_should_run === 0) || [];
+    const periods = game.periods || [];
+
+    // Get all subs (confirmed only)
+    const ins = (player.ins || []).filter((sub) => sub.gameTime !== null);
+    const outs = (player.outs || []).filter((sub) => sub.gameTime !== null);
+
+    // Check if started as goalkeeper
+    const startedAsGK = player.gameStatus === "goalkeeper";
+
+    // Build time segments when player was in goal
+    const gkSegments = [];
+
+    if (startedAsGK) {
+      // Started as GK
+      const firstGkOut = outs.find((sub) => sub.gkSub);
+
+      if (!firstGkOut) {
+        // Still in goal or subbed out as field player
+        const regularOut = outs[0];
+        gkSegments.push({
+          start: 0,
+          end: regularOut ? regularOut.gameTime : currentGameTime,
+        });
+      } else {
+        // Subbed out as GK
+        gkSegments.push({ start: 0, end: firstGkOut.gameTime });
+
+        // Check for subsequent GK stints
+        let gkIns = ins.filter((sub) => sub.gkSub);
+        let gkOuts = outs.filter((sub) => sub.gkSub);
+
+        for (let i = 0; i < gkIns.length; i++) {
+          const inTime = gkIns[i].gameTime;
+          const outTime = gkOuts[i + 1]
+            ? gkOuts[i + 1].gameTime
+            : currentGameTime;
+          gkSegments.push({ start: inTime, end: outTime });
+        }
+      }
+    } else {
+      // Did not start as GK, check for GK subs in
+      const gkIns = ins.filter((sub) => sub.gkSub);
+      const gkOuts = outs.filter((sub) => sub.gkSub);
+
+      for (let i = 0; i < gkIns.length; i++) {
+        const inTime = gkIns[i].gameTime;
+        const outTime = gkOuts[i] ? gkOuts[i].gameTime : currentGameTime;
+        gkSegments.push({ start: inTime, end: outTime });
+      }
+    }
+
+    // Calculate active time for each GK segment, excluding stoppages and breaks
+    let totalGkTime = 0;
+
+    for (const segment of gkSegments) {
+      // Split segment by period boundaries
+      const chunks = splitSegmentByPeriods(
+        segment,
+        periods,
+        game.gameStartTime
+      );
+
+      // Calculate time for each chunk (within a single period)
+      chunks.forEach((chunk) => {
+        const chunkTime = chunk.end - chunk.start;
+
+        const stoppageTime = calculateStoppageTimeInRange(
+          stoppages,
+          chunk.start,
+          chunk.end,
+          chunk.periodNumber
+        );
+
+        totalGkTime += Math.max(0, chunkTime - stoppageTime);
+      });
+    }
+
+    return Math.round(totalGkTime);
+  },
+
+  /**
+   * Check if player is currently goalkeeper
+   */
+  isPlayerCurrentlyGoalkeeper: (player) => {
+    if (!player) return false;
+
+    // If current game status is goalkeeper, they're the current GK
+    if (player.gameStatus === "goalkeeper") return true;
+
+    // Check if they're on field and their last sub was a GK sub in
+    const ins = (player.ins || []).filter((sub) => sub.gameTime !== null);
+    const outs = (player.outs || []).filter((sub) => sub.gameTime !== null);
+
+    const isOnField = ins.length > outs.length;
+    if (!isOnField) return false;
+
+    const lastIn = ins[ins.length - 1];
+    return lastIn && lastIn.gkSub === true;
+  },
+
+  /**
+   * Calculate goalkeeper time for all players
+   * Returns map of playerId -> goalkeeperTime
+   */
+  calculateAllGoalkeeperTime: (gameId, currentGameTime) => {
+    const players = useGamePlayersStore.getState().players;
+    const gkTimeMap = {};
+
+    players.forEach((player) => {
+      gkTimeMap[player.id] = get().calculateGoalkeeperTime(
+        player,
+        currentGameTime
+      );
+    });
+
+    return gkTimeMap;
+  },
+}));
 export default useGamePlayerTimeStore;

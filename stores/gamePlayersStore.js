@@ -1,6 +1,6 @@
 // stores/gamePlayersStore.js
 // Core player data management - loading, basic updates, field status
-// UPDATED: Added plusMinus field to player objects
+// UPDATED: Added goalkeeperTime field to player objects
 import { create } from "zustand";
 import { apiFetch } from "@/app/api/fetcher";
 
@@ -140,6 +140,10 @@ const useGamePlayersStore = create((set, get) => ({
             // Fouls
             foulsCommitted: playerStats?.fouls_committed || 0,
             foulsDrawn: playerStats?.fouls_drawn || 0,
+
+            // Time tracking (initialized to 0, calculated separately)
+            goalkeeperTime: 0,
+            plusMinus: 0,
           };
 
           player.fieldStatus = get().calculateFieldStatus(player);
@@ -149,8 +153,9 @@ const useGamePlayersStore = create((set, get) => ({
 
         set({ players, isLoading: false });
 
-        // Calculate plus/minus for all players after loading
+        // Calculate plus/minus and goalkeeper time for all players after loading
         get().calculateAndUpdatePlusMinus(gameId);
+        get().calculateAndUpdateGoalkeeperTime(gameId);
 
         return players;
       }
@@ -253,6 +258,10 @@ const useGamePlayersStore = create((set, get) => ({
           // Fouls
           foulsCommitted: 0,
           foulsDrawn: 0,
+
+          // Time tracking
+          goalkeeperTime: 0,
+          plusMinus: 0,
         };
       });
 
@@ -450,6 +459,55 @@ const useGamePlayersStore = create((set, get) => ({
     }));
   },
 
+  // ==================== GOALKEEPER TIME MANAGEMENT ====================
+
+  /**
+   * Calculate and update goalkeeper time for all players
+   * Called automatically on load and can be called manually after GK subs
+   */
+  calculateAndUpdateGoalkeeperTime: async (gameId) => {
+    try {
+      const useGameStore = (await import("./gameStore")).default;
+      const useGamePlayerTimeStore = (await import("./gamePlayerTimeStore"))
+        .default;
+
+      const gameStore = useGameStore.getState();
+      const gamePlayerTimeStore = useGamePlayerTimeStore.getState();
+      const currentGameTime = gameStore.getGameTime();
+
+      const gkTimeMap = gamePlayerTimeStore.calculateAllGoalkeeperTime(
+        gameId,
+        currentGameTime
+      );
+      get().updateAllGoalkeeperTime(gkTimeMap);
+    } catch (error) {
+      console.error("Error calculating goalkeeper time:", error);
+    }
+  },
+
+  /**
+   * Update goalkeeperTime for a single player
+   */
+  updatePlayerGoalkeeperTime: (playerId, goalkeeperTime) => {
+    set((state) => ({
+      players: state.players.map((player) =>
+        player.id === playerId ? { ...player, goalkeeperTime } : player
+      ),
+    }));
+  },
+
+  /**
+   * Update goalkeeperTime for all players (bulk update)
+   */
+  updateAllGoalkeeperTime: (gkTimeMap) => {
+    set((state) => ({
+      players: state.players.map((player) => ({
+        ...player,
+        goalkeeperTime: gkTimeMap[player.id] ?? player.goalkeeperTime ?? 0,
+      })),
+    }));
+  },
+
   // ==================== QUERY HELPERS ====================
 
   getPlayersByFieldStatus: (fieldStatus) => {
@@ -489,6 +547,13 @@ const useGamePlayersStore = create((set, get) => ({
       pendingOut: players.filter((p) => p.subStatus === "pendingOut"),
       pendingBoth: players.filter((p) => p.subStatus === "pendingBoth"),
     };
+  },
+
+  /**
+   * Get all players who have spent time as goalkeeper this game
+   */
+  getPlayersWhoPlayedGoalkeeper: () => {
+    return get().players.filter((p) => p.goalkeeperTime > 0);
   },
 }));
 

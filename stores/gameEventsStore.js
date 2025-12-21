@@ -1,97 +1,489 @@
 // stores/gameEventsStore.js
-// Enhanced event recording with comprehensive stat tracking
+// Write-only event recording with stat calculation helpers
 import { create } from "zustand";
 import useGameStore from "./gameStore";
 import useGamePlayersStore from "./gamePlayersStore";
 import { apiFetch } from "@/app/api/fetcher";
 
 const useGameEventsStore = create((set, get) => ({
-  // ==================== STATE ====================
-  gameEvents: [],
-  teamStats: {
-    corner: { us: 0, them: 0 },
-    offside: { us: 0, them: 0 },
-    foul: { us: 0, them: 0 },
-    shot: 0,
-    save: 0,
-  },
-  isLoadingEvents: false,
+  // ==================== RECORDING STATE ====================
+  isRecording: false,
 
-  // ==================== FETCH & CALCULATE ====================
+  // ==================== STAT CALCULATION HELPERS ====================
 
   /**
-   * Fetch all game events and calculate team stats
+   * Calculate team stats from gameStore data
    */
-  fetchGameEvents: async (gameId) => {
-    if (!gameId) return;
+  calculateTeamStats: () => {
+    const game = useGameStore.getState().game;
+    if (!game) return null;
 
-    set({ isLoadingEvents: true });
+    const teamSeasonId = game.isHome
+      ? game.home_team_season_id
+      : game.away_team_season_id;
+
+    const stats = {
+      corner: { us: 0, them: 0 },
+      offside: { us: 0, them: 0 },
+      foul: { us: 0, them: 0 },
+      throwIn: { us: 0, them: 0 },
+      goalKick: { us: 0, them: 0 },
+      freeKick: { us: 0, them: 0 },
+      shot: 0,
+      shotOnTarget: 0,
+      save: 0,
+    };
+
+    // Team events
+    game.gameEventsTeam.forEach((event) => {
+      const isUs = event.team_season_id === teamSeasonId;
+
+      switch (event.event_type) {
+        case "corner":
+          isUs ? stats.corner.us++ : stats.corner.them++;
+          break;
+        case "offside":
+          isUs ? stats.offside.us++ : stats.offside.them++;
+          break;
+        case "foul":
+          isUs ? stats.foul.us++ : stats.foul.them++;
+          break;
+        case "throw_in":
+          isUs ? stats.throwIn.us++ : stats.throwIn.them++;
+          break;
+        case "goal_kick":
+          isUs ? stats.goalKick.us++ : stats.goalKick.them++;
+          break;
+        case "free_kick":
+          isUs ? stats.freeKick.us++ : stats.freeKick.them++;
+          break;
+      }
+    });
+
+    // Player actions
+    game.playerActions.forEach((action) => {
+      if (action.event_type === "shot") stats.shot++;
+      if (action.event_type === "shot_on_target") stats.shotOnTarget++;
+      if (action.event_type === "save") stats.save++;
+    });
+
+    return stats;
+  },
+
+  /**
+   * Get goal scorers with details
+   */
+  getGoalScorers: () => {
+    const game = useGameStore.getState().game;
+    if (!game) return [];
+
+    const teamSeasonId = game.isHome
+      ? game.home_team_season_id
+      : game.away_team_season_id;
+
+    return game.gameEventsGoals
+      .filter((g) => g.team_season_id === teamSeasonId)
+      .map((goal) => ({
+        id: goal.goal_id,
+        scorerName: goal.scorer_name,
+        scorerJersey: goal.scorer_jersey_number,
+        assistName: goal.assist_name,
+        assistJersey: goal.assist_jersey_number,
+        gameTime: goal.game_time,
+        period: goal.period,
+        isOwnGoal: goal.is_own_goal,
+        goalTypes: goal.goal_types,
+      }));
+  },
+
+  /**
+   * Get discipline events (cards)
+   */
+  getDisciplineEvents: () => {
+    const game = useGameStore.getState().game;
+    if (!game) return [];
+
+    const teamSeasonId = game.isHome
+      ? game.home_team_season_id
+      : game.away_team_season_id;
+
+    return game.gameEventsDiscipline.map((card) => ({
+      id: card.discipline_id,
+      playerName: card.player_name,
+      jerseyNumber: card.jersey_number,
+      cardType: card.card_type,
+      cardReason: card.card_reason,
+      gameTime: card.game_time,
+      period: card.period,
+      isOurTeam: card.team_season_id === teamSeasonId,
+    }));
+  },
+
+  /**
+   * Get penalty kick events
+   */
+  getPenaltyKicks: () => {
+    const game = useGameStore.getState().game;
+    if (!game) return [];
+
+    return game.gameEventsPenalties.map((pk) => ({
+      id: pk.penalty_id,
+      shooterName: pk.shooter_name,
+      shooterJersey: pk.shooter_jersey_number,
+      gkName: pk.gk_name,
+      outcome: pk.outcome,
+      isShootout: pk.is_shootout,
+      shootoutRound: pk.shootout_round,
+      gameTime: pk.game_time,
+      period: pk.period,
+    }));
+  },
+
+  // ==================== RECORD GOAL ====================
+
+  recordGoal: async (goalData) => {
+    const gameStore = useGameStore.getState();
+    const game = gameStore.game;
+    const gameTime = gameStore.getGameTime();
+    const period = gameStore.getCurrentPeriodNumber();
+
+    set({ isRecording: true });
 
     try {
-      const events = await apiFetch("game_events", "GET", null, null, {
-        filters: { game_id: gameId },
+      // 1. Create major event (stoppage)
+      const majorEvent = await apiFetch("game_events_major", "POST", {
+        game_id: game.game_id,
+        event_type: "goal",
+        game_time: gameTime,
+        end_time: null, // Goals are instant, no end time
+        period: period,
+        clock_should_run: 1, // Clock continues after goal
+        details: goalData.details || null,
       });
-      const game = useGameStore.getState().game;
 
-      // Determine which team is "yours"
-      const yourTeamSeasonId = game.isHome
-        ? game.home_team_season_id
-        : game.away_team_season_id;
+      // 2. Determine team_season_id
+      let teamSeasonId = goalData.teamSeasonId;
+      let scorerPlayerGameId = goalData.scorerPlayerGameId;
+      let opponentJerseyNumber = goalData.opponentJerseyNumber || null;
 
-      // Calculate stats
-      const counts = {
-        corner: { us: 0, them: 0 },
-        offside: { us: 0, them: 0 },
-        foul: { us: 0, them: 0 },
-        shot: 0,
-        save: 0,
-      };
-      const gameEvents = events.filter(
-        (event) => event.event_category !== "team"
-      );
-      events.forEach((stat) => {
-        const isOurTeam = stat.team_season_id === yourTeamSeasonId;
-
-        if (stat.event_type === "corner") {
-          if (isOurTeam) counts.corner.us++;
-          else counts.corner.them++;
-        } else if (stat.event_type === "offside") {
-          if (isOurTeam) counts.offside.us++;
-          else counts.offside.them++;
-        } else if (stat.event_type === "foul_committed") {
-          if (isOurTeam) counts.foul.us++;
-          else counts.foul.them++;
-        } else if (stat.event_type === "shot_on_target") {
-          counts.shot++;
-        } else if (stat.event_type === "save") {
-          counts.save++;
+      // If scoring for our team with a player
+      if (!teamSeasonId && scorerPlayerGameId) {
+        const playersStore = useGamePlayersStore.getState();
+        const player = playersStore.getPlayerByPlayerGameId(scorerPlayerGameId);
+        if (player) {
+          teamSeasonId = player.teamSeasonId;
         }
+      }
+
+      // Default to our team if not specified
+      if (!teamSeasonId) {
+        teamSeasonId = game.isHome
+          ? game.home_team_season_id
+          : game.away_team_season_id;
+      }
+
+      // 3. Create goal event
+      const goalEvent = await apiFetch("game_events_goals", "POST", {
+        major_event_id: majorEvent.id,
+        team_season_id: teamSeasonId,
+        scorer_player_game_id: scorerPlayerGameId || null,
+        opponent_jersey_number: opponentJerseyNumber,
+        assist_player_game_id: goalData.assistPlayerGameId || null,
+        defending_gk_player_game_id: goalData.defendingGkPlayerGameId || null,
+        is_own_goal: goalData.isOwnGoal || 0,
+        goal_types: goalData.goalTypes
+          ? JSON.stringify(goalData.goalTypes)
+          : null,
       });
 
-      set({
-        gameEvents,
-        teamStats: counts,
-        isLoadingEvents: false,
-      });
+      // 4. Refresh game data
+      await gameStore.initializeGame(
+        game.game_id,
+        game.isHome ? game.home_team_season_id : game.away_team_season_id
+      );
 
-      return { events, teamStats: counts };
+      set({ isRecording: false });
+      return goalEvent;
     } catch (error) {
-      console.error("Error fetching game events:", error);
-      set({ isLoadingEvents: false });
+      console.error("Error recording goal:", error);
+      set({ isRecording: false });
       throw error;
     }
   },
 
-  /**
-   * Delete an event and refresh stats
-   */
-  deleteEvent: async (eventId) => {
-    try {
-      await apiFetch(`game_events?id=${eventId}`, "DELETE");
+  // ==================== RECORD DISCIPLINE (CARD) ====================
 
-      const game = useGameStore.getState().game;
-      await get().fetchGameEvents(game.game_id);
-      await get().refreshPlayerStats(game.game_id);
+  recordCard: async (cardData) => {
+    const gameStore = useGameStore.getState();
+    const game = gameStore.game;
+    const gameTime = gameStore.getGameTime();
+    const period = gameStore.getCurrentPeriodNumber();
+
+    set({ isRecording: true });
+
+    try {
+      // 1. Create major event
+      const majorEvent = await apiFetch("game_events_major", "POST", {
+        game_id: game.game_id,
+        event_type: "discipline",
+        game_time: gameTime,
+        end_time: null,
+        period: period,
+        clock_should_run: 1,
+        details: cardData.cardReason || null,
+      });
+
+      // 2. Determine team_season_id
+      let teamSeasonId = cardData.teamSeasonId;
+      let playerGameId = cardData.playerGameId;
+      let opponentJerseyNumber = cardData.opponentJerseyNumber || null;
+
+      if (!teamSeasonId && playerGameId) {
+        const playersStore = useGamePlayersStore.getState();
+        const player = playersStore.getPlayerByPlayerGameId(playerGameId);
+        if (player) {
+          teamSeasonId = player.teamSeasonId;
+        }
+      }
+
+      // Default to our team if not specified
+      if (!teamSeasonId) {
+        teamSeasonId = game.isHome
+          ? game.home_team_season_id
+          : game.away_team_season_id;
+      }
+
+      // 3. Create discipline event
+      const cardEvent = await apiFetch("game_events_discipline", "POST", {
+        major_event_id: majorEvent.id,
+        team_season_id: teamSeasonId,
+        player_game_id: playerGameId || null,
+        opponent_jersey_number: opponentJerseyNumber,
+        card_type: cardData.cardType, // 'yellow', 'red', 'yellow_red'
+        card_reason: cardData.cardReason || null,
+      });
+
+      // 4. Refresh game data
+      await gameStore.initializeGame(
+        game.game_id,
+        game.isHome ? game.home_team_season_id : game.away_team_season_id
+      );
+
+      set({ isRecording: false });
+      return cardEvent;
+    } catch (error) {
+      console.error("Error recording card:", error);
+      set({ isRecording: false });
+      throw error;
+    }
+  },
+
+  // ==================== RECORD PENALTY KICK ====================
+
+  recordPenaltyKick: async (penaltyData) => {
+    const gameStore = useGameStore.getState();
+    const game = gameStore.game;
+    const gameTime = gameStore.getGameTime();
+    const period = gameStore.getCurrentPeriodNumber();
+
+    set({ isRecording: true });
+
+    try {
+      // 1. Create major event
+      const majorEvent = await apiFetch("game_events_major", "POST", {
+        game_id: game.game_id,
+        event_type: "penalty",
+        game_time: gameTime,
+        end_time: null,
+        period: period,
+        clock_should_run: 1,
+        details: penaltyData.details || null,
+      });
+
+      // 2. Determine team_season_id
+      let teamSeasonId = penaltyData.teamSeasonId;
+      const shooterPlayerGameId = penaltyData.shooterPlayerGameId;
+
+      if (!teamSeasonId && shooterPlayerGameId) {
+        const playersStore = useGamePlayersStore.getState();
+        const player =
+          playersStore.getPlayerByPlayerGameId(shooterPlayerGameId);
+        if (player) {
+          teamSeasonId = player.teamSeasonId;
+        }
+      }
+
+      // Default to our team if not specified
+      if (!teamSeasonId) {
+        teamSeasonId = game.isHome
+          ? game.home_team_season_id
+          : game.away_team_season_id;
+      }
+
+      // 3. Create penalty event
+      const penaltyEvent = await apiFetch("game_events_penalties", "POST", {
+        major_event_id: majorEvent.id,
+        game_id: penaltyData.isShootout ? game.game_id : null,
+        team_season_id: teamSeasonId,
+        shooter_player_game_id: shooterPlayerGameId || null,
+        opponent_jersey_number: penaltyData.opponentJerseyNumber || null,
+        gk_player_game_id: penaltyData.gkPlayerGameId || null,
+        outcome: penaltyData.outcome, // 'goal', 'saved', 'missed', 'hit_post'
+        is_shootout: penaltyData.isShootout || 0,
+        shootout_round: penaltyData.shootoutRound || null,
+        game_time: penaltyData.isShootout ? gameTime : null,
+        period: penaltyData.isShootout ? period : null,
+        goal_id: null, // Will be set if goal is created
+      });
+
+      let goalId = null;
+
+      // 4. If outcome is 'goal', create goal event
+      if (penaltyData.outcome === "goal") {
+        const goalEvent = await apiFetch("game_events_goals", "POST", {
+          major_event_id: majorEvent.id,
+          team_season_id: teamSeasonId,
+          scorer_player_game_id: shooterPlayerGameId || null,
+          opponent_jersey_number: penaltyData.opponentJerseyNumber || null,
+          assist_player_game_id: null,
+          defending_gk_player_game_id: penaltyData.gkPlayerGameId || null,
+          is_own_goal: 0,
+          goal_types: JSON.stringify(["penalty"]),
+        });
+
+        goalId = goalEvent.id;
+
+        // Update penalty event with goal_id
+        await apiFetch(`game_events_penalties?id=${penaltyEvent.id}`, "PUT", {
+          goal_id: goalId,
+        });
+      }
+
+      // 5. If outcome is 'saved', create save action for GK
+      if (penaltyData.outcome === "saved" && penaltyData.gkPlayerGameId) {
+        await apiFetch("game_events_player_actions", "POST", {
+          game_id: game.game_id,
+          player_game_id: penaltyData.gkPlayerGameId,
+          event_type: "save",
+          game_time: gameTime,
+          period: period,
+        });
+      }
+
+      // 6. Refresh game data
+      await gameStore.initializeGame(
+        game.game_id,
+        game.isHome ? game.home_team_season_id : game.away_team_season_id
+      );
+
+      set({ isRecording: false });
+      return penaltyEvent;
+    } catch (error) {
+      console.error("Error recording penalty kick:", error);
+      set({ isRecording: false });
+      throw error;
+    }
+  },
+
+  // ==================== RECORD PLAYER ACTION ====================
+
+  recordPlayerAction: async (actionData) => {
+    const gameStore = useGameStore.getState();
+    const game = gameStore.game;
+    const gameTime = gameStore.getGameTime();
+    const period = gameStore.getCurrentPeriodNumber();
+
+    set({ isRecording: true });
+
+    try {
+      const actionEvent = await apiFetch("game_events_player_actions", "POST", {
+        game_id: game.game_id,
+        player_game_id: actionData.playerGameId,
+        event_type: actionData.eventType, // 'shot', 'shot_on_target', 'shot_blocked', 'save'
+        game_time: gameTime,
+        period: period,
+      });
+
+      // Refresh game data
+      await gameStore.initializeGame(
+        game.game_id,
+        game.isHome ? game.home_team_season_id : game.away_team_season_id
+      );
+
+      set({ isRecording: false });
+      return actionEvent;
+    } catch (error) {
+      console.error("Error recording player action:", error);
+      set({ isRecording: false });
+      throw error;
+    }
+  },
+
+  // ==================== RECORD TEAM EVENT ====================
+
+  recordTeamEvent: async (teamEventData) => {
+    const gameStore = useGameStore.getState();
+    const game = gameStore.game;
+    const gameTime = gameStore.getGameTime();
+    const period = gameStore.getCurrentPeriodNumber();
+
+    set({ isRecording: true });
+
+    try {
+      // Determine which team
+      let teamSeasonId = teamEventData.teamSeasonId;
+
+      if (!teamSeasonId) {
+        // Use forYourTeam flag to determine
+        if (teamEventData.forYourTeam) {
+          teamSeasonId = game.isHome
+            ? game.home_team_season_id
+            : game.away_team_season_id;
+        } else {
+          teamSeasonId = game.isHome
+            ? game.away_team_season_id
+            : game.home_team_season_id;
+        }
+      }
+
+      const teamEvent = await apiFetch("game_events_team", "POST", {
+        game_id: game.game_id,
+        team_season_id: teamSeasonId,
+        event_type: teamEventData.eventType, // 'foul', 'corner', 'offside', 'throw_in', 'goal_kick', 'free_kick'
+        game_time: gameTime,
+        period: period,
+      });
+
+      // Refresh game data
+      await gameStore.initializeGame(
+        game.game_id,
+        game.isHome ? game.home_team_season_id : game.away_team_season_id
+      );
+
+      set({ isRecording: false });
+      return teamEvent;
+    } catch (error) {
+      console.error("Error recording team event:", error);
+      set({ isRecording: false });
+      throw error;
+    }
+  },
+
+  // ==================== DELETE EVENT ====================
+
+  deleteEvent: async (eventId, eventType) => {
+    const gameStore = useGameStore.getState();
+    const game = gameStore.game;
+
+    try {
+      // Use gameStore's delete function which handles all event types
+      await gameStore.deleteEvent(eventId, eventType);
+
+      // Refresh game data
+      await gameStore.initializeGame(
+        game.game_id,
+        game.isHome ? game.home_team_season_id : game.away_team_season_id
+      );
 
       return true;
     } catch (error) {
@@ -100,402 +492,59 @@ const useGameEventsStore = create((set, get) => ({
     }
   },
 
-  // ==================== RECORD EVENT ====================
-
-  recordEvent: async (eventData) => {
-    const gameStore = useGameStore.getState();
-    const game = gameStore.game;
-    const gameTime = gameStore.getGameTime();
-    const period = gameStore.getCurrentPeriodNumber();
-
-    // Determine team_season attribution
-    const playersStore = useGamePlayersStore.getState();
-    let teamSeasonId = null;
-    let opponentTeamSeasonId = null;
-    let defendingPlayerGameId = null;
-
-    // 1. Try to get from player
-    if (eventData.playerGameId) {
-      const player = playersStore.getPlayerByPlayerGameId(
-        eventData.playerGameId
-      );
-      if (player) {
-        teamSeasonId = player.teamSeasonId;
-        opponentTeamSeasonId =
-          player.homeAway === "home"
-            ? game.away_team_season_id
-            : game.home_team_season_id;
-      }
-    }
-    // 2. Try to get from explicit eventData
-    else if (eventData.teamSeasonId) {
-      teamSeasonId = eventData.teamSeasonId;
-      opponentTeamSeasonId = eventData.opponentTeamSeasonId;
-    }
-    // 3. DEFAULT: Assume event is for "your team"
-    else {
-      teamSeasonId = game.isHome
-        ? game.home_team_season_id
-        : game.away_team_season_id;
-      opponentTeamSeasonId = game.isHome
-        ? game.away_team_season_id
-        : game.home_team_season_id;
-    }
-
-    try {
-      const event = await apiFetch("game_events", "POST", {
-        game_id: game.game_id,
-        player_game_id: eventData.playerGameId || null,
-        team_season_id: teamSeasonId,
-        opponent_team_season_id: opponentTeamSeasonId,
-        defending_player_game_id: defendingPlayerGameId,
-        opponent_jersey_number: eventData.opponentJerseyNumber || null,
-        event_category: eventData.category,
-        event_type: eventData.type,
-        game_time: gameTime,
-        period: period,
-
-        stoppage_start_time: eventData.stoppageStartTime || null,
-        stoppage_end_time: eventData.stoppageEndTime || null,
-        clock_should_run: eventData.clockShouldRun ?? 1,
-        assist_player_game_id: eventData.assistPlayerGameId || null,
-        goal_types: eventData.goalTypes
-          ? JSON.stringify(eventData.goalTypes)
-          : null,
-        card_reason: eventData.cardReason || null,
-        details: eventData.details || null,
-      });
-
-      // Update local player stats
-      if (eventData.playerGameId) {
-        const player = playersStore.getPlayerByPlayerGameId(
-          eventData.playerGameId
-        );
-        if (player) {
-          get().updatePlayerStatForEvent(player.id, eventData.type);
-
-          // Handle assist
-          if (eventData.assistPlayerGameId) {
-            const assistPlayer = playersStore.getPlayerByPlayerGameId(
-              eventData.assistPlayerGameId
-            );
-            if (assistPlayer) {
-              get().incrementPlayerStat(assistPlayer.id, "assists");
-            }
-          }
-        }
-      }
-
-      // Refresh events to update stats
-      await get().fetchGameEvents(game.game_id);
-
-      return event;
-    } catch (error) {
-      console.error("Error recording event:", error);
-      throw error;
-    }
-  },
-
-  // ==================== OPPONENT EVENTS ====================
+  // ==================== CONVENIENCE RECORDING METHODS ====================
 
   /**
-   * Record an event by the opponent (goal against, foul on us, etc.)
+   * Record a shot (on target or off target)
    */
-  recordOpponentEvent: async (eventData) => {
-    const gameStore = useGameStore.getState();
-    const game = gameStore.game;
-    const gameTime = gameStore.getGameTime();
-    const period = gameStore.getCurrentPeriodNumber();
-    const playersStore = useGamePlayersStore.getState();
-
-    // For opponent events, team_season_id is the opponent, opponent_team_season_id is us
-    const opponentTeamSeasonId = game.isHome
-      ? game.away_team_season_id
-      : game.home_team_season_id;
-
-    const yourTeamSeasonId = game.isHome
-      ? game.home_team_season_id
-      : game.away_team_season_id;
-
-    // For goals/shots against, get current goalkeeper
-    let defendingPlayerGameId = null;
-    if (["goal", "shot", "shot_on_target"].includes(eventData.type)) {
-      const currentGK = playersStore.getCurrentGoalkeeper();
-      if (currentGK) {
-        defendingPlayerGameId = currentGK.playerGameId;
-      }
-    }
-
-    try {
-      const event = await apiFetch("game_events", "POST", {
-        game_id: game.game_id,
-        player_game_id: null, // Opponent player not tracked in our roster
-        team_season_id: opponentTeamSeasonId, // Opponent performed action
-        opponent_team_season_id: yourTeamSeasonId, // Against your team
-        defending_player_game_id: defendingPlayerGameId, // Your GK
-        opponent_jersey_number: eventData.opponentJerseyNumber || null,
-        event_category: eventData.category,
-        event_type: eventData.type,
-        game_time: gameTime,
-        period: period,
-
-        clock_should_run: 1,
-        details: eventData.details || `Opponent ${eventData.type}`,
-      });
-
-      // If opponent goal, update goals against for your GK locally
-      if (eventData.type === "goal") {
-        if (defendingPlayerGameId) {
-          const gk = playersStore.getPlayerByPlayerGameId(
-            defendingPlayerGameId
-          );
-          if (gk) {
-            get().incrementPlayerStat(gk.id, "goalsAgainst");
-          }
-        }
-      }
-
-      // Refresh events to update stats
-      await get().fetchGameEvents(game.game_id);
-
-      return event;
-    } catch (error) {
-      console.error("Error recording opponent event:", error);
-      throw error;
-    }
+  recordShot: async (playerGameId, onTarget = false) => {
+    return get().recordPlayerAction({
+      playerGameId,
+      eventType: onTarget ? "shot_on_target" : "shot",
+    });
   },
-
-  // ==================== TEAM-LEVEL EVENTS ====================
 
   /**
-   * Record team-level events (corners, offsides, etc.)
+   * Record a save by goalkeeper
    */
-  recordTeamEvent: async (eventData) => {
-    const gameStore = useGameStore.getState();
-    const game = gameStore.game;
-    const gameTime = gameStore.getGameTime();
-    const period = gameStore.getCurrentPeriodNumber();
-
-    const yourTeamSeasonId = game.isHome
-      ? game.home_team_season_id
-      : game.away_team_season_id;
-
-    const opponentTeamSeasonId = game.isHome
-      ? game.away_team_season_id
-      : game.home_team_season_id;
-
-    try {
-      const event = await apiFetch("game_events", "POST", {
-        game_id: game.game_id,
-        player_game_id: null,
-        team_season_id: eventData.forYourTeam
-          ? yourTeamSeasonId
-          : opponentTeamSeasonId,
-        opponent_team_season_id: eventData.forYourTeam
-          ? opponentTeamSeasonId
-          : yourTeamSeasonId,
-        defending_player_game_id: null,
-        opponent_jersey_number: null,
-        event_category: "team",
-        event_type: eventData.type, // 'corner', 'offside', 'foul_committed'
-        game_time: gameTime,
-        period: period,
-
-        clock_should_run: 1,
-        details: eventData.details || null,
-      });
-
-      // Refresh events to update stats
-      await get().fetchGameEvents(game.game_id);
-
-      return event;
-    } catch (error) {
-      console.error("Error recording team event:", error);
-      throw error;
-    }
+  recordSave: async (playerGameId) => {
+    return get().recordPlayerAction({
+      playerGameId,
+      eventType: "save",
+    });
   },
-
-  // ==================== PENALTY KICK ====================
 
   /**
-   * Record a penalty kick attempt
+   * Record a corner kick
    */
-  recordPenaltyKick: async (eventData) => {
-    const gameStore = useGameStore.getState();
-    const game = gameStore.game;
-    const gameTime = gameStore.getGameTime();
-    const period = gameStore.getCurrentPeriodNumber();
-    const playersStore = useGamePlayersStore.getState();
-
-    const player = playersStore.getPlayerByPlayerGameId(eventData.playerGameId);
-    if (!player) {
-      throw new Error("Player not found for penalty kick");
-    }
-
-    const teamSeasonId = player.teamSeasonId;
-    const opponentTeamSeasonId =
-      player.homeAway === "home"
-        ? game.away_team_season_id
-        : game.home_team_season_id;
-
-    // Get opposing goalkeeper
-    let defendingPlayerGameId = null;
-    const allPlayers = playersStore.players;
-    const opponentGK = allPlayers.find(
-      (p) =>
-        p.gameStatus === "goalkeeper" && p.teamSeasonId === opponentTeamSeasonId
-    );
-    if (opponentGK) {
-      defendingPlayerGameId = opponentGK.playerGameId;
-    }
-
-    try {
-      const event = await apiFetch("game_events", "POST", {
-        game_id: game.game_id,
-        player_game_id: eventData.playerGameId,
-        team_season_id: teamSeasonId,
-        opponent_team_season_id: opponentTeamSeasonId,
-        defending_player_game_id: defendingPlayerGameId,
-        opponent_jersey_number: null,
-        event_category: "penalty",
-        event_type: eventData.result, // 'goal', 'save', 'miss'
-        game_time: gameTime,
-        period: period,
-
-        clock_should_run: 1,
-        details: eventData.details || null,
-      });
-
-      // Update local stats
-      if (eventData.result === "goal") {
-        get().incrementPlayerStat(player.id, "goals");
-        get().incrementPlayerStat(player.id, "penaltyGoals");
-        if (defendingPlayerGameId) {
-          const gk = playersStore.getPlayerByPlayerGameId(
-            defendingPlayerGameId
-          );
-          if (gk) get().incrementPlayerStat(gk.id, "goalsAgainst");
-        }
-      } else if (eventData.result === "save" && defendingPlayerGameId) {
-        const gk = playersStore.getPlayerByPlayerGameId(defendingPlayerGameId);
-        if (gk) {
-          get().incrementPlayerStat(gk.id, "penaltySaves");
-          get().incrementPlayerStat(gk.id, "saves");
-        }
-      }
-
-      // Refresh events to update stats
-      await get().fetchGameEvents(game.game_id);
-
-      return event;
-    } catch (error) {
-      console.error("Error recording penalty kick:", error);
-      throw error;
-    }
+  recordCorner: async (forYourTeam = true) => {
+    return get().recordTeamEvent({
+      eventType: "corner",
+      forYourTeam,
+    });
   },
 
-  // ==================== PLAYER STAT UPDATES ====================
-
-  updatePlayerStatForEvent: (playerId, eventType) => {
-    switch (eventType) {
-      case "goal":
-        get().incrementPlayerStat(playerId, "goals");
-        break;
-      case "penalty_kick":
-        get().incrementPlayerStat(playerId, "penaltyGoals");
-        break;
-      case "shot":
-        get().incrementPlayerStat(playerId, "shots");
-        break;
-      case "shot_on_target":
-        get().incrementPlayerStat(playerId, "shots");
-        get().incrementPlayerStat(playerId, "shotsOnTarget");
-        break;
-      case "save":
-        get().incrementPlayerStat(playerId, "saves");
-        break;
-      case "yellow_card":
-        get().incrementPlayerStat(playerId, "yellowCards");
-        break;
-      case "red_card":
-        get().incrementPlayerStat(playerId, "redCards");
-        break;
-      case "foul_committed":
-        get().incrementPlayerStat(playerId, "foulsCommitted");
-        break;
-      case "foul_drawn":
-        get().incrementPlayerStat(playerId, "foulsDrawn");
-        break;
-    }
+  /**
+   * Record an offside
+   */
+  recordOffside: async (forYourTeam = true) => {
+    return get().recordTeamEvent({
+      eventType: "offside",
+      forYourTeam,
+    });
   },
 
-  updatePlayerStat: (playerId, stat, value) => {
-    const playersStore = useGamePlayersStore.getState();
-    playersStore.setPlayers(
-      playersStore.players.map((player) =>
-        player.id === playerId ? { ...player, [stat]: value } : player
-      )
-    );
+  /**
+   * Record a foul
+   */
+  recordFoul: async (forYourTeam = true) => {
+    return get().recordTeamEvent({
+      eventType: "foul",
+      forYourTeam,
+    });
   },
 
-  incrementPlayerStat: (playerId, stat, amount = 1) => {
-    const playersStore = useGamePlayersStore.getState();
-    playersStore.setPlayers(
-      playersStore.players.map((player) =>
-        player.id === playerId
-          ? { ...player, [stat]: (player[stat] || 0) + amount }
-          : player
-      )
-    );
-  },
-
-  // ==================== REFRESH STATS FROM DB ====================
-
-  refreshPlayerStats: async (gameId) => {
-    try {
-      const allStats = await apiFetch(
-        "v_player_game_stats_enhanced",
-        "GET",
-        null,
-        null,
-        { filters: { game_id: gameId } }
-      );
-
-      const playersStore = useGamePlayersStore.getState();
-      playersStore.setPlayers(
-        playersStore.players.map((player) => {
-          const playerStats = allStats.find(
-            (s) => s.player_game_id === player.playerGameId
-          );
-
-          if (playerStats) {
-            return {
-              ...player,
-              goals: playerStats.goals || 0,
-              penaltyGoals: playerStats.penalty_goals || 0,
-              assists: playerStats.assists || 0,
-              shots: playerStats.shots || 0,
-              shotsOnTarget: playerStats.shots_on_target || 0,
-              saves: playerStats.saves || 0,
-              goalsAgainst: playerStats.goals_against || 0,
-              penaltiesFaced: playerStats.penalties_faced || 0,
-              penaltySaves: playerStats.penalty_saves || 0,
-              cleanSheet: playerStats.clean_sheet || 0,
-              yellowCards: playerStats.yellow_cards || 0,
-              redCards: playerStats.red_cards || 0,
-              foulsCommitted: playerStats.fouls_committed || 0,
-              foulsDrawn: playerStats.fouls_drawn || 0,
-            };
-          }
-          return player;
-        })
-      );
-    } catch (error) {
-      console.error("Error refreshing player stats:", error);
-    }
-  },
-
-  // ==================== QUERY HELPERS ====================
+  // ==================== QUERY HELPERS (using views) ====================
 
   getTeamStats: async (gameId, teamSeasonId) => {
     try {
