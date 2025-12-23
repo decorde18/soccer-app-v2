@@ -10,17 +10,6 @@ function OnBenchPlayers({ handleSubClick }) {
     );
   };
 
-  const benchColumns = [
-    { name: "number", label: "#", width: "50px" },
-    { name: "name", label: "Name", width: "35%" },
-    { name: "position", label: "Pos" },
-    { name: "shots", label: "Sh", cellClassName: "text-end" },
-    { name: "goals", label: "G", cellClassName: "text-end" },
-    { name: "assists", label: "A", cellClassName: "text-end" },
-    { name: "timeIn", label: "Time In", cellClassName: "text-end" },
-    { name: "timeOut", label: "Time Out", cellClassName: "text-end" },
-  ];
-
   const getBenchActionButton = (row) => {
     const buttonText = row.subStatus === "pendingIn" ? "Cancel" : "Sub In";
     const variant = row.subStatus === "pendingIn" ? "danger" : "primary";
@@ -44,10 +33,10 @@ function OnBenchPlayers({ handleSubClick }) {
       <PlayersTable
         filterPlayers={filterBenchPlayers}
         caption={<span className='text-2xl font-bold'>Game Changers</span>}
-        columns={benchColumns}
         onActionClick={(row) => handleSubClick(row.id)}
         getActionButton={getBenchActionButton}
         timeMode='onBench'
+        size='xs'
       />
     </div>
   );

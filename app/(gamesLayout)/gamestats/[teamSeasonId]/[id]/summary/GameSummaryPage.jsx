@@ -258,8 +258,7 @@ function GameSummaryPage() {
           {/* Middle Column */}
           <div className='lg:col-span-3 space-y-4'>
             <GameSummaryTeamStats
-              teamStats={game.gameEventsTeam}
-              playerActions={game.playerActions}
+              teamStats={game.teamStatTotals}
               teamSeasonId={teamSeasonId}
               majorEvents={majorEvents}
             />

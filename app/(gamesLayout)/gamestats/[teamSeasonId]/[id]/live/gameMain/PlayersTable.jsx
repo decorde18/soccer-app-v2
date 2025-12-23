@@ -1,13 +1,4 @@
 "use client";
-
-import { useMemo, useState, useEffect } from "react";
-import useGamePlayersStore from "@/stores/gamePlayersStore";
-import useGameStore from "@/stores/gameStore";
-import useGamePlayerTimeStore from "@/stores/gamePlayerTimeStore";
-import Button from "@/components/ui/Button";
-import Table from "@/components/ui/Table";
-import { formatSecondsToMmss } from "@/lib/dateTimeUtils";
-
 /**
  * Universal Players Table Component
  * @param {Object} props
@@ -20,6 +11,15 @@ import { formatSecondsToMmss } from "@/lib/dateTimeUtils";
  * @param {string} props.timeMode - 'onField' | 'onBench' | 'none' - Which time columns to show
  * @param {Function} props.getRowClassName - Custom row className function
  */
+
+import { useMemo, useState, useEffect } from "react";
+import useGamePlayersStore from "@/stores/gamePlayersStore";
+import useGameStore from "@/stores/gameStore";
+import useGamePlayerTimeStore from "@/stores/gamePlayerTimeStore";
+import Button from "@/components/ui/Button";
+import Table from "@/components/ui/Table";
+import { formatSecondsToMmss } from "@/lib/dateTimeUtils";
+
 function PlayersTable({
   filterPlayers,
   caption,
@@ -27,11 +27,18 @@ function PlayersTable({
   onActionClick,
   getActionButton,
   size = "xxs",
-  timeMode = "onField", // 'onField', 'onBench', or 'none'
+  timeMode = "onField",
   getRowClassName,
 }) {
   const gameStage = useGameStore((s) => s.getGameStage());
   const getGameTime = useGameStore((s) => s.getGameTime);
+
+  // 1. Grab the live event arrays from the game store
+  const game = useGameStore((s) => s.game);
+  const playerActions = game?.playerActions || [];
+  const goalsEvents = game?.gameEventsGoals || [];
+  const disciplineEvents = game?.gameEventsDiscipline || [];
+  const plusMinus = useGamePlayersStore((s) => s.calculateAllPlusMinus);
 
   const calculateCurrentTimeOnField = useGamePlayerTimeStore(
     (s) => s.calculateCurrentTimeOnField
@@ -46,31 +53,133 @@ function PlayersTable({
   const allPlayers = useGamePlayersStore((s) => s.players);
 
   const isGameLive = gameStage === "during_period";
+  const isBeforeStart = gameStage === "before_start";
 
-  // Force re-render every second to update time displays
   const [, setTick] = useState(0);
   useEffect(() => {
     if (!isGameLive) return;
-    const interval = setInterval(() => {
-      setTick((tick) => tick + 1);
-    }, 1000);
+    const interval = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(interval);
   }, [isGameLive]);
 
   const gameTime = getGameTime();
 
-  // Default columns based on timeMode - different for GK vs field players
+  const players = useMemo(() => {
+    return allPlayers
+      .filter((p) =>
+        ["dressed", "starter", "goalkeeper"].includes(p.gameStatus)
+      )
+      .filter(filterPlayers)
+      .map((player) => {
+        const pId = player.playerGameId;
+
+        // 2. Derive stats from event arrays for real-time/optimistic updates
+        const shots = playerActions.filter(
+          (a) =>
+            a.player_game_id === pId &&
+            (a.event_type === "shot" || a.event_type === "shot_on_target")
+        ).length;
+
+        const saves = playerActions.filter(
+          (a) => a.player_game_id === pId && a.event_type === "save"
+        ).length;
+
+        const goals = goalsEvents.filter(
+          (g) => g.scorer_player_game_id === pId
+        ).length;
+        const goalsAgainst = goalsEvents.filter(
+          (g) => g.defending_gk_player_game_id === pId
+        ).length;
+
+        const assists = goalsEvents.filter(
+          (g) => g.assist_player_game_id === pId
+        ).length;
+
+        const yellowCards = disciplineEvents.filter(
+          (d) => d.player_game_id === pId && d.card_color === "yellow"
+        ).length;
+
+        const redCards = disciplineEvents.filter(
+          (d) => d.player_game_id === pId && d.card_color === "red"
+        ).length;
+
+        // Calculate playing time
+        let totalTime = 0;
+        let secondaryTime = 0;
+        if (timeMode === "onField") {
+          totalTime = calculateTotalTimeOnField(player, gameTime);
+          secondaryTime = calculateCurrentTimeOnField(player, gameTime);
+        } else if (timeMode === "onBench") {
+          totalTime = calculateTotalTimeOnField(player, gameTime);
+          secondaryTime = calculateCurrentTimeOffField(player, gameTime);
+        }
+        return {
+          id: player.id,
+          playerGameId: pId,
+          number: player.jerseyNumber ?? "—",
+          name: player.fullName || `${player.firstName} ${player.lastName}`,
+          position: player.position,
+          // Use our derived stats here
+          shots,
+          saves,
+          goals,
+          assists,
+          yellowCards,
+          redCards,
+          plusMinus: player.plusMinus,
+          goalsAgainst,
+          fieldStatus: player.fieldStatus,
+          gameStatus: player.gameStatus,
+          subStatus: player.subStatus,
+          isGoalkeeper: player.gameStatus === "goalkeeper",
+          timeIn:
+            timeMode !== "none" ? formatSecondsToMmss(totalTime) : undefined,
+          timeInRecent:
+            timeMode === "onField"
+              ? formatSecondsToMmss(secondaryTime)
+              : undefined,
+          timeOut:
+            timeMode === "onBench"
+              ? formatSecondsToMmss(secondaryTime)
+              : undefined,
+        };
+      });
+  }, [
+    allPlayers,
+    playerActions, // Trigger re-memo on shot/save
+    goalsEvents, // Trigger re-memo on goal
+    disciplineEvents,
+    filterPlayers,
+    gameTime,
+    timeMode,
+    calculateTotalTimeOnField,
+    calculateCurrentTimeOnField,
+    calculateCurrentTimeOffField,
+  ]);
+
+  // Default columns based on timeMode
   const getDefaultColumns = (isGoalkeeper) => {
     const baseColumns = [
       { name: "number", label: "#", width: "50px" },
       { name: "name", label: "Name", width: "30%" },
     ];
 
-    baseColumns.push(
-      { name: "shots", label: "Sh", cellClassName: "text-end" },
-      { name: "goals", label: "G", cellClassName: "text-end" },
-      { name: "assists", label: "A", cellClassName: "text-end" }
-    );
+    if (isBeforeStart) return baseColumns;
+
+    if (isGoalkeeper) {
+      baseColumns.push(
+        { name: "saves", label: "Saves", cellClassName: "text-end" },
+        { name: "goalsAgainst", label: "GA", cellClassName: "text-end" },
+        { name: "plusMinus", label: "+/-" }
+      );
+    } else {
+      baseColumns.push(
+        { name: "shots", label: "Sh", cellClassName: "text-end" },
+        { name: "goals", label: "G", cellClassName: "text-end" },
+        { name: "assists", label: "A", cellClassName: "text-end" },
+        { name: "plusMinus", label: "+/-" }
+      );
+    }
 
     if (timeMode === "onField") {
       return [
@@ -126,69 +235,6 @@ function PlayersTable({
       ? null
       : getActionButton || defaultGetActionButton;
 
-  const players = useMemo(
-    () =>
-      allPlayers
-        .filter((p) =>
-          ["dressed", "starter", "goalkeeper"].includes(p.gameStatus)
-        )
-        .filter(filterPlayers)
-        .map((player) => {
-          // Calculate times based on mode
-          let totalTime = 0;
-          let secondaryTime = 0;
-
-          if (timeMode === "onField") {
-            totalTime = calculateTotalTimeOnField(player, gameTime);
-            secondaryTime = calculateCurrentTimeOnField(player, gameTime);
-          } else if (timeMode === "onBench") {
-            totalTime = calculateTotalTimeOnField(player, gameTime);
-            secondaryTime = calculateCurrentTimeOffField(player, gameTime);
-          }
-
-          const rowData = {
-            id: player.id,
-            playerGameId: player.playerGameId,
-            number: player.jerseyNumber ?? "—",
-            name: player.fullName || `${player.firstName} ${player.lastName}`,
-            position: player.position,
-            shots: player.shots || 0,
-            goals: player.goals || 0,
-            assists: player.assists || 0,
-            saves: player.saves || 0,
-            goalsAgainst: player.goalsAgainst || 0,
-            yellowCards: player.yellowCards || 0,
-            redCards: player.redCards || 0,
-            fieldStatus: player.fieldStatus,
-            gameStatus: player.gameStatus,
-            subStatus: player.subStatus,
-            pendingSubId: player.outs?.find((out) => out.gameTime === null)
-              ?.subId,
-            isGoalkeeper: player.gameStatus === "goalkeeper",
-          };
-
-          // Add time columns based on mode
-          if (timeMode === "onField") {
-            rowData.timeIn = formatSecondsToMmss(totalTime);
-            rowData.timeInRecent = formatSecondsToMmss(secondaryTime);
-          } else if (timeMode === "onBench") {
-            rowData.timeIn = formatSecondsToMmss(totalTime);
-            rowData.timeOut = formatSecondsToMmss(secondaryTime);
-          }
-
-          return rowData;
-        }),
-    [
-      allPlayers,
-      filterPlayers,
-      gameTime,
-      calculateTotalTimeOnField,
-      calculateCurrentTimeOnField,
-      calculateCurrentTimeOffField,
-      timeMode,
-    ]
-  );
-
   // Determine if we need special columns (if table has goalkeepers)
   const hasGoalkeepers = players.some((p) => p.isGoalkeeper);
   const hasFieldPlayers = players.some((p) => !p.isGoalkeeper);
@@ -198,7 +244,6 @@ function PlayersTable({
     customColumns ||
     (() => {
       // If mixed, use field player columns (more common)
-      // Individual tables can still override with custom columns
       if (hasGoalkeepers && !hasFieldPlayers) {
         return getDefaultColumns(true);
       }

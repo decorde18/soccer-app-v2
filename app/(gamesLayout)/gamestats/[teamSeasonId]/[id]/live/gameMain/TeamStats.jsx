@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useMemo, useState } from "react";
 import useGameStore from "@/stores/gameStore";
 import useGamePlayersStore from "@/stores/gamePlayersStore";
 import useGameEventsStore from "@/stores/gameEventsStore";
@@ -7,31 +7,39 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import Input from "@/components/ui/Input";
+import { formatSecondsToMmss } from "@/lib/dateTimeUtils";
 
 function TeamStats() {
   const game = useGameStore((s) => s.game);
   const players = useGamePlayersStore((s) => s.players);
 
-  // Use store state
-  const gameEvents = useGameEventsStore((s) => s.gameEvents);
-  const teamStats = useGameEventsStore((s) => s.teamStats);
-  const isLoading = useGameEventsStore((s) => s.isLoadingEvents);
+  // Get team stats directly from game store
+  const teamStats = game?.teamStatTotals || {
+    corner: { us: 0, them: 0 },
+    offside: { us: 0, them: 0 },
+    foul: { us: 0, them: 0 },
+    shots: 0,
+    saves: 0,
+  };
+
+  const isRecording = useGameEventsStore((s) => s.isRecording);
 
   // Use store methods
-  const fetchGameEvents = useGameEventsStore((s) => s.fetchGameEvents);
   const deleteEvent = useGameEventsStore((s) => s.deleteEvent);
-  const recordEvent = useGameEventsStore((s) => s.recordEvent);
-  const recordOpponentEvent = useGameEventsStore((s) => s.recordOpponentEvent);
+  const recordPlayerAction = useGameEventsStore((s) => s.recordPlayerAction);
   const recordTeamEvent = useGameEventsStore((s) => s.recordTeamEvent);
+  const recordGoal = useGameEventsStore((s) => s.recordGoal);
+  const recordCard = useGameEventsStore((s) => s.recordCard);
   const recordPenaltyKick = useGameEventsStore((s) => s.recordPenaltyKick);
-  // const refreshPlayerStats = useGameEventsStore((s) => s.refreshPlayerStats);
 
   // Modal states
   const [showTeamSelectModal, setShowTeamSelectModal] = useState(false);
   const [showMajorEventModal, setShowMajorEventModal] = useState(false);
   const [showShotModal, setShowShotModal] = useState(false);
+  const [showEditMajorEventModal, setShowEditMajorEventModal] = useState(false);
   const [selectedMajorEventType, setSelectedMajorEventType] = useState(null);
-  const [selectedTeam, setSelectedTeam] = useState(null); // 'us' or 'them'
+  const [selectedTeam, setSelectedTeam] = useState(null);
+  const [editingEvent, setEditingEvent] = useState(null);
 
   // Event form states
   const [selectedPlayer, setSelectedPlayer] = useState("");
@@ -42,21 +50,6 @@ function TeamStats() {
   const [goalTypes, setGoalTypes] = useState([]);
   const [penaltyResult, setPenaltyResult] = useState("");
   const [stopClock, setStopClock] = useState(false);
-
-  // Optimistic update state - temporarily increment while waiting for server
-  const [optimisticUpdates, setOptimisticUpdates] = useState({
-    corner: { us: 0, them: 0 },
-    offside: { us: 0, them: 0 },
-    foul: { us: 0, them: 0 },
-    shot: 0,
-    save: 0,
-  });
-
-  useEffect(() => {
-    if (game?.game_id) {
-      fetchGameEvents(game.game_id);
-    }
-  }, [game?.game_id]);
 
   const availablePlayers = useMemo(() => {
     return players
@@ -79,75 +72,134 @@ function TeamStats() {
     { value: "own_goal", label: "Own Goal" },
   ];
 
-  // Merge store stats with optimistic updates for display
-  const displayStats = {
-    corner: {
-      us: teamStats.corner.us + optimisticUpdates.corner.us,
-      them: teamStats.corner.them + optimisticUpdates.corner.them,
-    },
-    offside: {
-      us: teamStats.offside.us + optimisticUpdates.offside.us,
-      them: teamStats.offside.them + optimisticUpdates.offside.them,
-    },
-    foul: {
-      us: teamStats.foul.us + optimisticUpdates.foul.us,
-      them: teamStats.foul.them + optimisticUpdates.foul.them,
-    },
-    shot: teamStats.shot + optimisticUpdates.shot,
-    save: teamStats.save + optimisticUpdates.save,
-  };
+  const majorEventTypes = [
+    { value: "goal", label: "Goal", variant: "success" },
+    { value: "card", label: "Card", variant: "danger" },
+    { value: "penalty", label: "Penalty Kick", variant: "outline" },
+    { value: "injury", label: "Injury", variant: "warning" },
+    { value: "weather", label: "Weather Delay", variant: "outline" },
+    { value: "other", label: "Other Stoppage", variant: "outline" },
+  ];
 
-  // Optimistic update helpers
-  const addOptimisticUpdate = (statType, team, increment = 1) => {
-    setOptimisticUpdates((prev) => ({
-      ...prev,
-      [statType]: team
-        ? { ...prev[statType], [team]: prev[statType][team] + increment }
-        : prev[statType] + increment,
-    }));
-  };
+  // Get all recent events unified and sorted
+  const recentEvents = useMemo(() => {
+    if (!game) return [];
 
-  const clearOptimisticUpdate = (statType, team, decrement = 1) => {
-    setOptimisticUpdates((prev) => ({
-      ...prev,
-      [statType]: team
-        ? {
-            ...prev[statType],
-            [team]: Math.max(0, prev[statType][team] - decrement),
-          }
-        : Math.max(0, prev[statType] - decrement),
-    }));
-  };
+    const events = [];
+    const teamSeasonId = game.isHome
+      ? game.home_team_season_id
+      : game.away_team_season_id;
 
-  const clearAllOptimisticUpdates = () => {
-    setOptimisticUpdates({
-      corner: { us: 0, them: 0 },
-      offside: { us: 0, them: 0 },
-      foul: { us: 0, them: 0 },
-      shot: 0,
-      save: 0,
+    // Major events (goals, cards, penalties, injuries, etc)
+    game.gameEventsMajor?.forEach((e) => {
+      let label = e.event_type.replace(/_/g, " ");
+      let details = null;
+      let playerInfo = null;
+
+      // Find associated goal
+      const goal = game.gameEventsGoals?.find((g) => g.major_event_id === e.id);
+      if (goal) {
+        const scorer = players.find(
+          (p) => p.playerGameId === goal.scorer_player_game_id
+        );
+        if (scorer) {
+          playerInfo = `#${scorer.jerseyNumber} ${scorer.fullName}`;
+        } else if (goal.opponent_jersey_number) {
+          playerInfo = `#${goal.opponent_jersey_number}`;
+        }
+        details = goal.team_season_id === teamSeasonId ? "Us" : "Them";
+      }
+
+      // Find associated card
+      const card = game.gameEventsDiscipline?.find(
+        (d) => d.major_event_id === e.id
+      );
+      if (card) {
+        label = `${card.card_type} card`;
+        const cardPlayer = players.find(
+          (p) => p.playerGameId === card.player_game_id
+        );
+        if (cardPlayer) {
+          playerInfo = `#${cardPlayer.jerseyNumber} ${cardPlayer.fullName}`;
+        }
+      }
+
+      // Find associated penalty
+      const penalty = game.gameEventsPenalties?.find(
+        (p) => p.major_event_id === e.id
+      );
+      if (penalty) {
+        const shooter = players.find(
+          (p) => p.playerGameId === penalty.shooter_player_game_id
+        );
+        if (shooter) {
+          playerInfo = `#${shooter.jerseyNumber} ${shooter.fullName}`;
+        }
+        details = penalty.outcome;
+      }
+
+      events.push({
+        id: e.id,
+        type: "major",
+        eventType: e.event_type,
+        label,
+        gameTime: e.game_time,
+        period: e.period,
+        clockStopped: e.clock_should_run === 0,
+        playerInfo,
+        details: details || e.details,
+        canEdit: true,
+        rawEvent: e,
+      });
     });
-  };
 
-  // Quick stat handlers with optimistic updates
+    // Team events
+    game.gameEventsTeam?.forEach((e) => {
+      const isUs = e.team_season_id === teamSeasonId;
+      events.push({
+        id: e.id,
+        type: "team",
+        eventType: e.event_type,
+        label: e.event_type.replace(/_/g, " "),
+        gameTime: e.game_time,
+        period: e.period,
+        clockStopped: false,
+        details: isUs ? "Us" : "Them",
+        canEdit: false,
+      });
+    });
+
+    // Player actions
+    game.playerActions?.forEach((e) => {
+      const player = players.find((p) => p.playerGameId === e.player_game_id);
+      events.push({
+        id: e.id,
+        type: "player_action",
+        eventType: e.event_type,
+        label: e.event_type.replace(/_/g, " "),
+        gameTime: e.game_time,
+        period: e.period,
+        clockStopped: false,
+        playerInfo: player
+          ? `#${player.jerseyNumber} ${player.fullName}`
+          : null,
+        canEdit: false,
+      });
+    });
+
+    // Sort by game time descending (most recent first)
+    return events.sort((a, b) => b.gameTime - a.gameTime).slice(0, 10);
+  }, [game, players]);
+
+  // Quick stat handlers
   const handleQuickStat = async (statType, forYourTeam) => {
-    const team = forYourTeam ? "us" : "them";
-
-    // Optimistic update
-    addOptimisticUpdate(statType, team);
-
     try {
       await recordTeamEvent({
-        type: statType === "foul" ? "foul_committed" : statType,
+        eventType: statType,
         forYourTeam,
       });
-
-      // Store automatically refreshes, clear optimistic update
-      clearOptimisticUpdate(statType, team);
     } catch (error) {
       console.error("Error recording stat:", error);
-      // Rollback optimistic update on error
-      clearOptimisticUpdate(statType, team);
       alert("Failed to record stat. Please try again.");
     }
   };
@@ -159,20 +211,13 @@ function TeamStats() {
       return;
     }
 
-    // Optimistic update
-    addOptimisticUpdate("save");
-
     try {
-      await recordEvent({
+      await recordPlayerAction({
         playerGameId: currentGK.playerGameId,
-        category: "save",
-        type: "save",
+        eventType: "save",
       });
-
-      clearOptimisticUpdate("save");
     } catch (error) {
       console.error("Error recording save:", error);
-      clearOptimisticUpdate("save");
       alert("Failed to record save. Please try again.");
     }
   };
@@ -182,22 +227,15 @@ function TeamStats() {
   };
 
   const handleShotPlayerSelect = async (playerGameId) => {
-    // Optimistic update
-    addOptimisticUpdate("shot");
-
     setShowShotModal(false);
 
     try {
-      await recordEvent({
+      await recordPlayerAction({
         playerGameId: parseInt(playerGameId),
-        category: "shot",
-        type: "shot_on_target",
+        eventType: "shot_on_target",
       });
-
-      clearOptimisticUpdate("shot");
     } catch (error) {
       console.error("Error recording shot:", error);
-      clearOptimisticUpdate("shot");
       alert("Failed to record shot. Please try again.");
     }
   };
@@ -210,7 +248,15 @@ function TeamStats() {
   const handleSelectMajorEvent = (eventType) => {
     setSelectedMajorEventType(eventType);
     setShowMajorEventModal(false);
-    setShowTeamSelectModal(true);
+
+    // Events that need team selection
+    if (["goal", "card", "penalty"].includes(eventType)) {
+      setShowTeamSelectModal(true);
+    } else {
+      // Events that don't need team selection (injury, weather, other)
+      setSelectedTeam("neutral");
+      resetForm();
+    }
   };
 
   const handleTeamSelect = (team) => {
@@ -233,6 +279,7 @@ function TeamStats() {
   const handleCloseEventModal = () => {
     setSelectedMajorEventType(null);
     setSelectedTeam(null);
+    setEditingEvent(null);
     resetForm();
   };
 
@@ -251,10 +298,8 @@ function TeamStats() {
             return;
           }
 
-          await recordEvent({
-            playerGameId: parseInt(selectedPlayer),
-            category: "goal",
-            type: "goal",
+          await recordGoal({
+            scorerPlayerGameId: parseInt(selectedPlayer),
             assistPlayerGameId: selectedAssist
               ? parseInt(selectedAssist)
               : null,
@@ -263,9 +308,10 @@ function TeamStats() {
           });
         } else {
           // Opponent goal
-          await recordOpponentEvent({
-            category: "goal",
-            type: "goal",
+          await recordGoal({
+            teamSeasonId: game.isHome
+              ? game.away_team_season_id
+              : game.home_team_season_id,
             opponentJerseyNumber: opponentJerseyNumber || null,
             details: description || null,
           });
@@ -278,15 +324,13 @@ function TeamStats() {
           }
 
           const cardType = cardReason.toLowerCase().includes("red")
-            ? "red_card"
-            : "yellow_card";
+            ? "red"
+            : "yellow";
 
-          await recordEvent({
+          await recordCard({
             playerGameId: parseInt(selectedPlayer),
-            category: "card",
-            type: cardType,
+            cardType,
             cardReason: cardReason || null,
-            details: description || null,
           });
         } else {
           alert("Opponent cards are not tracked in detail");
@@ -305,56 +349,46 @@ function TeamStats() {
           }
 
           await recordPenaltyKick({
-            playerGameId: parseInt(selectedPlayer),
-            result: penaltyResult,
+            shooterPlayerGameId: parseInt(selectedPlayer),
+            outcome: penaltyResult,
             details: description || null,
           });
         } else {
           // Opponent penalty
           if (penaltyResult === "goal") {
-            await recordOpponentEvent({
-              category: "penalty",
-              type: "goal",
+            await recordGoal({
+              teamSeasonId: game.isHome
+                ? game.away_team_season_id
+                : game.home_team_season_id,
               opponentJerseyNumber: opponentJerseyNumber || null,
+              goalTypes: ["penalty"],
               details: description || null,
             });
-          } else if (penaltyResult === "save") {
+          } else if (penaltyResult === "saved") {
             const currentGK = players.find(
               (p) => p.gameStatus === "goalkeeper"
             );
             if (currentGK) {
-              await recordEvent({
+              await recordPlayerAction({
                 playerGameId: currentGK.playerGameId,
-                category: "penalty",
-                type: "save",
-                details: description || null,
+                eventType: "save",
               });
             }
           }
         }
-      } else if (selectedMajorEventType === "injury") {
-        if (selectedTeam === "us" && !selectedPlayer) {
-          alert("Please select a player");
-          return;
-        }
+      } else if (
+        ["injury", "weather", "other"].includes(selectedMajorEventType)
+      ) {
+        // Create a simple major event with optional clock stop
+        const gameStore = useGameStore.getState();
+        const gameTime = gameStore.getGameTime();
+        const period = gameStore.getCurrentPeriodNumber();
 
-        if (selectedTeam === "us") {
-          await recordEvent({
-            playerGameId: parseInt(selectedPlayer),
-            category: "injury",
-            type: "injury",
-            details: description || null,
-            clockShouldRun: stopClock ? 0 : 1,
-          });
-        }
-      } else if (selectedMajorEventType === "stoppage") {
-        // Handle via gameStore stoppage methods instead
-        alert("Use the game control modal to manage stoppages");
-        return;
+        await gameStore.startStoppage(
+          description || "",
+          selectedMajorEventType
+        );
       }
-
-      // Clear all optimistic updates after successful submit
-      clearAllOptimisticUpdates();
 
       handleCloseEventModal();
     } catch (error) {
@@ -363,20 +397,31 @@ function TeamStats() {
     }
   };
 
-  const handleDeleteStat = async (statId) => {
-    if (!confirm("Delete this stat?")) return;
+  const handleDeleteEvent = async (event) => {
+    if (!confirm(`Delete this ${event.label}?`)) return;
 
     try {
-      await deleteEvent(statId);
-      // Store automatically refreshes
+      // Cascade delete for major events
+      if (event.type === "major") {
+        await deleteEvent(event.id, "major", true); // true = cascade
+      } else {
+        await deleteEvent(event.id, event.type);
+      }
     } catch (error) {
-      console.error("Error deleting stat:", error);
-      alert("Failed to delete stat");
+      console.error("Error deleting event:", error);
+      alert("Failed to delete event");
     }
   };
 
-  if (isLoading) {
-    return <div className='text-center text-muted py-4'>Loading stats...</div>;
+  const handleEditEvent = (event) => {
+    if (!event.canEdit) return;
+
+    setEditingEvent(event);
+    setShowEditMajorEventModal(true);
+  };
+
+  if (!game) {
+    return <div className='text-center text-muted py-4'>No active game</div>;
   }
 
   return (
@@ -388,8 +433,9 @@ function TeamStats() {
           variant='primary'
           className='w-full'
           size='md'
+          disabled={isRecording}
         >
-          Major Event
+          {isRecording ? "Recording..." : "Major Event"}
         </Button>
       </div>
 
@@ -401,22 +447,24 @@ function TeamStats() {
           <div className='flex items-center gap-3'>
             <button
               onClick={() => handleQuickStat("corner", true)}
-              className='w-7 h-7 flex items-center justify-center rounded bg-primary text-white hover:bg-accent-hover transition-colors'
+              disabled={isRecording}
+              className='w-7 h-7 flex items-center justify-center rounded bg-primary text-white hover:bg-accent-hover transition-colors disabled:opacity-50'
             >
               +
             </button>
             <div className='flex items-center gap-2 min-w-[50px] justify-center'>
               <span className='text-sm font-bold text-primary'>
-                {displayStats.corner.us}
+                {teamStats.corner?.us || 0}
               </span>
               <span className='text-xs text-muted'>-</span>
               <span className='text-sm font-bold text-accent'>
-                {displayStats.corner.them}
+                {teamStats.corner?.them || 0}
               </span>
             </div>
             <button
               onClick={() => handleQuickStat("corner", false)}
-              className='w-7 h-7 flex items-center justify-center rounded bg-accent text-white hover:bg-error-hover transition-colors'
+              disabled={isRecording}
+              className='w-7 h-7 flex items-center justify-center rounded bg-accent text-white hover:bg-error-hover transition-colors disabled:opacity-50'
             >
               +
             </button>
@@ -429,22 +477,24 @@ function TeamStats() {
           <div className='flex items-center gap-3'>
             <button
               onClick={() => handleQuickStat("offside", true)}
-              className='w-7 h-7 flex items-center justify-center rounded bg-primary text-white hover:bg-accent-hover transition-colors'
+              disabled={isRecording}
+              className='w-7 h-7 flex items-center justify-center rounded bg-primary text-white hover:bg-accent-hover transition-colors disabled:opacity-50'
             >
               +
             </button>
             <div className='flex items-center gap-2 min-w-[50px] justify-center'>
               <span className='text-sm font-bold text-primary'>
-                {displayStats.offside.us}
+                {teamStats.offside?.us || 0}
               </span>
               <span className='text-xs text-muted'>-</span>
               <span className='text-sm font-bold text-accent'>
-                {displayStats.offside.them}
+                {teamStats.offside?.them || 0}
               </span>
             </div>
             <button
               onClick={() => handleQuickStat("offside", false)}
-              className='w-7 h-7 flex items-center justify-center rounded bg-accent text-white hover:bg-error-hover transition-colors'
+              disabled={isRecording}
+              className='w-7 h-7 flex items-center justify-center rounded bg-accent text-white hover:bg-error-hover transition-colors disabled:opacity-50'
             >
               +
             </button>
@@ -457,22 +507,24 @@ function TeamStats() {
           <div className='flex items-center gap-3'>
             <button
               onClick={() => handleQuickStat("foul", true)}
-              className='w-7 h-7 flex items-center justify-center rounded bg-primary text-white hover:bg-accent-hover transition-colors'
+              disabled={isRecording}
+              className='w-7 h-7 flex items-center justify-center rounded bg-primary text-white hover:bg-accent-hover transition-colors disabled:opacity-50'
             >
               +
             </button>
             <div className='flex items-center gap-2 min-w-[50px] justify-center'>
               <span className='text-sm font-bold text-primary'>
-                {displayStats.foul.us}
+                {teamStats.foul?.us || 0}
               </span>
               <span className='text-xs text-muted'>-</span>
               <span className='text-sm font-bold text-accent'>
-                {displayStats.foul.them}
+                {teamStats.foul?.them || 0}
               </span>
             </div>
             <button
               onClick={() => handleQuickStat("foul", false)}
-              className='w-7 h-7 flex items-center justify-center rounded bg-accent text-white hover:bg-error-hover transition-colors'
+              disabled={isRecording}
+              className='w-7 h-7 flex items-center justify-center rounded bg-accent text-white hover:bg-error-hover transition-colors disabled:opacity-50'
             >
               +
             </button>
@@ -483,11 +535,16 @@ function TeamStats() {
         <div className='flex items-center justify-between py-2 px-3 bg-surface rounded-lg border border-border'>
           <span className='text-xs font-medium text-text'>Shots</span>
           <div className='flex items-center gap-3'>
-            <Button onClick={handleShotClick} variant='outline' size='sm'>
+            <Button
+              onClick={handleShotClick}
+              variant='outline'
+              size='sm'
+              disabled={isRecording}
+            >
               +
             </Button>
             <span className='text-sm font-bold text-primary min-w-[30px] text-center'>
-              {displayStats.shot}
+              {teamStats.shots || 0}
             </span>
           </div>
         </div>
@@ -496,11 +553,16 @@ function TeamStats() {
         <div className='flex items-center justify-between py-2 px-3 bg-surface rounded-lg border border-border'>
           <span className='text-xs font-medium text-text'>Saves</span>
           <div className='flex items-center gap-3'>
-            <Button onClick={handleSaveClick} variant='outline' size='sm'>
+            <Button
+              onClick={handleSaveClick}
+              variant='outline'
+              size='sm'
+              disabled={isRecording}
+            >
               +
             </Button>
             <span className='text-sm font-bold text-primary min-w-[30px] text-center'>
-              {displayStats.save}
+              {teamStats.saves || 0}
             </span>
           </div>
         </div>
@@ -512,70 +574,74 @@ function TeamStats() {
           Recent Events
         </h3>
         <div className='space-y-1.5 h-[105px] overflow-y-auto pr-1'>
-          {gameEvents.length === 0 ? (
+          {recentEvents.length === 0 ? (
             <div className='text-xs text-muted text-center py-4 bg-surface rounded border border-border'>
               No events yet
             </div>
           ) : (
-            gameEvents
-              .slice()
-              .reverse()
-              .map((stat) => {
-                const player = players.find(
-                  (p) => p.playerGameId === stat.player_game_id
-                );
-                const yourTeamSeasonId = game.isHome
-                  ? game.home_team_season_id
-                  : game.away_team_season_id;
-                const isOurTeam = stat.team_season_id === yourTeamSeasonId;
-
-                return (
-                  <div
-                    key={stat.id}
-                    className='flex items-center gap-2 p-2 bg-surface rounded-lg border border-border'
-                  >
-                    <div className='flex-1 min-w-0'>
-                      <div className='flex items-center gap-2'>
-                        <span className='text-xs font-semibold text-text capitalize'>
-                          {stat.event_type.replace("_", " ")}
-                        </span>
-                        {!player && (
-                          <span
-                            className={`px-1.5 py-0.5 text-xs font-medium rounded ${
-                              isOurTeam
-                                ? "bg-primary text-white"
-                                : "bg-accent text-white"
-                            }`}
-                          >
-                            {isOurTeam ? "Us" : "Them"}
-                          </span>
-                        )}
-                        {stat.opponent_jersey_number && (
-                          <span className='text-xs text-muted'>
-                            #{stat.opponent_jersey_number}
-                          </span>
-                        )}
-                      </div>
-                      {player && (
-                        <div className='text-xs text-muted truncate mt-0.5'>
-                          #{player.jerseyNumber} {player.fullName}
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => handleDeleteStat(stat.id)}
-                      className='w-6 h-6 flex items-center justify-center rounded bg-danger text-white hover:bg-error-hover transition-colors flex-shrink-0 text-sm font-bold'
-                    >
-                      ×
-                    </button>
+            recentEvents.map((event) => (
+              <div
+                key={`${event.type}-${event.id}`}
+                className='flex items-center gap-2 p-2 bg-surface rounded-lg border border-border'
+              >
+                <div className='flex-1 min-w-0'>
+                  <div className='flex items-center gap-2 flex-wrap'>
+                    <span className='text-xs font-semibold text-text capitalize'>
+                      {event.label}
+                    </span>
+                    {event.clockStopped && (
+                      <span className='px-1.5 py-0.5 text-xs font-medium rounded bg-red-500 text-white'>
+                        ⏸
+                      </span>
+                    )}
+                    {event.details && (
+                      <span
+                        className={`px-1.5 py-0.5 text-xs font-medium rounded ${
+                          event.details === "Us"
+                            ? "bg-primary text-white"
+                            : event.details === "Them"
+                            ? "bg-accent text-white"
+                            : "bg-gray-500 text-white"
+                        }`}
+                      >
+                        {event.details}
+                      </span>
+                    )}
+                    <span className='text-xs text-muted'>
+                      {formatSecondsToMmss(event.gameTime)}
+                    </span>
                   </div>
-                );
-              })
+                  {event.playerInfo && (
+                    <div className='text-xs text-muted truncate mt-0.5'>
+                      {event.playerInfo}
+                    </div>
+                  )}
+                </div>
+                <div className='flex gap-1 flex-shrink-0'>
+                  {event.canEdit && (
+                    <button
+                      onClick={() => handleEditEvent(event)}
+                      disabled={isRecording}
+                      className='w-6 h-6 flex items-center justify-center rounded bg-primary text-white hover:bg-accent-hover transition-colors text-xs font-bold disabled:opacity-50'
+                    >
+                      ✎
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDeleteEvent(event)}
+                    disabled={isRecording}
+                    className='w-6 h-6 flex items-center justify-center rounded bg-danger text-white hover:bg-error-hover transition-colors text-sm font-bold disabled:opacity-50'
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            ))
           )}
         </div>
       </div>
 
-      {/* Modals remain the same... */}
+      {/* Modals */}
       {/* Major Event Selection Modal */}
       <Modal
         isOpen={showMajorEventModal}
@@ -583,34 +649,16 @@ function TeamStats() {
         title='Select Major Event'
       >
         <div className='space-y-2'>
-          <Button
-            onClick={() => handleSelectMajorEvent("goal")}
-            variant='success'
-            className='w-full'
-          >
-            Goal
-          </Button>
-          <Button
-            onClick={() => handleSelectMajorEvent("card")}
-            variant='danger'
-            className='w-full'
-          >
-            Card
-          </Button>
-          <Button
-            onClick={() => handleSelectMajorEvent("penalty")}
-            variant='outline'
-            className='w-full'
-          >
-            Penalty Kick
-          </Button>
-          <Button
-            onClick={() => handleSelectMajorEvent("injury")}
-            variant='outline'
-            className='w-full'
-          >
-            Injury
-          </Button>
+          {majorEventTypes.map((eventType) => (
+            <Button
+              key={eventType.value}
+              onClick={() => handleSelectMajorEvent(eventType.value)}
+              variant={eventType.variant}
+              className='w-full'
+            >
+              {eventType.label}
+            </Button>
+          ))}
           <Button
             onClick={() => setShowMajorEventModal(false)}
             variant='outline'
@@ -657,47 +705,54 @@ function TeamStats() {
         isOpen={selectedMajorEventType && selectedTeam}
         onClose={handleCloseEventModal}
         title={`${
-          selectedTeam === "us" ? "OUR" : "OPPONENT"
+          selectedTeam === "us"
+            ? "OUR"
+            : selectedTeam === "them"
+            ? "OPPONENT"
+            : ""
         } ${selectedMajorEventType?.toUpperCase()}`}
         size='lg'
       >
         <div className='space-y-4'>
-          {/* Team Toggle */}
-          <div className='flex items-center justify-center gap-2 p-2 bg-surface rounded-lg'>
-            <button
-              onClick={() => setSelectedTeam("us")}
-              className={`px-4 py-2 rounded font-medium transition-colors ${
-                selectedTeam === "us"
-                  ? "bg-primary text-white"
-                  : "bg-white text-text hover:bg-gray-100"
-              }`}
-            >
-              Our Team
-            </button>
-            <button
-              onClick={() => setSelectedTeam("them")}
-              className={`px-4 py-2 rounded font-medium transition-colors ${
-                selectedTeam === "them"
-                  ? "bg-accent text-white"
-                  : "bg-white text-text hover:bg-gray-100"
-              }`}
-            >
-              Opponent
-            </button>
-          </div>
+          {/* Team Toggle - only for goal/card/penalty */}
+          {["goal", "card", "penalty"].includes(selectedMajorEventType) && (
+            <div className='flex items-center justify-center gap-2 p-2 bg-surface rounded-lg'>
+              <button
+                onClick={() => setSelectedTeam("us")}
+                className={`px-4 py-2 rounded font-medium transition-colors ${
+                  selectedTeam === "us"
+                    ? "bg-primary text-white"
+                    : "bg-white text-text hover:bg-gray-100"
+                }`}
+              >
+                Our Team
+              </button>
+              <button
+                onClick={() => setSelectedTeam("them")}
+                className={`px-4 py-2 rounded font-medium transition-colors ${
+                  selectedTeam === "them"
+                    ? "bg-accent text-white"
+                    : "bg-white text-text hover:bg-gray-100"
+                }`}
+              >
+                Opponent
+              </button>
+            </div>
+          )}
 
           {/* Player Selection (Our Team) */}
-          {selectedTeam === "us" && selectedMajorEventType !== "stoppage" && (
-            <Select
-              label='Player'
-              value={selectedPlayer}
-              onChange={(e) => setSelectedPlayer(e.target.value)}
-              options={[
-                { value: "", label: "Select player..." },
-                ...availablePlayers,
-              ]}
-            />
-          )}
+          {selectedTeam === "us" &&
+            ["goal", "card", "penalty"].includes(selectedMajorEventType) && (
+              <Select
+                label='Player'
+                value={selectedPlayer}
+                onChange={(e) => setSelectedPlayer(e.target.value)}
+                options={[
+                  { value: "", label: "Select player..." },
+                  ...availablePlayers,
+                ]}
+              />
+            )}
 
           {/* Opponent Jersey Number */}
           {selectedTeam === "them" && (
@@ -803,21 +858,6 @@ function TeamStats() {
             placeholder='Additional details...'
           />
 
-          {/* Clock Control */}
-          <div className='flex items-center gap-3 p-3 bg-surface rounded-lg'>
-            <label className='flex items-center gap-2 cursor-pointer flex-1'>
-              <input
-                type='checkbox'
-                checked={stopClock}
-                onChange={(e) => setStopClock(e.target.checked)}
-                className='w-4 h-4'
-              />
-              <span className='text-sm font-medium'>
-                Stop clock for this event
-              </span>
-            </label>
-          </div>
-
           {/* Submit */}
           <div className='flex gap-2 pt-4'>
             <Button
@@ -862,6 +902,51 @@ function TeamStats() {
             Cancel
           </Button>
         </div>
+      </Modal>
+
+      {/* Edit Major Event Modal */}
+      <Modal
+        isOpen={showEditMajorEventModal}
+        onClose={() => {
+          setShowEditMajorEventModal(false);
+          setEditingEvent(null);
+        }}
+        title={`Edit ${editingEvent?.label || "Event"}`}
+        size='lg'
+      >
+        {editingEvent && (
+          <div className='space-y-4'>
+            <div className='bg-surface p-3 rounded-lg'>
+              <div className='text-sm text-muted mb-1'>Current Details</div>
+              <div className='text-sm font-medium'>
+                Time: {formatSecondsToMmss(editingEvent.gameTime)} | Period:{" "}
+                {editingEvent.period}
+              </div>
+              {editingEvent.playerInfo && (
+                <div className='text-sm'>{editingEvent.playerInfo}</div>
+              )}
+              {editingEvent.details && (
+                <div className='text-sm'>{editingEvent.details}</div>
+              )}
+            </div>
+
+            <div className='text-sm text-muted'>
+              Note: Full editing of major events coming soon. For now, you can
+              delete and re-create the event if needed.
+            </div>
+
+            <Button
+              onClick={() => {
+                setShowEditMajorEventModal(false);
+                setEditingEvent(null);
+              }}
+              variant='outline'
+              className='w-full'
+            >
+              Close
+            </Button>
+          </div>
+        )}
       </Modal>
     </div>
   );

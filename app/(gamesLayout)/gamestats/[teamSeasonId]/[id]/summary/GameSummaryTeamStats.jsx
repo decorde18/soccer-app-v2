@@ -1,7 +1,7 @@
 function GameSummaryTeamStats({
   teamStats,
   teamSeasonId,
-  playerActions,
+
   majorEvents,
 }) {
   // Calculate card counts from major events
@@ -41,16 +41,14 @@ function GameSummaryTeamStats({
           <div className='text-center p-2 bg-background rounded-lg'>
             <div className='text-xs text-muted mb-1'>Shots</div>
             <div className='text-2xl font-bold text-primary'>
-              {playerActions?.filter((e) => e.event_type === "shot_on_target")
-                .length || 0}
+              {teamStats?.shot_on_target || 0}
             </div>
           </div>
 
           <div className='text-center p-2 bg-background rounded-lg'>
             <div className='text-xs text-muted mb-1'>Saves</div>
             <div className='text-2xl font-bold text-primary'>
-              {playerActions?.filter((e) => e.event_type === "save").length ||
-                0}
+              {teamStats?.save || 0}
             </div>
           </div>
 
@@ -68,20 +66,10 @@ function GameSummaryTeamStats({
           <div className='text-center p-2 bg-background rounded-lg'>
             <div className='text-xs text-muted mb-1'>Offsides</div>
             <div className='text-lg font-bold'>
-              <span className='text-primary'>
-                {teamStats?.filter(
-                  (e) =>
-                    e.team_season_id == teamSeasonId &&
-                    e.event_type === "offside"
-                ).length || 0}
-              </span>
+              <span className='text-primary'>{teamStats?.offside.us || 0}</span>
               <span className='text-muted mx-1'>-</span>
               <span className='text-accent'>
-                {teamStats?.filter(
-                  (e) =>
-                    e.team_season_id != teamSeasonId &&
-                    e.event_type === "offside"
-                ).length || 0}
+                {teamStats?.offside.them || 0}
               </span>
             </div>
           </div>
@@ -89,42 +77,18 @@ function GameSummaryTeamStats({
           <div className='text-center p-2 bg-background rounded-lg'>
             <div className='text-xs text-muted mb-1'>Corners</div>
             <div className='text-lg font-bold'>
-              <span className='text-primary'>
-                {teamStats?.filter(
-                  (e) =>
-                    e.team_season_id == teamSeasonId &&
-                    e.event_type === "corner"
-                ).length || 0}
-              </span>
+              <span className='text-primary'>{teamStats?.corner.us || 0}</span>
               <span className='text-muted mx-1'>-</span>
-              <span className='text-accent'>
-                {teamStats?.filter(
-                  (e) =>
-                    e.team_season_id != teamSeasonId &&
-                    e.event_type === "corner"
-                ).length || 0}
-              </span>
+              <span className='text-accent'>{teamStats?.corner.them || 0}</span>
             </div>
           </div>
 
           <div className='text-center p-2 bg-background rounded-lg'>
             <div className='text-xs text-muted mb-1'>Fouls</div>
             <div className='text-lg font-bold'>
-              <span className='text-primary'>
-                {teamStats?.filter(
-                  (e) =>
-                    e.team_season_id == teamSeasonId &&
-                    e.event_type === "foul_committed"
-                ).length || 0}
-              </span>
+              <span className='text-primary'>{teamStats?.foul.us || 0}</span>
               <span className='text-muted mx-1'>-</span>
-              <span className='text-accent'>
-                {teamStats?.filter(
-                  (e) =>
-                    e.team_season_id != teamSeasonId &&
-                    e.event_type === "foul_committed"
-                ).length || 0}
-              </span>
+              <span className='text-accent'>{teamStats?.foul.them || 0}</span>
             </div>
           </div>
         </div>

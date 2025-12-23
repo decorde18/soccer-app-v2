@@ -1,5 +1,5 @@
 // stores/gameEventsStore.js
-// Write-only event recording with stat calculation helpers
+// Write-only event recording with optimistic updates
 import { create } from "zustand";
 import useGameStore from "./gameStore";
 import useGamePlayersStore from "./gamePlayersStore";
@@ -143,6 +143,7 @@ const useGameEventsStore = create((set, get) => ({
 
   recordGoal: async (goalData) => {
     const gameStore = useGameStore.getState();
+    const playersStore = useGamePlayersStore.getState();
     const game = gameStore.game;
     const gameTime = gameStore.getGameTime();
     const period = gameStore.getCurrentPeriodNumber();
@@ -155,9 +156,9 @@ const useGameEventsStore = create((set, get) => ({
         game_id: game.game_id,
         event_type: "goal",
         game_time: gameTime,
-        end_time: null, // Goals are instant, no end time
+        end_time: null,
         period: period,
-        clock_should_run: 1, // Clock continues after goal
+        clock_should_run: 1,
         details: goalData.details || null,
       });
 
@@ -166,41 +167,65 @@ const useGameEventsStore = create((set, get) => ({
       let scorerPlayerGameId = goalData.scorerPlayerGameId;
       let opponentJerseyNumber = goalData.opponentJerseyNumber || null;
 
-      // If scoring for our team with a player
       if (!teamSeasonId && scorerPlayerGameId) {
-        const playersStore = useGamePlayersStore.getState();
         const player = playersStore.getPlayerByPlayerGameId(scorerPlayerGameId);
         if (player) {
           teamSeasonId = player.teamSeasonId;
         }
       }
 
-      // Default to our team if not specified
       if (!teamSeasonId) {
         teamSeasonId = game.isHome
           ? game.home_team_season_id
           : game.away_team_season_id;
       }
 
-      // 3. Create goal event
-      const goalEvent = await apiFetch("game_events_goals", "POST", {
+      // 3. Determine defending GK
+      let defendingGkPlayerGameId = goalData.defendingGkPlayerGameId;
+
+      // If not provided and it's a goal against us, find current GK
+      const ourTeamSeasonId = game.isHome
+        ? game.home_team_season_id
+        : game.away_team_season_id;
+      const isGoalAgainstUs = teamSeasonId !== ourTeamSeasonId;
+
+      if (!defendingGkPlayerGameId && isGoalAgainstUs) {
+        const currentGK = playersStore.getCurrentGoalkeeper();
+        if (currentGK) {
+          defendingGkPlayerGameId = currentGK.playerGameId;
+        }
+      }
+
+      // 4. Create goal event
+      const goalEventResponse = await apiFetch("game_events_goals", "POST", {
         major_event_id: majorEvent.id,
         team_season_id: teamSeasonId,
         scorer_player_game_id: scorerPlayerGameId || null,
         opponent_jersey_number: opponentJerseyNumber,
         assist_player_game_id: goalData.assistPlayerGameId || null,
-        defending_gk_player_game_id: goalData.defendingGkPlayerGameId || null,
+        defending_gk_player_game_id: defendingGkPlayerGameId || null,
         is_own_goal: goalData.isOwnGoal || 0,
         goal_types: goalData.goalTypes
           ? JSON.stringify(goalData.goalTypes)
           : null,
       });
 
-      // 4. Refresh game data
-      await gameStore.initializeGame(
-        game.game_id,
-        game.isHome ? game.home_team_season_id : game.away_team_season_id
-      );
+      // Ensure the goal event has all the fields we need for display/delete
+      const goalEvent = {
+        ...goalEventResponse,
+        id: goalEventResponse.id, // Ensure id is set
+        goal_id: goalEventResponse.id, // Also set goal_id for views compatibility
+        major_event_id: majorEvent.id,
+        team_season_id: teamSeasonId,
+        game_time: gameTime,
+        period: period,
+      };
+
+      // 5. Optimistically update the game store
+      gameStore.addGoalEvent(goalEvent, majorEvent);
+
+      // 6. Trigger plus/minus recalculation
+      playersStore.calculateAndUpdatePlusMinus(game.game_id);
 
       set({ isRecording: false });
       return goalEvent;
@@ -246,7 +271,6 @@ const useGameEventsStore = create((set, get) => ({
         }
       }
 
-      // Default to our team if not specified
       if (!teamSeasonId) {
         teamSeasonId = game.isHome
           ? game.home_team_season_id
@@ -259,15 +283,12 @@ const useGameEventsStore = create((set, get) => ({
         team_season_id: teamSeasonId,
         player_game_id: playerGameId || null,
         opponent_jersey_number: opponentJerseyNumber,
-        card_type: cardData.cardType, // 'yellow', 'red', 'yellow_red'
+        card_type: cardData.cardType,
         card_reason: cardData.cardReason || null,
       });
 
-      // 4. Refresh game data
-      await gameStore.initializeGame(
-        game.game_id,
-        game.isHome ? game.home_team_season_id : game.away_team_season_id
-      );
+      // 4. Optimistically update the game store
+      gameStore.addDisciplineEvent(cardEvent, majorEvent);
 
       set({ isRecording: false });
       return cardEvent;
@@ -282,6 +303,7 @@ const useGameEventsStore = create((set, get) => ({
 
   recordPenaltyKick: async (penaltyData) => {
     const gameStore = useGameStore.getState();
+    const playersStore = useGamePlayersStore.getState();
     const game = gameStore.game;
     const gameTime = gameStore.getGameTime();
     const period = gameStore.getCurrentPeriodNumber();
@@ -305,7 +327,6 @@ const useGameEventsStore = create((set, get) => ({
       const shooterPlayerGameId = penaltyData.shooterPlayerGameId;
 
       if (!teamSeasonId && shooterPlayerGameId) {
-        const playersStore = useGamePlayersStore.getState();
         const player =
           playersStore.getPlayerByPlayerGameId(shooterPlayerGameId);
         if (player) {
@@ -313,68 +334,94 @@ const useGameEventsStore = create((set, get) => ({
         }
       }
 
-      // Default to our team if not specified
       if (!teamSeasonId) {
         teamSeasonId = game.isHome
           ? game.home_team_season_id
           : game.away_team_season_id;
       }
 
-      // 3. Create penalty event
+      // 3. Determine defending GK
+      let gkPlayerGameId = penaltyData.gkPlayerGameId;
+
+      // If not provided, find current GK (they're defending this penalty)
+      if (!gkPlayerGameId) {
+        const currentGK = playersStore.getCurrentGoalkeeper();
+        if (currentGK) {
+          gkPlayerGameId = currentGK.playerGameId;
+        }
+      }
+
+      // 4. Create penalty event
       const penaltyEvent = await apiFetch("game_events_penalties", "POST", {
         major_event_id: majorEvent.id,
         game_id: penaltyData.isShootout ? game.game_id : null,
         team_season_id: teamSeasonId,
         shooter_player_game_id: shooterPlayerGameId || null,
         opponent_jersey_number: penaltyData.opponentJerseyNumber || null,
-        gk_player_game_id: penaltyData.gkPlayerGameId || null,
-        outcome: penaltyData.outcome, // 'goal', 'saved', 'missed', 'hit_post'
+        gk_player_game_id: gkPlayerGameId || null,
+        outcome: penaltyData.outcome,
         is_shootout: penaltyData.isShootout || 0,
         shootout_round: penaltyData.shootoutRound || null,
         game_time: penaltyData.isShootout ? gameTime : null,
         period: penaltyData.isShootout ? period : null,
-        goal_id: null, // Will be set if goal is created
+        goal_id: null,
       });
 
-      let goalId = null;
+      let goalEvent = null;
 
-      // 4. If outcome is 'goal', create goal event
+      // 5. If outcome is 'goal', create goal event
       if (penaltyData.outcome === "goal") {
-        const goalEvent = await apiFetch("game_events_goals", "POST", {
+        const goalEventResponse = await apiFetch("game_events_goals", "POST", {
           major_event_id: majorEvent.id,
           team_season_id: teamSeasonId,
           scorer_player_game_id: shooterPlayerGameId || null,
           opponent_jersey_number: penaltyData.opponentJerseyNumber || null,
           assist_player_game_id: null,
-          defending_gk_player_game_id: penaltyData.gkPlayerGameId || null,
+          defending_gk_player_game_id: gkPlayerGameId || null,
           is_own_goal: 0,
           goal_types: JSON.stringify(["penalty"]),
         });
 
-        goalId = goalEvent.id;
+        // Ensure the goal event has all the fields we need
+        goalEvent = {
+          ...goalEventResponse,
+          id: goalEventResponse.id,
+          goal_id: goalEventResponse.id,
+          major_event_id: majorEvent.id,
+          team_season_id: teamSeasonId,
+          game_time: gameTime,
+          period: period,
+        };
 
-        // Update penalty event with goal_id
         await apiFetch(`game_events_penalties?id=${penaltyEvent.id}`, "PUT", {
-          goal_id: goalId,
+          goal_id: goalEvent.id,
         });
       }
 
-      // 5. If outcome is 'saved', create save action for GK
-      if (penaltyData.outcome === "saved" && penaltyData.gkPlayerGameId) {
-        await apiFetch("game_events_player_actions", "POST", {
+      // 6. If outcome is 'saved', create save action for GK
+      let saveAction = null;
+      if (penaltyData.outcome === "saved" && gkPlayerGameId) {
+        saveAction = await apiFetch("game_events_player_actions", "POST", {
           game_id: game.game_id,
-          player_game_id: penaltyData.gkPlayerGameId,
+          player_game_id: gkPlayerGameId,
           event_type: "save",
           game_time: gameTime,
           period: period,
         });
       }
 
-      // 6. Refresh game data
-      await gameStore.initializeGame(
-        game.game_id,
-        game.isHome ? game.home_team_season_id : game.away_team_season_id
+      // 7. Optimistically update the game store
+      gameStore.addPenaltyEvent(
+        penaltyEvent,
+        majorEvent,
+        goalEvent,
+        saveAction
       );
+
+      // 8. Trigger plus/minus recalculation if goal scored
+      if (goalEvent) {
+        playersStore.calculateAndUpdatePlusMinus(game.game_id);
+      }
 
       set({ isRecording: false });
       return penaltyEvent;
@@ -399,16 +446,13 @@ const useGameEventsStore = create((set, get) => ({
       const actionEvent = await apiFetch("game_events_player_actions", "POST", {
         game_id: game.game_id,
         player_game_id: actionData.playerGameId,
-        event_type: actionData.eventType, // 'shot', 'shot_on_target', 'shot_blocked', 'save'
+        event_type: actionData.eventType,
         game_time: gameTime,
         period: period,
       });
 
-      // Refresh game data
-      await gameStore.initializeGame(
-        game.game_id,
-        game.isHome ? game.home_team_season_id : game.away_team_season_id
-      );
+      // Optimistically update the game store
+      gameStore.addPlayerAction(actionEvent);
 
       set({ isRecording: false });
       return actionEvent;
@@ -434,7 +478,6 @@ const useGameEventsStore = create((set, get) => ({
       let teamSeasonId = teamEventData.teamSeasonId;
 
       if (!teamSeasonId) {
-        // Use forYourTeam flag to determine
         if (teamEventData.forYourTeam) {
           teamSeasonId = game.isHome
             ? game.home_team_season_id
@@ -449,16 +492,13 @@ const useGameEventsStore = create((set, get) => ({
       const teamEvent = await apiFetch("game_events_team", "POST", {
         game_id: game.game_id,
         team_season_id: teamSeasonId,
-        event_type: teamEventData.eventType, // 'foul', 'corner', 'offside', 'throw_in', 'goal_kick', 'free_kick'
+        event_type: teamEventData.eventType,
         game_time: gameTime,
         period: period,
       });
 
-      // Refresh game data
-      await gameStore.initializeGame(
-        game.game_id,
-        game.isHome ? game.home_team_season_id : game.away_team_season_id
-      );
+      // Optimistically update the game store
+      gameStore.addTeamEvent(teamEvent);
 
       set({ isRecording: false });
       return teamEvent;
@@ -471,19 +511,107 @@ const useGameEventsStore = create((set, get) => ({
 
   // ==================== DELETE EVENT ====================
 
-  deleteEvent: async (eventId, eventType) => {
+  /**
+   * Delete an event with cascade support for major events
+   * @param {number} eventId - The event ID to delete
+   * @param {string} eventType - Type: 'major', 'goal', 'discipline', 'penalty', 'player_action', 'team'
+   * @param {boolean} cascade - If true and eventType is 'major', delete all child records first
+   */
+  deleteEvent: async (eventId, eventType = "major", cascade = false) => {
     const gameStore = useGameStore.getState();
     const game = gameStore.game;
 
     try {
-      // Use gameStore's delete function which handles all event types
-      await gameStore.deleteEvent(eventId, eventType);
+      // Handle cascade delete for major events
+      if (eventType === "major" && cascade) {
+        console.log(`Cascade deleting major event ${eventId}`);
 
-      // Refresh game data
-      await gameStore.initializeGame(
-        game.game_id,
-        game.isHome ? game.home_team_season_id : game.away_team_season_id
-      );
+        // Find all child records
+        const childGoals = game.gameEventsGoals?.filter(
+          (g) => g.major_event_id === eventId
+        );
+        const childCards = game.gameEventsDiscipline?.filter(
+          (d) => d.major_event_id === eventId
+        );
+        const childPenalties = game.gameEventsPenalties?.filter(
+          (p) => p.major_event_id === eventId
+        );
+
+        // Delete goals first
+        if (childGoals && childGoals.length > 0) {
+          console.log(`Deleting ${childGoals.length} child goal(s)`);
+          await Promise.all(
+            childGoals.map((g) =>
+              apiFetch(`game_events_goals?id=${g.goal_id}`, "DELETE")
+            )
+          );
+        }
+
+        // Delete cards
+        if (childCards && childCards.length > 0) {
+          console.log(`Deleting ${childCards.length} child card(s)`);
+          await Promise.all(
+            childCards.map((c) =>
+              apiFetch(`game_events_discipline?id=${c.discipline_id}`, "DELETE")
+            )
+          );
+        }
+
+        // Delete penalties
+        if (childPenalties && childPenalties.length > 0) {
+          console.log(`Deleting ${childPenalties.length} child penalty(ies)`);
+          await Promise.all(
+            childPenalties.map((p) =>
+              apiFetch(`game_events_penalties?id=${p.penalty_id}`, "DELETE")
+            )
+          );
+        }
+
+        // Now delete the major event itself
+        await apiFetch(`game_events_major?id=${eventId}`, "DELETE");
+
+        // Update game store - remove major event and all children
+        const updates = {
+          gameEventsMajor: game.gameEventsMajor.filter((e) => e.id !== eventId),
+        };
+
+        if (childGoals && childGoals.length > 0) {
+          updates.gameEventsGoals = game.gameEventsGoals.filter(
+            (g) => g.major_event_id !== eventId
+          );
+          // Recalculate scores
+          const teamSeasonId = game.isHome
+            ? game.home_team_season_id
+            : game.away_team_season_id;
+          updates.goalsFor = updates.gameEventsGoals.filter(
+            (g) => g.team_season_id === teamSeasonId && !g.is_own_goal
+          ).length;
+          updates.goalsAgainst = updates.gameEventsGoals.filter(
+            (g) =>
+              (g.team_season_id !== teamSeasonId && !g.is_own_goal) ||
+              (g.team_season_id === teamSeasonId && g.is_own_goal)
+          ).length;
+        }
+
+        if (childCards && childCards.length > 0) {
+          updates.gameEventsDiscipline = game.gameEventsDiscipline.filter(
+            (d) => d.major_event_id !== eventId
+          );
+        }
+
+        if (childPenalties && childPenalties.length > 0) {
+          updates.gameEventsPenalties = game.gameEventsPenalties.filter(
+            (p) => p.major_event_id !== eventId
+          );
+        }
+
+        gameStore.updateGame(updates);
+        console.log("Cascade delete complete");
+        return true;
+      }
+
+      // Use gameStore's delete function for non-cascade deletes
+      await gameStore.deleteEvent(eventId, eventType);
 
       return true;
     } catch (error) {
@@ -494,9 +622,6 @@ const useGameEventsStore = create((set, get) => ({
 
   // ==================== CONVENIENCE RECORDING METHODS ====================
 
-  /**
-   * Record a shot (on target or off target)
-   */
   recordShot: async (playerGameId, onTarget = false) => {
     return get().recordPlayerAction({
       playerGameId,
@@ -504,9 +629,6 @@ const useGameEventsStore = create((set, get) => ({
     });
   },
 
-  /**
-   * Record a save by goalkeeper
-   */
   recordSave: async (playerGameId) => {
     return get().recordPlayerAction({
       playerGameId,
@@ -514,9 +636,6 @@ const useGameEventsStore = create((set, get) => ({
     });
   },
 
-  /**
-   * Record a corner kick
-   */
   recordCorner: async (forYourTeam = true) => {
     return get().recordTeamEvent({
       eventType: "corner",
@@ -524,9 +643,6 @@ const useGameEventsStore = create((set, get) => ({
     });
   },
 
-  /**
-   * Record an offside
-   */
   recordOffside: async (forYourTeam = true) => {
     return get().recordTeamEvent({
       eventType: "offside",
@@ -534,9 +650,6 @@ const useGameEventsStore = create((set, get) => ({
     });
   },
 
-  /**
-   * Record a foul
-   */
   recordFoul: async (forYourTeam = true) => {
     return get().recordTeamEvent({
       eventType: "foul",

@@ -3,7 +3,7 @@
 const API_BASE_URL = "/api";
 
 /**
- * Main API fetch function with support for filtering, sorting, and pagination
+ * Main API fetch function with support for filtering, sorting, pagination, and grouping
  * @param {string} table - Table name
  * @param {string} method - HTTP method (GET, POST, PUT, PATCH, DELETE)
  * @param {Object} data - Data for POST, PUT, PATCH
@@ -11,11 +11,16 @@ const API_BASE_URL = "/api";
  * @param {Object} options - Query options for GET requests
  * @param {Object} options.filters - Filters (e.g., { status: 'active', user_id: 123, sub_time_is_null: true })
  * @param {Object} options.operators - Operators for filters (e.g., { age: 'gt', price: 'lte' })
+ * first filter then operator so filter color:green then operator color:!=
  * @param {string|Array} options.sortBy - Column(s) to sort by
  * @param {string|Array} options.order - Sort order ('asc' or 'desc')
  * @param {number} options.limit - Limit number of results
  * @param {number} options.offset - Offset for pagination
  * @param {boolean} options.count - If true, returns count instead of data
+ * @param {string|Array} options.groupBy - Column(s) to group by
+ * @param {Object} options.aggregates - Aggregation functions (e.g., { total: 'SUM(amount)', avg_price: 'AVG(price)' })
+ * @param {Object} options.having - HAVING clause filters (e.g., { total: 1000 })
+ * @param {Object} options.havingOperators - Operators for HAVING filters (e.g., { total: '>' })
  */
 export async function apiFetch(
   table,
@@ -32,7 +37,7 @@ export async function apiFetch(
     params.append("id", id);
   }
 
-  // Handle GET with filters, sorting, and pagination
+  // Handle GET with filters, sorting, pagination, and grouping
   if (method === "GET" && !id) {
     const {
       filters = {},
@@ -42,6 +47,10 @@ export async function apiFetch(
       limit,
       offset,
       count,
+      groupBy,
+      aggregates = {},
+      having = {},
+      havingOperators = {},
     } = options;
 
     // Add filters
@@ -69,9 +78,43 @@ export async function apiFetch(
           };
           const suffix = operatorSuffixMap[operator];
           params.append(`${key}_${suffix}`, value);
-          console.log(params);
         } else {
           params.append(key, value);
+        }
+      }
+    }
+
+    // Add grouping
+    if (groupBy) {
+      params.append(
+        "groupBy",
+        Array.isArray(groupBy) ? groupBy.join(",") : groupBy
+      );
+    }
+
+    // Add aggregates
+    if (Object.keys(aggregates).length > 0) {
+      // Send aggregates as JSON string
+      params.append("aggregates", JSON.stringify(aggregates));
+    }
+
+    // Add HAVING clause filters
+    if (Object.keys(having).length > 0) {
+      for (const [key, value] of Object.entries(having)) {
+        const operator = havingOperators[key];
+        if (operator) {
+          const operatorSuffixMap = {
+            ">": "gt",
+            ">=": "gte",
+            "<": "lt",
+            "<=": "lte",
+            "!=": "ne",
+            "=": "eq",
+          };
+          const suffix = operatorSuffixMap[operator];
+          params.append(`having_${key}_${suffix}`, value);
+        } else {
+          params.append(`having_${key}`, value);
         }
       }
     }
@@ -203,4 +246,61 @@ export async function apiGetPage(table, page = 1, pageSize = 10, options = {}) {
     pageSize,
     totalPages: Math.ceil(countResult.total / pageSize),
   };
+}
+
+/**
+ * Helper function for grouped queries with aggregations
+ * @param {string} table - Table name
+ * @param {string|Array} groupBy - Column(s) to group by
+ * @param {Object} aggregates - Aggregation functions (e.g., { total: 'SUM(amount)', count: 'COUNT(*)' })
+ * @param {Object} options - Additional options (filters, having, sortBy, etc.)
+ 
+const result = await apiGroupBy('orders', 'user_id', {
+  total_sales: 'SUM(amount)',
+  avg_order: 'AVG(amount)',
+  order_count: 'COUNT(*)'
+});
+const result = await apiGroupBy('orders', 'user_id', {
+  total: 'SUM(amount)'
+}, {
+  having: { total: 1000 },
+  havingOperators: { total: '>' }
+});
+const result = await apiGroupBy('orders', 'category', {
+  revenue: 'SUM(amount)',
+  items: 'COUNT(*)'
+}, {
+  filters: { status: 'completed' },
+  sortBy: 'revenue',
+  order: 'desc',
+  limit: 10
+});
+*/
+export async function apiGroupBy(
+  table,
+  groupBy,
+  aggregates = {},
+  options = {}
+) {
+  const {
+    filters = {},
+    operators = {},
+    having = {},
+    havingOperators = {},
+    sortBy,
+    order,
+    limit,
+  } = options;
+
+  return apiFetch(table, "GET", null, null, {
+    groupBy,
+    aggregates,
+    filters,
+    operators,
+    having,
+    havingOperators,
+    sortBy,
+    order,
+    limit,
+  });
 }

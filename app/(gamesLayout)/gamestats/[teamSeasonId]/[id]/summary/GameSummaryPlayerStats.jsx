@@ -35,6 +35,7 @@ function GameSummaryPlayerStats({ players }) {
     { name: "minutes", label: "Min" },
     { name: "goals", label: "G" },
     { name: "assists", label: "A" },
+    { name: "plusMinus", label: "+/-" },
     { name: "shots", label: "Sh" },
     { name: "yc", label: "YC" },
     { name: "rc", label: "RC" },
@@ -64,6 +65,7 @@ function GameSummaryPlayerStats({ players }) {
       ga: p.goalsAgainst || 0,
       yc: p.yellowCards || 0,
       rc: p.redCards || 0,
+      plusMinus: p.plusMinus || 0,
     }));
 
   // Separation based on goalkeeperTime

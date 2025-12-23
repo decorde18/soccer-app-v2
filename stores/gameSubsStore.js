@@ -45,7 +45,6 @@ const useGameSubsStore = create((set, get) => ({
         );
 
         if (currentGk) {
-          console.log(`Current GK from sub: ${currentGk.fullName}`);
           return currentGk;
         }
       }
@@ -55,7 +54,6 @@ const useGameSubsStore = create((set, get) => ({
       const startingGk = players.find((p) => p.gameStatus === "goalkeeper");
 
       if (startingGk) {
-        console.log(`Current GK from lineup: ${startingGk.fullName}`);
       }
 
       return startingGk;

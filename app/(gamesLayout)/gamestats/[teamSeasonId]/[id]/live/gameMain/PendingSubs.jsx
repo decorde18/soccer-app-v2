@@ -2,7 +2,7 @@
 import useGamePlayersStore from "@/stores/gamePlayersStore";
 import useGameSubsStore from "@/stores/gameSubsStore";
 import useGameStore from "@/stores/gameStore";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import Dialog from "@/components/ui/Dialog";
@@ -11,11 +11,7 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
   const allPlayers = useGamePlayersStore((s) => s.players);
   const game = useGameStore((s) => s.game);
 
-  const getPendingSubs = useGameSubsStore((s) => s.getPendingSubs);
   const confirmSub = useGameSubsStore((s) => s.confirmSub);
-  const confirmAllPendingSubs = useGameSubsStore(
-    (s) => s.confirmAllPendingSubs
-  );
   const cancelSub = useGameSubsStore((s) => s.cancelSub);
   const updatePendingSub = useGameSubsStore((s) => s.updatePendingSub);
 
@@ -23,8 +19,7 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
   const [editingInPlayer, setEditingInPlayer] = useState("");
   const [editingOutPlayer, setEditingOutPlayer] = useState("");
   const [confirmError, setConfirmError] = useState(null);
-  const [pendingSubs, setPendingSubs] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Dialog state
   const [dialog, setDialog] = useState({
@@ -35,22 +30,47 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
     onConfirm: null,
   });
 
-  // Fetch pending subs on mount and when players change
-  useEffect(() => {
-    const fetchPendingSubs = async () => {
-      if (!game?.game_id) {
-        setIsLoading(false);
-        return;
-      }
+  // Get pending subs directly from player data (synchronous)
+  const pendingSubs = useMemo(() => {
+    const subs = [];
+    const seenSubIds = new Set();
 
-      setIsLoading(true);
-      const subs = await getPendingSubs();
-      setPendingSubs(subs || []);
-      setIsLoading(false);
-    };
+    allPlayers.forEach((player) => {
+      (player.ins || []).forEach((sub) => {
+        if (sub.gameTime === null && !seenSubIds.has(sub.subId)) {
+          seenSubIds.add(sub.subId);
+          subs.push({
+            subId: sub.subId,
+            inPlayerId: player.playerGameId,
+            outPlayerId: null,
+            gkSub: sub.gkSub,
+          });
+        }
+      });
 
-    fetchPendingSubs();
-  }, [allPlayers, getPendingSubs, game?.game_id]);
+      (player.outs || []).forEach((sub) => {
+        if (sub.gameTime === null) {
+          const existing = subs.find((s) => s.subId === sub.subId);
+          if (existing) {
+            existing.outPlayerId = player.playerGameId;
+          } else if (!seenSubIds.has(sub.subId)) {
+            seenSubIds.add(sub.subId);
+            subs.push({
+              subId: sub.subId,
+              inPlayerId: null,
+              outPlayerId: player.playerGameId,
+              gkSub: sub.gkSub,
+            });
+          }
+        }
+      });
+    });
+
+    return subs.map((sub) => ({
+      ...sub,
+      isComplete: sub.inPlayerId !== null && sub.outPlayerId !== null,
+    }));
+  }, [allPlayers]);
 
   const players = allPlayers.filter((p) =>
     ["dressed", "starter", "goalkeeper"].includes(p.gameStatus)
@@ -137,11 +157,6 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
       }));
   };
 
-  const refreshPendingSubs = async () => {
-    const subs = await getPendingSubs();
-    setPendingSubs(subs || []);
-  };
-
   const handleStartEdit = (sub) => {
     setEditingSubId(sub.subId);
     setEditingInPlayer(sub.inPlayerId?.toString() || "");
@@ -151,16 +166,23 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
   const handleSaveEdit = async () => {
     if (!game?.game_id) return;
 
-    const updates = {};
-    if (editingInPlayer) updates.in_player_id = parseInt(editingInPlayer);
-    if (editingOutPlayer) updates.out_player_id = parseInt(editingOutPlayer);
+    setIsProcessing(true);
+    try {
+      const updates = {};
+      if (editingInPlayer) updates.in_player_id = parseInt(editingInPlayer);
+      if (editingOutPlayer) updates.out_player_id = parseInt(editingOutPlayer);
 
-    await updatePendingSub(editingSubId, updates);
-    await refreshPendingSubs();
+      await updatePendingSub(editingSubId, updates);
 
-    setEditingSubId(null);
-    setEditingInPlayer("");
-    setEditingOutPlayer("");
+      setEditingSubId(null);
+      setEditingInPlayer("");
+      setEditingOutPlayer("");
+    } catch (error) {
+      console.error("Error updating sub:", error);
+      setConfirmError("Failed to update substitution");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -236,44 +258,65 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
     const sub = pendingSubs.find((s) => s.subId === subId);
     if (!sub) return;
 
-    if (!sub.isComplete) {
-      const shouldProceed = await validateAndConfirmSub(sub);
-      if (!shouldProceed) return;
-    }
+    setIsProcessing(true);
+    setConfirmError(null);
 
-    await confirmSub(subId);
-    await refreshPendingSubs();
+    try {
+      if (!sub.isComplete) {
+        const shouldProceed = await validateAndConfirmSub(sub);
+        if (!shouldProceed) {
+          setIsProcessing(false);
+          return;
+        }
+      }
+
+      await confirmSub(subId);
+    } catch (error) {
+      console.error("Error confirming sub:", error);
+      setConfirmError("Failed to confirm substitution");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleConfirmAll = async () => {
     if (!game?.game_id) return;
 
     setConfirmError(null);
+    setIsProcessing(true);
 
-    // Process ALL subs immediately, one at a time
-    // Complete subs confirm without dialog, incomplete show validation dialog
-    for (const sub of pendingSubs) {
-      console.log(sub);
-      if (!sub.isComplete) {
-        // Show validation dialog for incomplete sub
-        const shouldProceed = await validateAndConfirmSub(sub);
-        if (shouldProceed) {
+    try {
+      // Process ALL subs immediately, one at a time
+      for (const sub of pendingSubs) {
+        if (!sub.isComplete) {
+          const shouldProceed = await validateAndConfirmSub(sub);
+          if (shouldProceed) {
+            await confirmSub(sub.subId);
+          }
+        } else {
           await confirmSub(sub.subId);
         }
-      } else {
-        // Complete subs confirm immediately without dialog
-        await confirmSub(sub.subId);
       }
+    } catch (error) {
+      console.error("Error confirming subs:", error);
+      setConfirmError("Failed to confirm all substitutions");
+    } finally {
+      setIsProcessing(false);
     }
-
-    await refreshPendingSubs();
   };
 
   const handleCancelSub = async (subId) => {
     if (!game?.game_id) return;
 
-    await cancelSub(subId);
-    await refreshPendingSubs();
+    setIsProcessing(true);
+    try {
+      await cancelSub(subId);
+    } catch (error) {
+      console.error("Error canceling sub:", error);
+      setConfirmError("Failed to cancel substitution");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const closeDialog = () => {
@@ -282,10 +325,6 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
 
   if (!game?.game_id) {
     return <div className='text-center text-muted py-4'>No active game</div>;
-  }
-
-  if (isLoading) {
-    return <div className='text-center text-muted py-4'>Loading...</div>;
   }
 
   if (subsWithPlayerInfo.length === 0) {
@@ -314,7 +353,7 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
         }}
       />
 
-      {/* Header with Enter All Button - conditionally shown */}
+      {/* Header with Enter All Button */}
       {!hideEnterAll &&
         (completeSubs.length > 0 || incompleteSubs.length > 0) && (
           <div className='mb-3 pb-3 border-b border-border'>
@@ -324,8 +363,13 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
                 {incompleteSubs.length > 0 &&
                   `, ${incompleteSubs.length} incomplete`}
               </div>
-              <Button onClick={handleConfirmAll} variant='success' size='sm'>
-                Enter All
+              <Button
+                onClick={handleConfirmAll}
+                variant='success'
+                size='sm'
+                disabled={isProcessing}
+              >
+                {isProcessing ? "Processing..." : "Enter All"}
               </Button>
             </div>
           </div>
@@ -460,6 +504,7 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
                       variant='success'
                       size='sm'
                       className='flex-1'
+                      disabled={isProcessing}
                     >
                       Save
                     </Button>
@@ -468,6 +513,7 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
                       variant='outline'
                       size='sm'
                       className='flex-1'
+                      disabled={isProcessing}
                     >
                       Cancel
                     </Button>
@@ -479,6 +525,7 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
                       variant='outline'
                       size='sm'
                       className='flex-1'
+                      disabled={isProcessing}
                     >
                       Edit
                     </Button>
@@ -488,6 +535,7 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
                         variant='success'
                         size='sm'
                         className='flex-1'
+                        disabled={isProcessing}
                       >
                         Enter
                       </Button>
@@ -497,6 +545,7 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
                       variant='danger'
                       size='sm'
                       className='flex-1'
+                      disabled={isProcessing}
                     >
                       Delete
                     </Button>

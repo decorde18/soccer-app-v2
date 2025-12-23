@@ -18,6 +18,7 @@ function OnFieldPlayers({ handleSubClick }) {
         caption={<span className='text-2xl font-bold'>On Field Players</span>}
         onActionClick={(row) => handleSubClick(row.id)}
         timeMode='onField'
+        size='xs'
       />
       <OnFieldGk handleSubClick={handleSubClick} />
     </div>

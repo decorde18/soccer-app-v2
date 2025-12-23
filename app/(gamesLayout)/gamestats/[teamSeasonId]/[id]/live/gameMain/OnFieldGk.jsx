@@ -6,7 +6,7 @@ import Button from "@/components/ui/Button";
 import useGameSubsStore from "@/stores/gameSubsStore";
 import useGamePlayersStore from "@/stores/gamePlayersStore";
 
-function OnFieldGk({ handleSubClick }) {
+function OnFieldGk({ handleSubClick, gameStage }) {
   const getCurrentGoalkeeper = useGameSubsStore((s) => s.getCurrentGoalkeeper);
   const players = useGamePlayersStore((s) => s.players);
   const [currentGkId, setCurrentGkId] = useState(null);
@@ -38,14 +38,6 @@ function OnFieldGk({ handleSubClick }) {
     );
   };
 
-  const gkColumns = [
-    { name: "number", label: "#", width: "50px" },
-    { name: "name", label: "Name", width: "40%" },
-    { name: "saves", label: "Saves", cellClassName: "text-end" },
-    { name: "goalsAgainst", label: "GA", cellClassName: "text-end" },
-    { name: "timeIn", label: "Time", cellClassName: "text-end" },
-  ];
-
   const getRowClassName = (row) => {
     if (row.fieldStatus === "subbingOutGk") return "bg-red-100";
     return;
@@ -74,7 +66,6 @@ function OnFieldGk({ handleSubClick }) {
       <PlayersTable
         filterPlayers={filterGoalkeeper}
         caption={<span className='text-xl font-bold '>Goalkeeper</span>}
-        columns={gkColumns}
         onActionClick={(row) => handleSubClick(row.id)}
         getActionButton={getGkActionButton}
         timeMode='onField'

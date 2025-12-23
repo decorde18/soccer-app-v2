@@ -385,7 +385,6 @@ const useGameStore = create((set, get) => {
           period_number: nextNumber,
           start_time: nowMs,
           end_time: null,
-          added_time: 0,
         });
 
         const newPeriod = {
@@ -445,7 +444,6 @@ const useGameStore = create((set, get) => {
         // Update period in DB (store Unix ms as BIGINT)
         await apiFetch(`game_periods?id=${currentPeriod.id}`, "PUT", {
           end_time: nowMs, // BIGINT Unix ms
-          added_time: 0,
         });
 
         const updatedPeriods = [...game.periods];

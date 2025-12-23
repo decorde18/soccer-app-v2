@@ -5,88 +5,59 @@ import Dialog from "@/components/ui/Dialog";
 import useGameStore from "@/stores/gameStore";
 import useGameSubsStore from "@/stores/gameSubsStore";
 import LiveGameHeaderClock from "./LiveGameHeaderClock";
-import { apiFetch } from "@/app/api/fetcher";
 
 function LiveGameHeader() {
   const game = useGameStore((s) => s.game);
   const gameStage = useGameStore((s) => s.getGameStage());
   const endPeriod = useGameStore((s) => s.endPeriod);
   const startPeriod = useGameStore((s) => s.startNextPeriod);
+
   const periodNumber = useGameStore((s) => s.getCurrentPeriodNumber());
   const getPendingSubs = useGameSubsStore((s) => s.getPendingSubs);
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPendingSubsDialog, setShowPendingSubsDialog] = useState(false);
   const [pendingSubsCount, setPendingSubsCount] = useState(0);
-  const [score, setScore] = useState({ home: 0, away: 0 });
 
   const isGameLive = gameStage === "during_period";
   const isGameEnded = gameStage === "end_game";
   const isBetweenPeriods = gameStage === "between_periods";
   const isBeforeStart = gameStage === "before_start";
 
-  // Fetch score from DB
-  useEffect(() => {
-    const fetchScore = async () => {
-      if (!game?.game_id) return;
-      const events = await apiFetch("game_events", "GET", null, null, {
-        filters: { game_id: game.game_id, event_type: "goal" },
-      });
-
-      let homeGoals = 0;
-      let awayGoals = 0;
-
-      events.forEach((event) => {
-        if (event.team_season_id === game.home_team_season_id) {
-          homeGoals++;
-        } else if (event.team_season_id === game.away_team_season_id) {
-          awayGoals++;
-        }
-      });
-      setScore({ home: homeGoals, away: awayGoals });
-    };
-
-    fetchScore();
-
-    // Poll for score updates every 5 seconds during game
-    const interval = setInterval(fetchScore, 5000);
-    return () => clearInterval(interval);
-  }, [game?.game_id, game?.home_team_season_id, game?.away_team_season_id]);
-
   if (!game) return null;
 
-  const ourScore = game.isHome ? score.home : score.away;
-  const theirScore = game.isHome ? score.away : score.home;
-  // Check for pending subs periodically when between periods
-  useEffect(() => {
-    if (!isBetweenPeriods || !game?.game_id) return;
+  // todo Do I need? Check for pending subs periodically when between periods
+  // useEffect(() => {
+  //   if (!isBetweenPeriods || !game?.game_id) return;
 
-    const checkPendingSubs = async () => {
-      const subs = await getPendingSubs();
-      setPendingSubsCount(subs?.length || 0);
-    };
+  //   const checkPendingSubs = async () => {
+  //     const subs = await getPendingSubs();
+  //     setPendingSubsCount(subs?.length || 0);
+  //   };
 
-    checkPendingSubs();
-    const interval = setInterval(checkPendingSubs, 2000);
+  //   checkPendingSubs();
+  //   const interval = setInterval(checkPendingSubs, 2000);
 
-    return () => clearInterval(interval);
-  }, [isBetweenPeriods, game?.game_id, getPendingSubs]);
+  //   return () => clearInterval(interval);
+  // }, [isBetweenPeriods, game?.game_id, getPendingSubs]);
 
   const handleStartPeriod = async () => {
+    //todo you are here
     if (!game?.game_id || isProcessing) return;
 
     setIsProcessing(true);
 
     try {
       // Check for pending subs before starting period
-      const pendingSubs = await getPendingSubs();
-
-      if (pendingSubs && pendingSubs.length > 0) {
-        setPendingSubsCount(pendingSubs.length);
-        setShowPendingSubsDialog(true);
-        setIsProcessing(false);
+      if (!isBeforeStart) {
+        const pendingSubs = await getPendingSubs();
+        if (pendingSubs && pendingSubs.length > 0) {
+          setPendingSubsCount(pendingSubs.length);
+          setShowPendingSubsDialog(true);
+          setIsProcessing(false);
+        }
       } else {
-        // No pending subs, start period immediately
+        // Start of Game or No pending subs, start period immediately
         await startPeriod();
         setIsProcessing(false);
       }
@@ -95,7 +66,6 @@ function LiveGameHeader() {
       setIsProcessing(false);
     }
   };
-
   const handleStartWithoutSubs = async () => {
     setShowPendingSubsDialog(false);
     setIsProcessing(true);
@@ -107,7 +77,6 @@ function LiveGameHeader() {
       setIsProcessing(false);
     }
   };
-
   const handleEndPeriod = async () => {
     if (isProcessing) return;
 
@@ -120,7 +89,6 @@ function LiveGameHeader() {
       setIsProcessing(false);
     }
   };
-
   // Determine button display based on game state
   const getButtonProps = () => {
     if (isGameLive) {
@@ -146,7 +114,11 @@ function LiveGameHeader() {
       variant: "success",
       onClick: handleStartPeriod,
       disabled: isProcessing,
-      children: isProcessing ? "Starting..." : "START",
+      children: isProcessing
+        ? "Starting..."
+        : isBeforeStart
+        ? "START GAME"
+        : "START",
     };
   };
 
@@ -154,72 +126,60 @@ function LiveGameHeader() {
 
   return (
     <>
-      <header className='relative col-span-2 row-start-1 flex items-center justify-between px-4 py-3 shadow-lg bg-secondary text-background m-0 rounded'>
-        {/* Left Section – Placeholder */}
-        <div className='flex-shrink-0 w-10 flex items-center justify-start'></div>
+      <header className='relative col-span-2 row-start-1 flex items-center justify-between px-4 py-4 shadow-lg bg-secondary text-background m-0 rounded'>
+        {/* Left Section – Equalizer Spacer */}
+        <div className='flex-shrink-0 w-[120px]'></div>
 
         {/* Center Section – Score + Clock */}
-        <div className='absolute left-1/2 transform -translate-x-1/2 flex items-center gap-8'>
-          {/* Home Team */}
-          <div className='text-center min-w-[80px]'>
-            <div className='text-xs font-medium tracking-wider opacity-80 mb-1'>
-              {game.home_team_name === game.opponentTeamName
-                ? game.away_team_name
-                : game.home_team_name}
+        <div className='absolute left-1/2 transform -translate-x-1/2 flex items-center gap-4 sm:gap-10 w-full max-w-4xl justify-center'>
+          {/* Our Team Section */}
+          <div className='text-center w-[100px] sm:w-[140px] flex flex-col items-center justify-center min-h-[60px]'>
+            <div className='text-[10px] sm:text-xs font-bold tracking-wider opacity-90 uppercase leading-tight whitespace-normal line-clamp-2 w-full'>
+              {game.ourName}
             </div>
-            <div className='text-5xl font-bold tabular-nums'>{ourScore}</div>
+            <div className='text-4xl sm:text-5xl font-black tabular-nums leading-none mt-1'>
+              {game.goalsFor}
+            </div>
           </div>
 
-          {/* Clock / Status */}
-          {isGameLive ? (
-            <div className='flex flex-col items-center px-8'>
-              <div className='text-4xl font-bold tracking-wider tabular-nums'>
-                <LiveGameHeaderClock />
-              </div>
-              <div className='text-xs font-medium tracking-wider opacity-70 mt-1'>
-                PERIOD {periodNumber}
-              </div>
-            </div>
-          ) : (
-            <div className='text-center'>
-              <div className='text-lg font-semibold'>
-                {isBeforeStart
-                  ? "READY TO START"
-                  : gameStage === "in_stoppage"
-                  ? "GAME PAUSED"
-                  : isGameEnded
-                  ? "GAME COMPLETE"
-                  : "PERIOD BREAK"}
-              </div>
-              {isBetweenPeriods && pendingSubsCount > 0 && (
-                <div className='mt-2 flex items-center justify-center gap-2'>
-                  <div className='relative'>
-                    <span className='flex h-3 w-3'>
-                      <span className='animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75'></span>
-                      <span className='relative inline-flex rounded-full h-3 w-3 bg-accent'></span>
-                    </span>
-                  </div>
-                  <span className='text-sm font-medium text-accent'>
-                    {pendingSubsCount} Pending Sub
-                    {pendingSubsCount !== 1 ? "s" : ""}
-                  </span>
+          {/* Clock / Status Section */}
+          <div className='flex flex-col items-center min-w-[130px] sm:min-w-[180px] px-2'>
+            {isGameLive ? (
+              <>
+                <div className='text-3xl sm:text-4xl font-black tracking-tighter tabular-nums leading-none'>
+                  <LiveGameHeaderClock />
                 </div>
-              )}
-            </div>
-          )}
+                <div className='text-[10px] font-bold tracking-[0.2em] opacity-70 mt-2 uppercase bg-background/10 px-2 py-0.5 rounded'>
+                  PERIOD {periodNumber}
+                </div>
+              </>
+            ) : (
+              <div className='text-center'>
+                <div className='text-xs sm:text-sm font-black leading-tight uppercase tracking-widest'>
+                  {isBeforeStart ? "Ready to Start" : "Game Paused"}
+                </div>
+                {/* ... Subs logic ... */}
+              </div>
+            )}
+          </div>
 
-          {/* Away Team */}
-          <div className='text-center min-w-[80px]'>
-            <div className='text-xs font-medium tracking-wider opacity-80 mb-1'>
-              {game.opponentTeamName}
+          {/* Opposing Team Section */}
+          <div className='text-center w-[100px] sm:w-[140px] flex flex-col items-center justify-center min-h-[60px]'>
+            <div className='text-[10px] sm:text-xs font-bold tracking-wider opacity-90 uppercase leading-tight whitespace-normal line-clamp-2 w-full'>
+              {game.opponentName}
             </div>
-            <div className='text-5xl font-bold tabular-nums'>{theirScore}</div>
+            <div className='text-4xl sm:text-5xl font-black tabular-nums leading-none mt-1'>
+              {game.goalsAgainst}
+            </div>
           </div>
         </div>
 
-        {/* Right Section – Action Button */}
-        <div className='flex-shrink-0 w-[120px] flex justify-end'>
-          <Button {...getButtonProps()} />
+        {/* Right Section – Action Button (Taller) */}
+        <div className='flex-shrink-0 w-[100px] flex justify-end'>
+          <Button
+            {...getButtonProps()}
+            className='!rounded-xl shadow-lg py-3 px-4 min-h-[48px] font-black uppercase tracking-tighter text-[11px]'
+          />
         </div>
       </header>
 

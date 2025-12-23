@@ -9,19 +9,19 @@ function TeamStatsBetweenPeriods() {
   const players = useGamePlayersStore((s) => s.players);
 
   // Use store state
-  const gameEvents = useGameEventsStore((s) => s.gameEvents);
-  const teamStats = useGameEventsStore((s) => s.teamStats);
+  const gameEvents = game.gameEventsMajor;
+  const teamStats = game.teamStatTotals;
   const isLoading = useGameEventsStore((s) => s.isLoadingEvents);
 
   // Use store method
-  const fetchGameEvents = useGameEventsStore((s) => s.fetchGameEvents);
+  // const fetchGameEvents = useGameEventsStore((s) => s.fetchGameEvents);
 
   // Fetch stats on mount and when game changes
-  useEffect(() => {
-    if (game?.game_id) {
-      fetchGameEvents(game.game_id);
-    }
-  }, [game?.game_id]);
+  // useEffect(() => {
+  //   if (game?.game_id) {
+  //     fetchGameEvents(game.game_id);
+  //   }
+  // }, [game?.game_id]);
 
   if (isLoading) {
     return <div className='text-center text-muted py-4'>Loading stats...</div>;
