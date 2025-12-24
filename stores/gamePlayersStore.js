@@ -419,6 +419,10 @@ const useGamePlayersStore = create((set, get) => ({
 
   // ==================== PLUS/MINUS MANAGEMENT ====================
 
+  // Replace these methods in gamePlayersStore.js:
+
+  // ==================== PLUS/MINUS MANAGEMENT ====================
+
   /**
    * Calculate and update plus/minus for all players
    * Called automatically on load and can be called manually after goals
@@ -430,7 +434,11 @@ const useGamePlayersStore = create((set, get) => ({
       const gamePlayerTimeStore = useGamePlayerTimeStore.getState();
 
       const plusMinusMap = gamePlayerTimeStore.calculateAllPlusMinus(gameId);
+
       get().updateAllPlusMinus(plusMinusMap);
+
+      // Force update to ensure React detects the change
+      get().forceUpdate();
     } catch (error) {
       console.error("Error calculating plus/minus:", error);
     }
@@ -444,6 +452,40 @@ const useGamePlayersStore = create((set, get) => ({
       players: state.players.map((player) =>
         player.id === playerId ? { ...player, plusMinus } : player
       ),
+    }));
+  },
+
+  /**
+   * Update plusMinus for all players (bulk update)
+   */
+  updateAllPlusMinus: (plusMinusMap) => {
+    set((state) => {
+      const updatedPlayers = state.players.map((player) => {
+        const newPlusMinus = plusMinusMap[player.id] ?? player.plusMinus ?? 0;
+
+        // Log if there's a change
+        if (player.plusMinus !== newPlusMinus) {
+          console.log(
+            `  ${player.fullName}: ${player.plusMinus} -> ${newPlusMinus}`
+          );
+        }
+
+        return {
+          ...player,
+          plusMinus: newPlusMinus,
+        };
+      });
+
+      return { players: updatedPlayers };
+    });
+  },
+
+  /**
+   * Force a re-render by creating a new array reference
+   */
+  forceUpdate: () => {
+    set((state) => ({
+      players: [...state.players],
     }));
   },
 

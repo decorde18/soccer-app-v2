@@ -519,6 +519,7 @@ const useGameEventsStore = create((set, get) => ({
    */
   deleteEvent: async (eventId, eventType = "major", cascade = false) => {
     const gameStore = useGameStore.getState();
+    const playersStore = useGamePlayersStore.getState();
     const game = gameStore.game;
 
     try {
@@ -591,6 +592,11 @@ const useGameEventsStore = create((set, get) => ({
               (g.team_season_id !== teamSeasonId && !g.is_own_goal) ||
               (g.team_season_id === teamSeasonId && g.is_own_goal)
           ).length;
+          // Use requestAnimationFrame to ensure state has propagated
+          requestAnimationFrame(() => {
+            console.log("Recalculating plus/minus after goal delete");
+            playersStore.calculateAndUpdatePlusMinus(game.game_id);
+          });
         }
 
         if (childCards && childCards.length > 0) {
@@ -606,6 +612,7 @@ const useGameEventsStore = create((set, get) => ({
         }
 
         gameStore.updateGame(updates);
+
         console.log("Cascade delete complete");
         return true;
       }

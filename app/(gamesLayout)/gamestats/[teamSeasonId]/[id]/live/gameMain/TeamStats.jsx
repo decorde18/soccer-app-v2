@@ -11,7 +11,7 @@ import { formatSecondsToMmss } from "@/lib/dateTimeUtils";
 
 function TeamStats() {
   const game = useGameStore((s) => s.game);
-  const players = useGamePlayersStore((s) => s.players);
+  const players = useGamePlayersStore((state) => state.players);
 
   // Get team stats directly from game store
   const teamStats = game?.teamStatTotals || {
