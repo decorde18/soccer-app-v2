@@ -60,7 +60,7 @@ export default function ScheduleGrid({
 
     const gameTypeInfo = getGameTypeBadge();
     const leaguesArray =
-      game.rawGame?.leagues_array.filter((league) => league.id) || [];
+      game.rawGame?.leagues_array.filter((league) => league.league_id) || [];
     const hasLeagues = leaguesArray.length > 0;
 
     const gameHeader = (

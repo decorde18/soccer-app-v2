@@ -47,11 +47,11 @@ export function Card({
   ...props
 }) {
   const variants = {
-    default: "bg-surface border border-border",
+    default: "bg-background border border-border",
     hover:
-      "bg-surface border border-border hover:shadow-lg hover:border-primary/50 hover:-translate-y-1",
+      "bg-background border border-border hover:shadow-lg hover:border-primary/50 hover:-translate-y-1",
     clickable:
-      "bg-surface border border-border hover:shadow-lg hover:border-primary/50 hover:-translate-y-1 cursor-pointer",
+      "bg-background border border-border hover:shadow-lg hover:border-primary/50 hover:-translate-y-1 cursor-pointer",
     outlined: "bg-transparent border-2 border-border hover:border-primary/50",
   };
 
