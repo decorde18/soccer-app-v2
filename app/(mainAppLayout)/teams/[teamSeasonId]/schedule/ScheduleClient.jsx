@@ -72,8 +72,7 @@ export default function ScheduleClient({ teamSeasonId, canEdit }) {
     const sublocation = game.sublocation_name;
 
     // Check if game has been played and has scores
-    const hasScore =
-      game.score_source !== null && game.score_source !== undefined;
+    const hasScore = game.status === "completed";
 
     const scoreUs = hasScore
       ? isHome
@@ -90,8 +89,8 @@ export default function ScheduleClient({ teamSeasonId, canEdit }) {
       ? scoreUs > scoreThem
         ? "W"
         : scoreUs < scoreThem
-        ? "L"
-        : "D"
+          ? "L"
+          : "D"
       : null;
 
     // Status display helper
@@ -99,12 +98,12 @@ export default function ScheduleClient({ teamSeasonId, canEdit }) {
       game.status === "completed"
         ? "Final"
         : game.status === "in_progress"
-        ? "Live"
-        : game.status === "postponed"
-        ? "Postponed"
-        : game.status === "cancelled"
-        ? "Cancelled"
-        : "Scheduled";
+          ? "Live"
+          : game.status === "postponed"
+            ? "Postponed"
+            : game.status === "cancelled"
+              ? "Cancelled"
+              : "Scheduled";
 
     return {
       id: game.id || game.game_id,
@@ -120,14 +119,13 @@ export default function ScheduleClient({ teamSeasonId, canEdit }) {
       location: location || "-",
       sublocation: sublocation || "",
       league: game.league_names || "Friendly",
-      scoreUs: hasScore ? scoreUs ?? 0 : "-",
-      scoreThem: hasScore ? scoreThem ?? 0 : "-",
+      scoreUs: hasScore ? (scoreUs ?? 0) : "-",
+      scoreThem: hasScore ? (scoreThem ?? 0) : "-",
       result: result || "-",
       status: game.status,
       statusDisplay,
       isHome,
       hasScore,
-      scoreSource: game.score_source, // 'manual', 'calculated', or null
       rawGame: game,
     };
   });
@@ -135,7 +133,6 @@ export default function ScheduleClient({ teamSeasonId, canEdit }) {
   return (
     <>
       <ViewWrapper
-        title='Schedule'
         defaultView='grid'
         loading={loading}
         error={error}

@@ -9,6 +9,7 @@ export default function ScheduleTable({
   teamSeasonId,
   onEdit,
   onDelete,
+  onSelect,
   showActions = false,
 }) {
   const pageSize = 10;
@@ -143,8 +144,8 @@ export default function ScheduleTable({
                 row.scoreUs > row.scoreThem
                   ? "text-success"
                   : row.scoreUs < row.scoreThem
-                  ? "text-danger"
-                  : "text-muted"
+                    ? "text-danger"
+                    : "text-muted"
               }`}
             >
               {row.scoreUs}
@@ -157,9 +158,9 @@ export default function ScheduleTable({
             className={`text-xs px-2 py-1 rounded-md ${
               row.status === "scheduled"
                 ? "text-primary bg-primary/10"
-                : row.status === "canceled"
-                ? "text-accent bg-accent/10"
-                : "text-muted bg-muted/10"
+                : row.status === "cancelled"
+                  ? "text-accent bg-accent/10"
+                  : "text-muted bg-muted/10"
             }`}
           >
             {row.status?.charAt(0).toUpperCase() + row.status?.slice(1)}
@@ -177,8 +178,8 @@ export default function ScheduleTable({
               value === "W"
                 ? "text-success"
                 : value === "L"
-                ? "text-danger"
-                : "text-muted"
+                  ? "text-danger"
+                  : "text-muted"
             }`}
           >
             {value}
@@ -205,8 +206,13 @@ export default function ScheduleTable({
       size='sm'
       hoverable={true}
       emptyMessage='No games scheduled yet.'
+      rowClassName={(row) => {
+        const gameDate = getDateOnly(row.date);
+        const isPast = gameDate.getTime() < todayTime;
+        return isPast ? "bg-muted/5 opacity-75" : "bg-card";
+      }}
       actions={
-        showActions && onEdit && onDelete
+        showActions && onEdit && onDelete && onSelect
           ? (row) => (
               <div className='flex gap-2'>
                 <Button
@@ -215,6 +221,16 @@ export default function ScheduleTable({
                   onClick={() => onEdit(row.rawGame)}
                 >
                   Edit
+                </Button>
+                <Button
+                  disabled={
+                    row.status === "cancelled" || row.status === "postponed"
+                  }
+                  variant='outline'
+                  size='xs'
+                  onClick={() => onSelect(row.rawGame)}
+                >
+                  Stats
                 </Button>
                 <Button
                   variant='outline'
@@ -229,7 +245,7 @@ export default function ScheduleTable({
           : undefined
       }
       actionsLabel='Actions'
-      actionsWidth='140px'
+      actionsWidth='200px'
     />
   );
 }

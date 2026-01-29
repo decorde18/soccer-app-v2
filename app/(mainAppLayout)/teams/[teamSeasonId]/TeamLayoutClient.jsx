@@ -83,9 +83,9 @@ export default function TeamLayoutClient({
 
   return (
     <TeamContext.Provider value={contextValue}>
-      <div className='min-h-screen bg-background'>
+      <div className='flex flex-col min-h-screen bg-background'>
         {/* Team Header */}
-        <div className='bg-surface border-b border-border'>
+        <div className='flex-shrink-0 bg-surface border-b border-border'>
           <div className='max-w-7xl mx-auto px-4 sm:px-8 py-4'>
             <div className='flex items-center justify-between'>
               {/* Team Info */}
@@ -249,8 +249,8 @@ export default function TeamLayoutClient({
           )}
         </div>
 
-        {/* Page Content */}
-        <div className='max-w-7xl mx-auto px-4 sm:px-8 py-6'>{children}</div>
+        {/* Page Content - Scrollable Area */}
+        <div className='flex-1 overflow-hidden'>{children}</div>
       </div>
     </TeamContext.Provider>
   );

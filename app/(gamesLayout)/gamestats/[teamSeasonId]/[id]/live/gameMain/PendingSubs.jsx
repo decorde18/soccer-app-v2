@@ -37,14 +37,19 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
 
     allPlayers.forEach((player) => {
       (player.ins || []).forEach((sub) => {
-        if (sub.gameTime === null && !seenSubIds.has(sub.subId)) {
-          seenSubIds.add(sub.subId);
-          subs.push({
-            subId: sub.subId,
-            inPlayerId: player.playerGameId,
-            outPlayerId: null,
-            gkSub: sub.gkSub,
-          });
+        if (sub.gameTime === null) {
+          const existing = subs.find((s) => s.subId === sub.subId);
+          if (existing) {
+            existing.inPlayerId = player.playerGameId;
+          } else if (!seenSubIds.has(sub.subId)) {
+            seenSubIds.add(sub.subId);
+            subs.push({
+              subId: sub.subId,
+              inPlayerId: player.playerGameId,
+              outPlayerId: null,
+              gkSub: sub.gkSub,
+            });
+          }
         }
       });
 
@@ -73,7 +78,7 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
   }, [allPlayers]);
 
   const players = allPlayers.filter((p) =>
-    ["dressed", "starter", "goalkeeper"].includes(p.gameStatus)
+    ["dressed", "starter", "goalkeeper"].includes(p.gameStatus),
   );
 
   const subsWithPlayerInfo = useMemo(() => {
@@ -109,7 +114,7 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
     const pendingInPlayerIds = new Set(
       pendingSubs
         .filter((s) => s.inPlayerId && s.subId !== currentSubId)
-        .map((s) => s.inPlayerId)
+        .map((s) => s.inPlayerId),
     );
 
     return players
@@ -129,13 +134,12 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
         label: `#${p.jerseyNumber} ${p.fullName}`,
       }));
   };
-
   const getAvailableFieldPlayers = (currentSubId) => {
     const currentSub = pendingSubs.find((s) => s.subId === currentSubId);
     const pendingOutPlayerIds = new Set(
       pendingSubs
         .filter((s) => s.outPlayerId && s.subId !== currentSubId)
-        .map((s) => s.outPlayerId)
+        .map((s) => s.outPlayerId),
     );
 
     return players
@@ -156,13 +160,11 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
         label: `#${p.jerseyNumber} ${p.fullName}`,
       }));
   };
-
   const handleStartEdit = (sub) => {
     setEditingSubId(sub.subId);
     setEditingInPlayer(sub.inPlayerId?.toString() || "");
     setEditingOutPlayer(sub.outPlayerId?.toString() || "");
   };
-
   const handleSaveEdit = async () => {
     if (!game?.game_id) return;
 
@@ -184,13 +186,11 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
       setIsProcessing(false);
     }
   };
-
   const handleCancelEdit = () => {
     setEditingSubId(null);
     setEditingInPlayer("");
     setEditingOutPlayer("");
   };
-
   const validateAndConfirmSub = async (sub) => {
     // Validation logic
     if (sub.outPlayerId && !sub.inPlayerId) {
@@ -216,7 +216,7 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
         (p) =>
           p.fieldStatus === "onField" ||
           p.fieldStatus === "subbingIn" ||
-          p.fieldStatus === "onFieldGk"
+          p.fieldStatus === "onFieldGk",
       ).length;
 
       if (currentFieldCount >= +game.settings.playersOnField) {
@@ -251,7 +251,6 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
 
     return true;
   };
-
   const handleConfirmSingle = async (subId) => {
     if (!game?.game_id) return;
 
@@ -278,7 +277,6 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
       setIsProcessing(false);
     }
   };
-
   const handleConfirmAll = async () => {
     if (!game?.game_id) return;
 
@@ -304,7 +302,6 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
       setIsProcessing(false);
     }
   };
-
   const handleCancelSub = async (subId) => {
     if (!game?.game_id) return;
 
@@ -318,7 +315,6 @@ function PendingSubs({ hideIndividualEnter = false, hideEnterAll = false }) {
       setIsProcessing(false);
     }
   };
-
   const closeDialog = () => {
     setDialog({ ...dialog, isOpen: false });
   };

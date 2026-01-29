@@ -25,12 +25,11 @@ export default function ScheduleGrid({
   // Separate games into upcoming and past
   const upcomingGames = games.filter((game) => new Date(game.date) >= today);
   const pastGames = games.filter((game) => new Date(game.date) < today);
-
   // Sort upcoming ascending (soonest first), past descending (most recent first)
   upcomingGames.sort((a, b) => new Date(a.date) - new Date(b.date));
   pastGames.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  const renderGameCard = (game) => {
+  const renderGameCard = (game, isPast = false) => {
     const getGameTypeBadge = () => {
       const gameType = game.rawGame?.game_type || game.game_type || "league";
       let colorClass = "";
@@ -60,7 +59,8 @@ export default function ScheduleGrid({
     };
 
     const gameTypeInfo = getGameTypeBadge();
-    const leaguesArray = game.rawGame?.leagues_array || [];
+    const leaguesArray =
+      game.rawGame?.leagues_array.filter((league) => league.id) || [];
     const hasLeagues = leaguesArray.length > 0;
 
     const gameHeader = (
@@ -154,7 +154,7 @@ export default function ScheduleGrid({
         </div>
 
         <div className='text-right flex-shrink-0'>
-          {game.hasScore ? (
+          {game.hasScore || game.status === "in_progress" ? (
             <div>
               <div className='text-3xl font-bold'>
                 <span
@@ -162,8 +162,8 @@ export default function ScheduleGrid({
                     game.scoreUs > game.scoreThem
                       ? "text-success"
                       : game.scoreUs < game.scoreThem
-                      ? "text-danger"
-                      : "text-muted"
+                        ? "text-danger"
+                        : "text-muted"
                   }
                 >
                   {game.scoreUs}
@@ -171,22 +171,26 @@ export default function ScheduleGrid({
                 <span className='text-muted mx-2'>-</span>
                 <span className='text-text'>{game.scoreThem}</span>
               </div>
-              <div className='text-xs text-muted mt-1'>
-                {game.scoreUs > game.scoreThem
-                  ? "Win"
-                  : game.scoreUs < game.scoreThem
-                  ? "Loss"
-                  : "Draw"}
-              </div>
+              {game.status === "completed" ? (
+                <div className='text-xs text-muted mt-1'>
+                  {game.scoreUs > game.scoreThem
+                    ? "Win"
+                    : game.scoreUs < game.scoreThem
+                      ? "Loss"
+                      : "Draw"}
+                </div>
+              ) : (
+                <div className='text-xs text-muted mt-1'>In Progress</div>
+              )}
             </div>
           ) : (
             <span
               className={`text-sm font-medium px-3 py-1 rounded-md ${
                 game.status === "scheduled"
                   ? "text-primary bg-primary/10"
-                  : game.status === "canceled"
-                  ? "text-accent bg-accent/10"
-                  : "text-muted bg-muted/10"
+                  : game.status === "cancelled"
+                    ? "text-accent bg-accent/10"
+                    : "text-muted bg-muted/10"
               }`}
             >
               {game.status?.charAt(0).toUpperCase() + game.status?.slice(1)}
@@ -207,13 +211,19 @@ export default function ScheduleGrid({
           >
             Edit
           </Button>
+
           <Button
+            disabled={
+              game.status === "cancelled" || game.status === "postponed"
+            }
             variant='outline'
             size='md'
             className='w-48'
             onClick={() => onSelect(game.rawGame)}
           >
-            Enter Game Stats
+            {game.status === "completed"
+              ? "Review Game Stats"
+              : "Enter Game Stats"}
           </Button>
           <Button
             variant='outline'
@@ -232,6 +242,9 @@ export default function ScheduleGrid({
         header={gameHeader}
         footer={gameFooter}
         variant='hover'
+        className={
+          isPast ? "bg-muted/5 border-muted/30" : "bg-card border-border"
+        }
       >
         {gameBody}
       </Card>
@@ -251,23 +264,26 @@ export default function ScheduleGrid({
               </span>
             </h2>
           </div>
-          <div className='space-y-4'>{upcomingGames.map(renderGameCard)}</div>
+          <div className='space-y-4'>
+            {upcomingGames.map((game) => renderGameCard(game, false))}
+          </div>
         </div>
       )}
 
       {/* Past Games Section */}
       {pastGames.length > 0 && (
         <div>
-          <div className='mb-4 pb-2 border-b border-muted/30'>
-            <h2 className='text-lg font-semibold text-muted'>
+          <div className='mb-4 pb-2 border-b-2 border-muted/50 mt-8'>
+            <h2 className='text-lg font-semibold text-muted flex items-center gap-2'>
+              <span className='inline-block w-8 h-0.5 bg-muted/50'></span>
               Past Games
               <span className='ml-2 text-sm font-normal'>
                 ({pastGames.length})
               </span>
             </h2>
           </div>
-          <div className='space-y-4 opacity-75'>
-            {pastGames.map(renderGameCard)}
+          <div className='space-y-4'>
+            {pastGames.map((game) => renderGameCard(game, true))}
           </div>
         </div>
       )}

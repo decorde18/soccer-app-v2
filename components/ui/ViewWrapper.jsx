@@ -35,28 +35,34 @@ export default function ViewWrapper({
   }
 
   return (
-    <div className='p-8'>
-      <div className='max-w-7xl mx-auto'>
-        {/* Header with title and toggle */}
-        <div className='flex justify-between items-center mb-6 flex-wrap gap-4'>
-          <h1 className='text-2xl font-bold text-text'>{title}</h1>
+    <div className='flex flex-col h-full'>
+      <div className='flex-shrink-0 p-4'>
+        <div className='max-w-7xl mx-auto'>
+          {/* Header with title and toggle */}
+          <div className='flex justify-between items-center flex-wrap gap-4'>
+            <h1 className='text-xl font-bold text-text'>{title}</h1>
 
-          <div className='flex items-center gap-4'>
-            {children}
-            <div className='flex items-center gap-2'>
-              <span className='text-sm text-muted'>Grid</span>
-              <Toggle
-                checked={isTableView}
-                onChange={setIsTableView}
-                aria-label='Toggle between grid and table view'
-              />
-              <span className='text-sm text-muted'>Table</span>
+            <div className='flex items-center gap-4'>
+              {children}
+              <div className='flex items-center gap-2'>
+                <span className='text-sm text-muted'>Grid</span>
+                <Toggle
+                  checked={isTableView}
+                  onChange={setIsTableView}
+                  aria-label='Toggle between grid and table view'
+                />
+                <span className='text-sm text-muted'>Table</span>
+              </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* View Content */}
-        <div>{isTableView ? tableView : gridView}</div>
+      {/* Scrollable View Content */}
+      <div className='flex-1 overflow-y-auto overflow-x-hidden px-8 pb-8'>
+        <div className='max-w-7xl mx-auto'>
+          {isTableView ? tableView : gridView}
+        </div>
       </div>
     </div>
   );

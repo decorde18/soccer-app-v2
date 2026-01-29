@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import Button from "@/components/ui/Button";
-import Dialog from "@/components/ui/Dialog";
+
 import useGameStore from "@/stores/gameStore";
 import useGameSubsStore from "@/stores/gameSubsStore";
 import LiveGameHeaderClock from "./LiveGameHeaderClock";
@@ -13,11 +13,8 @@ function LiveGameHeader() {
   const startPeriod = useGameStore((s) => s.startNextPeriod);
 
   const periodNumber = useGameStore((s) => s.getCurrentPeriodNumber());
-  const getPendingSubs = useGameSubsStore((s) => s.getPendingSubs);
 
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showPendingSubsDialog, setShowPendingSubsDialog] = useState(false);
-  const [pendingSubsCount, setPendingSubsCount] = useState(0);
 
   const isGameLive = gameStage === "during_period";
   const isGameEnded = gameStage === "end_game";
@@ -26,49 +23,11 @@ function LiveGameHeader() {
 
   if (!game) return null;
 
-  // todo Do I need? Check for pending subs periodically when between periods
-  // useEffect(() => {
-  //   if (!isBetweenPeriods || !game?.game_id) return;
-
-  //   const checkPendingSubs = async () => {
-  //     const subs = await getPendingSubs();
-  //     setPendingSubsCount(subs?.length || 0);
-  //   };
-
-  //   checkPendingSubs();
-  //   const interval = setInterval(checkPendingSubs, 2000);
-
-  //   return () => clearInterval(interval);
-  // }, [isBetweenPeriods, game?.game_id, getPendingSubs]);
-
   const handleStartPeriod = async () => {
-    //todo you are here
     if (!game?.game_id || isProcessing) return;
 
     setIsProcessing(true);
 
-    try {
-      // Check for pending subs before starting period
-      if (!isBeforeStart) {
-        const pendingSubs = await getPendingSubs();
-        if (pendingSubs && pendingSubs.length > 0) {
-          setPendingSubsCount(pendingSubs.length);
-          setShowPendingSubsDialog(true);
-          setIsProcessing(false);
-        }
-      } else {
-        // Start of Game or No pending subs, start period immediately
-        await startPeriod();
-        setIsProcessing(false);
-      }
-    } catch (error) {
-      console.error("Error starting period:", error);
-      setIsProcessing(false);
-    }
-  };
-  const handleStartWithoutSubs = async () => {
-    setShowPendingSubsDialog(false);
-    setIsProcessing(true);
     try {
       await startPeriod();
     } catch (error) {
@@ -77,6 +36,7 @@ function LiveGameHeader() {
       setIsProcessing(false);
     }
   };
+
   const handleEndPeriod = async () => {
     if (isProcessing) return;
 
@@ -117,8 +77,8 @@ function LiveGameHeader() {
       children: isProcessing
         ? "Starting..."
         : isBeforeStart
-        ? "START GAME"
-        : "START",
+          ? "START GAME"
+          : "START",
     };
   };
 
@@ -126,12 +86,12 @@ function LiveGameHeader() {
 
   return (
     <>
-      <header className='relative col-span-2 row-start-1 flex items-center justify-between px-4 py-4 shadow-lg bg-secondary text-background m-0 rounded'>
+      <header className='relative col-span-2 row-start-1 flex items-center justify-between px-4 py-4 shadow-lg bg-secondary text-background m-0 rounded z-10'>
         {/* Left Section – Equalizer Spacer */}
         <div className='flex-shrink-0 w-[120px]'></div>
 
         {/* Center Section – Score + Clock */}
-        <div className='absolute left-1/2 transform -translate-x-1/2 flex items-center gap-4 sm:gap-10 w-full max-w-4xl justify-center'>
+        <div className='absolute left-1/2 transform -translate-x-1/2 flex items-center gap-4 sm:gap-10 w-full max-w-4xl justify-center pointer-events-none'>
           {/* Our Team Section */}
           <div className='text-center w-[100px] sm:w-[140px] flex flex-col items-center justify-center min-h-[60px]'>
             <div className='text-[10px] sm:text-xs font-bold tracking-wider opacity-90 uppercase leading-tight whitespace-normal line-clamp-2 w-full'>
@@ -158,7 +118,6 @@ function LiveGameHeader() {
                 <div className='text-xs sm:text-sm font-black leading-tight uppercase tracking-widest'>
                   {isBeforeStart ? "Ready to Start" : "Game Paused"}
                 </div>
-                {/* ... Subs logic ... */}
               </div>
             )}
           </div>
@@ -175,28 +134,13 @@ function LiveGameHeader() {
         </div>
 
         {/* Right Section – Action Button (Taller) */}
-        <div className='flex-shrink-0 w-[100px] flex justify-end'>
+        <div className='flex-shrink-0 w-[100px] flex justify-end relative z-20'>
           <Button
             {...getButtonProps()}
             className='!rounded-xl shadow-lg py-3 px-4 min-h-[48px] font-black uppercase tracking-tighter text-[11px]'
           />
         </div>
       </header>
-
-      {/* Pending Subs Dialog */}
-      <Dialog
-        isOpen={showPendingSubsDialog}
-        onClose={() => setShowPendingSubsDialog(false)}
-        title='Pending Substitutions'
-        type='warning'
-        message={`You have ${pendingSubsCount} pending substitution${
-          pendingSubsCount !== 1 ? "s" : ""
-        }.\n\nWould you like to confirm them now before starting the period?`}
-        cancelText='Keep Pending'
-        confirmText='Start With Changes'
-        onCancel={() => setShowPendingSubsDialog(false)}
-        onConfirm={handleStartWithoutSubs}
-      />
     </>
   );
 }

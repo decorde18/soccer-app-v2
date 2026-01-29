@@ -55,7 +55,7 @@ const useGameStore = create((set, get) => {
           null,
           {
             filters: { game_id: gameId },
-          }
+          },
         );
 
         // Fetch existing periods (start_time and end_time are BIGINT Unix ms)
@@ -66,7 +66,7 @@ const useGameStore = create((set, get) => {
           null,
           {
             filters: { game_id: gameId },
-          }
+          },
         );
 
         // Fetch subs
@@ -146,10 +146,10 @@ const useGameStore = create((set, get) => {
 
         // Calculate scores based on goals
         const goalsFor = gameEventsGoals.filter(
-          (g) => g.team_season_id == teamSeasonId
+          (g) => g.team_season_id == teamSeasonId,
         ).length;
         const goalsAgainst = gameEventsGoals.filter(
-          (g) => g.team_season_id != teamSeasonId
+          (g) => g.team_season_id != teamSeasonId,
         ).length;
 
         // Determine current state
@@ -233,7 +233,7 @@ const useGameStore = create((set, get) => {
         (s) =>
           s.end_time === null &&
           s.period === game.currentPeriodIndex + 1 &&
-          s.clock_should_run === 0
+          s.clock_should_run === 0,
       );
       if (activeStoppage && currentPeriod && !currentPeriod.endTime) {
         return GAME_STAGES.IN_STOPPAGE;
@@ -340,7 +340,7 @@ const useGameStore = create((set, get) => {
       const periodStoppages = game.gameEventsMajor
         .filter(
           (s) =>
-            s.period === currentPeriod.periodNumber && s.clock_should_run === 0
+            s.period === currentPeriod.periodNumber && s.clock_should_run === 0,
         )
         .map((e) => ({
           startTime: e.game_time,
@@ -350,7 +350,7 @@ const useGameStore = create((set, get) => {
       return calculatePeriodTime(
         currentPeriod.startTime,
         currentMs,
-        periodStoppages
+        periodStoppages,
       );
     },
 
@@ -420,8 +420,8 @@ const useGameStore = create((set, get) => {
           const gameTime = get().getGameTime();
           await Promise.all(
             completeSubs.map((sub) =>
-              gameSubsStore.confirmSub(sub.subId, gameTime)
-            )
+              gameSubsStore.confirmSub(sub.subId, gameTime),
+            ),
           );
         }
       } catch (error) {
@@ -503,7 +503,7 @@ const useGameStore = create((set, get) => {
         });
 
         const updatedStoppages = game.gameEventsMajor.map((s) =>
-          s.id === stoppageId ? { ...s, end_time: gameTime } : s
+          s.id === stoppageId ? { ...s, end_time: gameTime } : s,
         );
 
         get().updateGame({ gameEventsMajor: updatedStoppages });
@@ -564,7 +564,7 @@ const useGameStore = create((set, get) => {
                 endTime:
                   updates.end_time !== undefined ? updates.end_time : p.endTime,
               }
-            : p
+            : p,
         );
         get().updateGame({ periods: updatedPeriods });
 
@@ -627,6 +627,36 @@ const useGameStore = create((set, get) => {
 
       set({ game: updatedGame });
     },
+
+    replaceTeamEvent: (oldId, newEvent) => {
+      const game = get().game;
+      if (!game) return;
+
+      const updatedGame = {
+        ...game,
+        gameEventsTeam: game.gameEventsTeam.map((e) =>
+          e.id === oldId ? newEvent : e,
+        ),
+      };
+
+      updatedGame.teamStatTotals = get().calculateTeamStatTotals(updatedGame);
+
+      set({ game: updatedGame });
+    },
+
+    removeTeamEvent: (eventId) => {
+      const game = get().game;
+      if (!game) return;
+
+      const updatedGame = {
+        ...game,
+        gameEventsTeam: game.gameEventsTeam.filter((e) => e.id !== eventId),
+      };
+
+      updatedGame.teamStatTotals = get().calculateTeamStatTotals(updatedGame);
+
+      set({ game: updatedGame });
+    },
     deleteEvent: async (eventId, eventType = "major") => {
       try {
         const tableMap = {
@@ -647,38 +677,38 @@ const useGameStore = create((set, get) => {
           switch (eventType) {
             case "major":
               updates.gameEventsMajor = game.gameEventsMajor.filter(
-                (s) => s.id !== eventId
+                (s) => s.id !== eventId,
               );
               break;
             case "goal":
               updates.gameEventsGoals = game.gameEventsGoals.filter(
-                (g) => g.goal_id !== eventId
+                (g) => g.goal_id !== eventId,
               );
               const teamSeasonId = game.isHome
                 ? game.home_team_season_id
                 : game.away_team_season_id;
               updates.goalsFor = updates.gameEventsGoals.filter(
-                (g) => g.team_season_id === teamSeasonId && !g.is_own_goal
+                (g) => g.team_season_id === teamSeasonId && !g.is_own_goal,
               ).length;
               updates.goalsAgainst = updates.gameEventsGoals.filter(
                 (g) =>
                   (g.team_season_id !== teamSeasonId && !g.is_own_goal) ||
-                  (g.team_season_id === teamSeasonId && g.is_own_goal)
+                  (g.team_season_id === teamSeasonId && g.is_own_goal),
               ).length;
               break;
             case "discipline":
               updates.gameEventsDiscipline = game.gameEventsDiscipline.filter(
-                (d) => d.discipline_id !== eventId
+                (d) => d.discipline_id !== eventId,
               );
               break;
             case "penalty":
               updates.gameEventsPenalties = game.gameEventsPenalties.filter(
-                (p) => p.penalty_id !== eventId
+                (p) => p.penalty_id !== eventId,
               );
               break;
             case "player_action":
               updates.playerActions = game.playerActions.filter(
-                (a) => a.id !== eventId
+                (a) => a.id !== eventId,
               );
               updates.teamStatTotals = get().calculateTeamStatTotals({
                 ...game,
@@ -687,7 +717,7 @@ const useGameStore = create((set, get) => {
               break;
             case "team":
               updates.gameEventsTeam = game.gameEventsTeam.filter(
-                (t) => t.id !== eventId
+                (t) => t.id !== eventId,
               );
               updates.teamStatTotals = get().calculateTeamStatTotals({
                 ...game,
@@ -702,7 +732,71 @@ const useGameStore = create((set, get) => {
         throw error;
       }
     },
+    // Add these methods to gameStore.js
 
+    replaceGoalEvent: (
+      optimisticGoalId,
+      realGoalEvent,
+      optimisticMajorId,
+      realMajorEvent,
+    ) => {
+      const game = get().game;
+      if (!game) return;
+
+      const teamSeasonId = game.isHome
+        ? game.home_team_season_id
+        : game.away_team_season_id;
+
+      const updatedGame = {
+        ...game,
+        gameEventsGoals: game.gameEventsGoals.map((g) =>
+          g.id === optimisticGoalId || g.goal_id === optimisticGoalId
+            ? realGoalEvent
+            : g,
+        ),
+        gameEventsMajor: game.gameEventsMajor.map((m) =>
+          m.id === optimisticMajorId ? realMajorEvent : m,
+        ),
+      };
+
+      set({ game: updatedGame });
+    },
+
+    removeGoalEvent: (goalId, majorEventId) => {
+      const game = get().game;
+      if (!game) return;
+
+      const teamSeasonId = game.isHome
+        ? game.home_team_season_id
+        : game.away_team_season_id;
+
+      // Find the goal to determine if it was ours or theirs
+      const goalToRemove = game.gameEventsGoals.find(
+        (g) => g.id === goalId || g.goal_id === goalId,
+      );
+      const isOurGoal =
+        goalToRemove &&
+        goalToRemove.team_season_id === teamSeasonId &&
+        !goalToRemove.is_own_goal;
+      const isTheirGoal =
+        goalToRemove &&
+        (goalToRemove.team_season_id !== teamSeasonId ||
+          goalToRemove.is_own_goal);
+
+      const updatedGame = {
+        ...game,
+        gameEventsGoals: game.gameEventsGoals.filter(
+          (g) => g.id !== goalId && g.goal_id !== goalId,
+        ),
+        gameEventsMajor: game.gameEventsMajor.filter(
+          (m) => m.id !== majorEventId,
+        ),
+        goalsFor: game.goalsFor - (isOurGoal ? 1 : 0),
+        goalsAgainst: game.goalsAgainst - (isTheirGoal ? 1 : 0),
+      };
+
+      set({ game: updatedGame });
+    },
     addPlayerAction: (action) => {
       const game = get().game;
       if (!game) return;
@@ -717,13 +811,28 @@ const useGameStore = create((set, get) => {
         },
       });
     },
+    replacePlayerAction: (optimisticActionId, realAction) => {
+      const game = get().game;
+      if (!game) return;
 
+      const updatedActions = game.playerActions.map((a) =>
+        a.id === optimisticActionId ? realAction : a,
+      );
+      const updatedGame = { ...game, playerActions: updatedActions };
+
+      set({
+        game: {
+          ...updatedGame,
+          teamStatTotals: get().calculateTeamStatTotals(updatedGame),
+        },
+      });
+    },
     removePlayerAction: (actionId) => {
       const game = get().game;
       if (!game) return;
 
       const updatedActions = game.playerActions.filter(
-        (a) => a.id !== actionId
+        (a) => a.id !== actionId,
       );
       const updatedGame = { ...game, playerActions: updatedActions };
 
@@ -758,7 +867,70 @@ const useGameStore = create((set, get) => {
 
       set({ game: updatedGame });
     },
+    // Add these methods to gameStore.js
 
+    replaceGoalEvent: (
+      optimisticGoalId,
+      realGoalEvent,
+      optimisticMajorId,
+      realMajorEvent,
+    ) => {
+      const game = get().game;
+      if (!game) return;
+
+      const teamSeasonId = game.isHome
+        ? game.home_team_season_id
+        : game.away_team_season_id;
+
+      const updatedGame = {
+        ...game,
+        gameEventsGoals: game.gameEventsGoals.map((g) =>
+          g.id === optimisticGoalId || g.goal_id === optimisticGoalId
+            ? realGoalEvent
+            : g,
+        ),
+        gameEventsMajor: game.gameEventsMajor.map((m) =>
+          m.id === optimisticMajorId ? realMajorEvent : m,
+        ),
+      };
+
+      set({ game: updatedGame });
+    },
+    removeGoalEvent: (goalId, majorEventId) => {
+      const game = get().game;
+      if (!game) return;
+
+      const teamSeasonId = game.isHome
+        ? game.home_team_season_id
+        : game.away_team_season_id;
+
+      // Find the goal to determine if it was ours or theirs
+      const goalToRemove = game.gameEventsGoals.find(
+        (g) => g.id === goalId || g.goal_id === goalId,
+      );
+      const isOurGoal =
+        goalToRemove &&
+        goalToRemove.team_season_id === teamSeasonId &&
+        !goalToRemove.is_own_goal;
+      const isTheirGoal =
+        goalToRemove &&
+        (goalToRemove.team_season_id !== teamSeasonId ||
+          goalToRemove.is_own_goal);
+
+      const updatedGame = {
+        ...game,
+        gameEventsGoals: game.gameEventsGoals.filter(
+          (g) => g.id !== goalId && g.goal_id !== goalId,
+        ),
+        gameEventsMajor: game.gameEventsMajor.filter(
+          (m) => m.id !== majorEventId,
+        ),
+        goalsFor: game.goalsFor - (isOurGoal ? 1 : 0),
+        goalsAgainst: game.goalsAgainst - (isTheirGoal ? 1 : 0),
+      };
+
+      set({ game: updatedGame });
+    },
     addDisciplineEvent: (disciplineEvent, majorEvent) => {
       const game = get().game;
       if (!game) return;
@@ -771,12 +943,50 @@ const useGameStore = create((set, get) => {
 
       set({ game: updatedGame });
     },
+    replaceDisciplineEvent: (
+      optimisticCardId,
+      realCardEvent,
+      optimisticMajorId,
+      realMajorEvent,
+    ) => {
+      const game = get().game;
+      if (!game) return;
 
+      const updatedGame = {
+        ...game,
+        gameEventsDiscipline: game.gameEventsDiscipline.map((d) =>
+          d.id === optimisticCardId || d.discipline_id === optimisticCardId
+            ? realCardEvent
+            : d,
+        ),
+        gameEventsMajor: game.gameEventsMajor.map((m) =>
+          m.id === optimisticMajorId ? realMajorEvent : m,
+        ),
+      };
+
+      set({ game: updatedGame });
+    },
+    removeDisciplineEvent: (cardId, majorEventId) => {
+      const game = get().game;
+      if (!game) return;
+
+      const updatedGame = {
+        ...game,
+        gameEventsDiscipline: game.gameEventsDiscipline.filter(
+          (d) => d.id !== cardId && d.discipline_id !== cardId,
+        ),
+        gameEventsMajor: game.gameEventsMajor.filter(
+          (m) => m.id !== majorEventId,
+        ),
+      };
+
+      set({ game: updatedGame });
+    },
     addPenaltyEvent: (
       penaltyEvent,
       majorEvent,
       goalEvent = null,
-      saveAction = null
+      saveAction = null,
     ) => {
       const game = get().game;
       if (!game) return;
@@ -831,7 +1041,7 @@ const useGameStore = create((set, get) => {
             corner: { us: 0, them: 0 },
             offside: { us: 0, them: 0 },
             foul: { us: 0, them: 0 },
-          }
+          },
         ) || {
           corner: { us: 0, them: 0 },
           offside: { us: 0, them: 0 },
@@ -839,7 +1049,7 @@ const useGameStore = create((set, get) => {
         }),
         shots:
           game.playerActions?.filter(
-            (e) => e.event_type === "shot" || e.event_type === "shot_on_target"
+            (e) => e.event_type === "shot" || e.event_type === "shot_on_target",
           ).length || 0,
         saves:
           game.playerActions?.filter((e) => e.event_type === "save").length ||
