@@ -242,9 +242,8 @@ export default function ScheduleGrid({
         header={gameHeader}
         footer={gameFooter}
         variant='hover'
-        className={
-          isPast ? "bg-muted/5 border-muted/30" : "bg-card border-border"
-        }
+        background={isPast ? "bg-muted/10" : "bg-card"}
+        className={isPast ? "border-muted/30" : "border-border"}
       >
         {gameBody}
       </Card>

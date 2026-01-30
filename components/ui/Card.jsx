@@ -44,16 +44,19 @@ export function Card({
   subTitle,
   description,
   icon,
+  background,
   ...props
 }) {
   const variants = {
-    default: "bg-background border border-border",
+    default: "border border-border",
     hover:
-      "bg-background border border-border hover:shadow-lg hover:border-primary/50 hover:-translate-y-1",
+      "border border-border hover:shadow-lg hover:border-primary/50 hover:-translate-y-1",
     clickable:
-      "bg-background border border-border hover:shadow-lg hover:border-primary/50 hover:-translate-y-1 cursor-pointer",
+      "border border-border hover:shadow-lg hover:border-primary/50 hover:-translate-y-1 cursor-pointer",
     outlined: "bg-transparent border-2 border-border hover:border-primary/50",
   };
+  // Determine background class
+  const bgClass = background || (variant === "outlined" ? "" : "bg-surface");
 
   const paddings = {
     none: "p-0",
@@ -72,6 +75,7 @@ export function Card({
       onClick={onClick}
       className={`
         rounded-xl transition-all duration-200
+        ${bgClass}
         ${variants[variant]}
         ${paddings[padding]}
         ${shadowClass}
