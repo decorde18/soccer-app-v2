@@ -4,12 +4,7 @@ import React from "react";
 import LiveGameModal from "./LiveGameModal";
 
 const layout = ({ children }) => {
-  return (
-    <>
-      <div>{children}</div>
-      <LiveGameModal />
-    </>
-  );
+  return <div>{children}</div>;
 };
 
 export default layout;

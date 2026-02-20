@@ -235,6 +235,149 @@ const useGameEventsStore = create((set, get) => ({
   //     throw error;
   //   }
   // },
+  // recordGoal: async (goalData) => {
+  //   const gameStore = useGameStore.getState();
+  //   const playersStore = useGamePlayersStore.getState();
+  //   const game = gameStore.game;
+  //   const gameTime = gameStore.getGameTime();
+  //   const period = gameStore.getCurrentPeriodNumber();
+
+  //   // Determine team_season_id
+  //   let teamSeasonId = goalData.teamSeasonId;
+  //   if (!teamSeasonId && goalData.scorerPlayerGameId) {
+  //     const player = playersStore.getPlayerByPlayerGameId(
+  //       goalData.scorerPlayerGameId,
+  //     );
+  //     if (player) teamSeasonId = player.teamSeasonId;
+  //   }
+  //   if (!teamSeasonId) {
+  //     teamSeasonId = game.isHome
+  //       ? game.home_team_season_id
+  //       : game.away_team_season_id;
+  //   }
+
+  //   // Determine defending GK
+  //   let defendingGkPlayerGameId = goalData.defendingGkPlayerGameId;
+  //   const ourTeamSeasonId = game.isHome
+  //     ? game.home_team_season_id
+  //     : game.away_team_season_id;
+  //   const isGoalAgainstUs = teamSeasonId !== ourTeamSeasonId;
+
+  //   if (!defendingGkPlayerGameId && isGoalAgainstUs) {
+  //     const currentGK = playersStore.getCurrentGoalkeeper();
+  //     if (currentGK) defendingGkPlayerGameId = currentGK.playerGameId;
+  //   }
+
+  //   // CREATE OPTIMISTIC DATA IMMEDIATELY
+  //   const optimisticMajorEvent = {
+  //     id: `temp_major_${Date.now()}_${Math.random()}`,
+  //     game_id: game.game_id,
+  //     event_type: "goal",
+  //     game_time: gameTime,
+  //     end_time: null,
+  //     period: period,
+  //     clock_should_run: 1,
+  //     details: goalData.details || null,
+  //   };
+
+  //   const optimisticGoalEvent = {
+  //     id: `temp_goal_${Date.now()}_${Math.random()}`,
+  //     goal_id: `temp_goal_${Date.now()}_${Math.random()}`, // For compatibility
+  //     major_event_id: optimisticMajorEvent.id,
+  //     team_season_id: teamSeasonId,
+  //     scorer_player_game_id: goalData.scorerPlayerGameId || null,
+  //     opponent_jersey_number: goalData.opponentJerseyNumber || null,
+  //     assist_player_game_id: goalData.assistPlayerGameId || null,
+  //     defending_gk_player_game_id: defendingGkPlayerGameId || null,
+  //     is_own_goal: goalData.isOwnGoal || 0,
+  //     goal_types: goalData.goalTypes
+  //       ? JSON.stringify(goalData.goalTypes)
+  //       : null,
+  //     game_time: gameTime,
+  //     period: period,
+  //     // Add display names for immediate UI rendering
+  //     scorer_name: goalData.scorerPlayerGameId
+  //       ? playersStore.getPlayerByPlayerGameId(goalData.scorerPlayerGameId)
+  //           ?.fullName
+  //       : null,
+  //     scorer_jersey_number: goalData.scorerPlayerGameId
+  //       ? playersStore.getPlayerByPlayerGameId(goalData.scorerPlayerGameId)
+  //           ?.jerseyNumber
+  //       : null,
+  //     assist_name: goalData.assistPlayerGameId
+  //       ? playersStore.getPlayerByPlayerGameId(goalData.assistPlayerGameId)
+  //           ?.fullName
+  //       : null,
+  //     assist_jersey_number: goalData.assistPlayerGameId
+  //       ? playersStore.getPlayerByPlayerGameId(goalData.assistPlayerGameId)
+  //           ?.jerseyNumber
+  //       : null,
+  //   };
+
+  //   // UPDATE UI IMMEDIATELY
+  //   gameStore.addGoalEvent(optimisticGoalEvent, optimisticMajorEvent);
+  //   playersStore.calculateAndUpdatePlusMinus(game.game_id);
+
+  //   set({ isRecording: true });
+
+  //   try {
+  //     // NOW send to server in background
+  //     const majorEvent = await apiFetch("game_events_major", "POST", {
+  //       game_id: game.game_id,
+  //       event_type: "goal",
+  //       game_time: gameTime,
+  //       end_time: null,
+  //       period: period,
+  //       clock_should_run: 1,
+  //       details: goalData.details || null,
+  //     });
+
+  //     const goalEventResponse = await apiFetch("game_events_goals", "POST", {
+  //       major_event_id: majorEvent.id,
+  //       team_season_id: teamSeasonId,
+  //       scorer_player_game_id: goalData.scorerPlayerGameId || null,
+  //       opponent_jersey_number: goalData.opponentJerseyNumber || null,
+  //       assist_player_game_id: goalData.assistPlayerGameId || null,
+  //       defending_gk_player_game_id: defendingGkPlayerGameId || null,
+  //       is_own_goal: goalData.isOwnGoal || 0,
+  //       goal_types: goalData.goalTypes
+  //         ? JSON.stringify(goalData.goalTypes)
+  //         : null,
+  //     });
+
+  //     // Replace optimistic with real data
+  //     const realGoalEvent = {
+  //       ...goalEventResponse,
+  //       goal_id: goalEventResponse.id,
+  //       major_event_id: majorEvent.id,
+  //       team_season_id: teamSeasonId,
+  //       game_time: gameTime,
+  //       period: period,
+  //     };
+
+  //     gameStore.replaceGoalEvent(
+  //       optimisticGoalEvent.id,
+  //       realGoalEvent,
+  //       optimisticMajorEvent.id,
+  //       majorEvent,
+  //     );
+
+  //     set({ isRecording: false });
+  //     return realGoalEvent;
+  //   } catch (error) {
+  //     console.error("Error recording goal:", error);
+
+  //     // ROLLBACK: Remove optimistic data
+  //     gameStore.removeGoalEvent(
+  //       optimisticGoalEvent.id,
+  //       optimisticMajorEvent.id,
+  //     );
+  //     playersStore.calculateAndUpdatePlusMinus(game.game_id);
+
+  //     set({ isRecording: false });
+  //     throw error;
+  //   }
+  // },
   recordGoal: async (goalData) => {
     const gameStore = useGameStore.getState();
     const playersStore = useGamePlayersStore.getState();
@@ -303,7 +446,7 @@ const useGameEventsStore = create((set, get) => ({
       scorer_jersey_number: goalData.scorerPlayerGameId
         ? playersStore.getPlayerByPlayerGameId(goalData.scorerPlayerGameId)
             ?.jerseyNumber
-        : null,
+        : goalData.opponentJerseyNumber || null,
       assist_name: goalData.assistPlayerGameId
         ? playersStore.getPlayerByPlayerGameId(goalData.assistPlayerGameId)
             ?.fullName
@@ -314,7 +457,7 @@ const useGameEventsStore = create((set, get) => ({
         : null,
     };
 
-    // UPDATE UI IMMEDIATELY
+    // UPDATE UI IMMEDIATELY (enables rapid clicking)
     gameStore.addGoalEvent(optimisticGoalEvent, optimisticMajorEvent);
     playersStore.calculateAndUpdatePlusMinus(game.game_id);
 
@@ -348,6 +491,7 @@ const useGameEventsStore = create((set, get) => ({
       // Replace optimistic with real data
       const realGoalEvent = {
         ...goalEventResponse,
+        id: goalEventResponse.id,
         goal_id: goalEventResponse.id,
         major_event_id: majorEvent.id,
         team_season_id: teamSeasonId,
@@ -367,17 +511,17 @@ const useGameEventsStore = create((set, get) => ({
     } catch (error) {
       console.error("Error recording goal:", error);
 
-      // ROLLBACK: Remove optimistic data
+      // Remove optimistic updates on error
       gameStore.removeGoalEvent(
         optimisticGoalEvent.id,
         optimisticMajorEvent.id,
       );
-      playersStore.calculateAndUpdatePlusMinus(game.game_id);
 
       set({ isRecording: false });
       throw error;
     }
   },
+
   // ==================== RECORD DISCIPLINE (CARD) ====================
 
   // recordCard: async (cardData) => {
@@ -442,12 +586,26 @@ const useGameEventsStore = create((set, get) => ({
   // },
 
   // ==================== RECORD PENALTY KICK ====================
-  recordCard: async (cardData) => {
+  recordDiscipline: async (disciplineData) => {
     const gameStore = useGameStore.getState();
     const playersStore = useGamePlayersStore.getState();
     const game = gameStore.game;
     const gameTime = gameStore.getGameTime();
     const period = gameStore.getCurrentPeriodNumber();
+
+    // Determine team_season_id
+    let teamSeasonId = disciplineData.teamSeasonId;
+    if (!teamSeasonId && disciplineData.playerGameId) {
+      const player = playersStore.getPlayerByPlayerGameId(
+        disciplineData.playerGameId,
+      );
+      if (player) teamSeasonId = player.teamSeasonId;
+    }
+    if (!teamSeasonId) {
+      teamSeasonId = game.isHome
+        ? game.home_team_season_id
+        : game.away_team_season_id;
+    }
 
     // CREATE OPTIMISTIC DATA
     const optimisticMajorEvent = {
@@ -458,29 +616,28 @@ const useGameEventsStore = create((set, get) => ({
       end_time: null,
       period: period,
       clock_should_run: 1,
-      details: cardData.details || null,
+      details: disciplineData.details || null,
     };
 
-    const player = cardData.playerGameId
-      ? playersStore.getPlayerByPlayerGameId(cardData.playerGameId)
+    const player = disciplineData.playerGameId
+      ? playersStore.getPlayerByPlayerGameId(disciplineData.playerGameId)
       : null;
 
     const optimisticCardEvent = {
       id: `temp_card_${Date.now()}_${Math.random()}`,
       discipline_id: `temp_card_${Date.now()}_${Math.random()}`,
       major_event_id: optimisticMajorEvent.id,
-      player_game_id: cardData.playerGameId || null,
-      team_season_id:
-        player?.teamSeasonId ||
-        (game.isHome ? game.home_team_season_id : game.away_team_season_id),
-      opponent_jersey_number: cardData.opponentJerseyNumber || null,
-      card_type: cardData.cardType,
-      card_reason: cardData.cardReason || null,
+      player_game_id: disciplineData.playerGameId || null,
+      team_season_id: teamSeasonId,
+      opponent_jersey_number: disciplineData.opponentJerseyNumber || null,
+      card_type: disciplineData.cardType,
+      card_reason: disciplineData.cardReason || null,
       game_time: gameTime,
       period: period,
       // Display names
       player_name: player?.fullName || null,
-      jersey_number: player?.jerseyNumber || null,
+      jersey_number:
+        player?.jerseyNumber || disciplineData.opponentJerseyNumber || null,
     };
 
     // UPDATE UI IMMEDIATELY
@@ -497,7 +654,7 @@ const useGameEventsStore = create((set, get) => ({
         end_time: null,
         period: period,
         clock_should_run: 1,
-        details: cardData.details || null,
+        details: disciplineData.details || null,
       });
 
       const cardEventResponse = await apiFetch(
@@ -505,25 +662,24 @@ const useGameEventsStore = create((set, get) => ({
         "POST",
         {
           major_event_id: majorEvent.id,
-          player_game_id: cardData.playerGameId || null,
-          team_season_id:
-            player?.teamSeasonId ||
-            (game.isHome ? game.home_team_season_id : game.away_team_season_id),
-          opponent_jersey_number: cardData.opponentJerseyNumber || null,
-          card_type: cardData.cardType,
-          card_reason: cardData.cardReason || null,
+          team_season_id: teamSeasonId,
+          player_game_id: disciplineData.playerGameId || null,
+          opponent_jersey_number: disciplineData.opponentJerseyNumber || null,
+          card_type: disciplineData.cardType,
+          card_reason: disciplineData.cardReason || null,
         },
       );
 
+      // Replace optimistic with real data
       const realCardEvent = {
         ...cardEventResponse,
+        id: cardEventResponse.id,
         discipline_id: cardEventResponse.id,
         major_event_id: majorEvent.id,
         game_time: gameTime,
         period: period,
       };
 
-      // Replace optimistic with real
       gameStore.replaceDisciplineEvent(
         optimisticCardEvent.id,
         realCardEvent,
@@ -534,9 +690,9 @@ const useGameEventsStore = create((set, get) => ({
       set({ isRecording: false });
       return realCardEvent;
     } catch (error) {
-      console.error("Error recording card:", error);
+      console.error("Error recording discipline:", error);
 
-      // ROLLBACK
+      // Remove optimistic updates on error
       gameStore.removeDisciplineEvent(
         optimisticCardEvent.id,
         optimisticMajorEvent.id,
@@ -546,6 +702,110 @@ const useGameEventsStore = create((set, get) => ({
       throw error;
     }
   },
+  // recordCard: async (cardData) => {
+  //   const gameStore = useGameStore.getState();
+  //   const playersStore = useGamePlayersStore.getState();
+  //   const game = gameStore.game;
+  //   const gameTime = gameStore.getGameTime();
+  //   const period = gameStore.getCurrentPeriodNumber();
+
+  //   // CREATE OPTIMISTIC DATA
+  //   const optimisticMajorEvent = {
+  //     id: `temp_major_${Date.now()}_${Math.random()}`,
+  //     game_id: game.game_id,
+  //     event_type: "discipline",
+  //     game_time: gameTime,
+  //     end_time: null,
+  //     period: period,
+  //     clock_should_run: 1,
+  //     details: cardData.details || null,
+  //   };
+
+  //   const player = cardData.playerGameId
+  //     ? playersStore.getPlayerByPlayerGameId(cardData.playerGameId)
+  //     : null;
+
+  //   const optimisticCardEvent = {
+  //     id: `temp_card_${Date.now()}_${Math.random()}`,
+  //     discipline_id: `temp_card_${Date.now()}_${Math.random()}`,
+  //     major_event_id: optimisticMajorEvent.id,
+  //     player_game_id: cardData.playerGameId || null,
+  //     team_season_id:
+  //       player?.teamSeasonId ||
+  //       (game.isHome ? game.home_team_season_id : game.away_team_season_id),
+  //     opponent_jersey_number: cardData.opponentJerseyNumber || null,
+  //     card_type: cardData.cardType,
+  //     card_reason: cardData.cardReason || null,
+  //     game_time: gameTime,
+  //     period: period,
+  //     // Display names
+  //     player_name: player?.fullName || null,
+  //     jersey_number: player?.jerseyNumber || null,
+  //   };
+
+  //   // UPDATE UI IMMEDIATELY
+  //   gameStore.addDisciplineEvent(optimisticCardEvent, optimisticMajorEvent);
+
+  //   set({ isRecording: true });
+
+  //   try {
+  //     // Send to server
+  //     const majorEvent = await apiFetch("game_events_major", "POST", {
+  //       game_id: game.game_id,
+  //       event_type: "discipline",
+  //       game_time: gameTime,
+  //       end_time: null,
+  //       period: period,
+  //       clock_should_run: 1,
+  //       details: cardData.details || null,
+  //     });
+
+  //     const cardEventResponse = await apiFetch(
+  //       "game_events_discipline",
+  //       "POST",
+  //       {
+  //         major_event_id: majorEvent.id,
+  //         player_game_id: cardData.playerGameId || null,
+  //         team_season_id:
+  //           player?.teamSeasonId ||
+  //           (game.isHome ? game.home_team_season_id : game.away_team_season_id),
+  //         opponent_jersey_number: cardData.opponentJerseyNumber || null,
+  //         card_type: cardData.cardType,
+  //         card_reason: cardData.cardReason || null,
+  //       },
+  //     );
+
+  //     const realCardEvent = {
+  //       ...cardEventResponse,
+  //       discipline_id: cardEventResponse.id,
+  //       major_event_id: majorEvent.id,
+  //       game_time: gameTime,
+  //       period: period,
+  //     };
+
+  //     // Replace optimistic with real
+  //     gameStore.replaceDisciplineEvent(
+  //       optimisticCardEvent.id,
+  //       realCardEvent,
+  //       optimisticMajorEvent.id,
+  //       majorEvent,
+  //     );
+
+  //     set({ isRecording: false });
+  //     return realCardEvent;
+  //   } catch (error) {
+  //     console.error("Error recording card:", error);
+
+  //     // ROLLBACK
+  //     gameStore.removeDisciplineEvent(
+  //       optimisticCardEvent.id,
+  //       optimisticMajorEvent.id,
+  //     );
+
+  //     set({ isRecording: false });
+  //     throw error;
+  //   }
+  // },
   recordPenaltyKick: async (penaltyData) => {
     const gameStore = useGameStore.getState();
     const playersStore = useGamePlayersStore.getState();
@@ -590,9 +850,16 @@ const useGameEventsStore = create((set, get) => ({
 
       // If not provided, find current GK (they're defending this penalty)
       if (!gkPlayerGameId) {
-        const currentGK = playersStore.getCurrentGoalkeeper();
-        if (currentGK) {
-          gkPlayerGameId = currentGK.playerGameId;
+        const ourTeamSeasonId = game.isHome
+          ? game.home_team_season_id
+          : game.away_team_season_id;
+
+        // If penalty is for opponent team, our GK is defending
+        if (teamSeasonId !== ourTeamSeasonId) {
+          const currentGK = playersStore.getCurrentGoalkeeper();
+          if (currentGK) {
+            gkPlayerGameId = currentGK.playerGameId;
+          }
         }
       }
 
@@ -602,50 +869,19 @@ const useGameEventsStore = create((set, get) => ({
         game_id: penaltyData.isShootout ? game.game_id : null,
         team_season_id: teamSeasonId,
         shooter_player_game_id: shooterPlayerGameId || null,
-        opponent_jersey_number: penaltyData.opponentJerseyNumber || null,
+        shooter_jersey_number: penaltyData.shooterJerseyNumber || null,
         gk_player_game_id: gkPlayerGameId || null,
         outcome: penaltyData.outcome,
         is_shootout: penaltyData.isShootout || 0,
         shootout_round: penaltyData.shootoutRound || null,
-        game_time: penaltyData.isShootout ? gameTime : null,
-        period: penaltyData.isShootout ? period : null,
+        game_time: penaltyData.isShootout ? null : gameTime,
+        period: penaltyData.isShootout ? null : period,
         goal_id: null,
       });
 
-      let goalEvent = null;
-
-      // 5. If outcome is 'goal', create goal event
-      if (penaltyData.outcome === "goal") {
-        const goalEventResponse = await apiFetch("game_events_goals", "POST", {
-          major_event_id: majorEvent.id,
-          team_season_id: teamSeasonId,
-          scorer_player_game_id: shooterPlayerGameId || null,
-          opponent_jersey_number: penaltyData.opponentJerseyNumber || null,
-          assist_player_game_id: null,
-          defending_gk_player_game_id: gkPlayerGameId || null,
-          is_own_goal: 0,
-          goal_types: JSON.stringify(["penalty"]),
-        });
-
-        // Ensure the goal event has all the fields we need
-        goalEvent = {
-          ...goalEventResponse,
-          id: goalEventResponse.id,
-          goal_id: goalEventResponse.id,
-          major_event_id: majorEvent.id,
-          team_season_id: teamSeasonId,
-          game_time: gameTime,
-          period: period,
-        };
-
-        await apiFetch(`game_events_penalties?id=${penaltyEvent.id}`, "PUT", {
-          goal_id: goalEvent.id,
-        });
-      }
-
-      // 6. If outcome is 'saved', create save action for GK
+      // 5. If outcome is 'save', create save action for GK
       let saveAction = null;
-      if (penaltyData.outcome === "saved" && gkPlayerGameId) {
+      if (penaltyData.outcome === "save" && gkPlayerGameId) {
         saveAction = await apiFetch("game_events_player_actions", "POST", {
           game_id: game.game_id,
           player_game_id: gkPlayerGameId,
@@ -655,18 +891,14 @@ const useGameEventsStore = create((set, get) => ({
         });
       }
 
-      // 7. Optimistically update the game store
+      // 6. Update the game store
+      // Note: Goal is NOT recorded here - that's done separately when user confirms
       gameStore.addPenaltyEvent(
         penaltyEvent,
         majorEvent,
-        goalEvent,
+        null, // No goal event here
         saveAction,
       );
-
-      // 8. Trigger plus/minus recalculation if goal scored
-      if (goalEvent) {
-        playersStore.calculateAndUpdatePlusMinus(game.game_id);
-      }
 
       set({ isRecording: false });
       return penaltyEvent;

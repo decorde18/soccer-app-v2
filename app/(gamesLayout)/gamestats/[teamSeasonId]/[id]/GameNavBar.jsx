@@ -7,7 +7,7 @@
 // Export/Share - Generate reports or share game data
 
 "use client";
-import { Menu, X } from "lucide-react";
+import { Menu, X, ChevronRight, Home, Settings, BarChart2, Activity, Clock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams, usePathname } from "next/navigation";
 import Link from "next/link";
@@ -24,7 +24,7 @@ function GameNavBar() {
   const gameStage = useGameStore((s) => s.getGameStage());
   const GAME_STAGES = useGameStore((s) => s.GAME_STAGES);
 
-  // Auto-close on route change (mobile behavior)
+  // Auto-close on route change (mobile/tablet behavior)
   useEffect(() => {
     setSidebarOpen(false);
   }, [pathname]);
@@ -37,7 +37,6 @@ function GameNavBar() {
   // Check if we're currently on a "sub-page" (settings, lineup, or manage)
   const isOnSubPage =
     pathname.includes("/settings") ||
-    // pathname.includes("/lineup") ||
     pathname.includes("/manage");
 
   // Navigation items
@@ -46,19 +45,19 @@ function GameNavBar() {
       id: "lineup",
       label: "Lineup",
       path: `${baseGamePath}/lineup`,
-      icon: "👥",
+      icon: <UsersIcon className="w-5 h-5" />,
     },
     {
       id: "manage",
       label: "Game Management",
       path: `${baseGamePath}/manage`,
-      icon: "⚽",
+      icon: <Activity className="w-5 h-5" />,
     },
     {
       id: "settings",
       label: "Settings",
       path: `${baseGamePath}/settings`,
-      icon: "⚙️",
+      icon: <Settings className="w-5 h-5" />,
     },
   ];
 
@@ -68,7 +67,7 @@ function GameNavBar() {
       id: "return-to-game",
       label: "Return to Game",
       path: `${baseGamePath}/live`,
-      icon: "🔴",
+      icon: <Activity className="w-5 h-5 text-emerald-400" />,
     });
   }
 
@@ -77,7 +76,7 @@ function GameNavBar() {
       id: "summary",
       label: "Game Summary",
       path: `${baseGamePath}/summary`,
-      icon: "📋",
+      icon: <BarChart2 className="w-5 h-5" />,
     });
   }
 
@@ -89,14 +88,23 @@ function GameNavBar() {
     return (
       <Link
         href={item.path}
-        className={`w-full flex items-center gap-3 px-4 py-2.5 text-white text-sm cursor-pointer transition-all duration-200 rounded-lg ${
+        className={`group relative flex items-center gap-4 px-4 py-3 text-sm font-medium transition-all duration-300 rounded-xl overflow-hidden ${
           isActive
-            ? "bg-white/15 backdrop-blur-sm shadow-lg"
-            : "bg-transparent hover:bg-white/10 hover:translate-x-1"
+            ? "bg-white/10 text-white shadow-lg backdrop-blur-sm border border-white/10"
+            : "text-white/70 hover:text-white hover:bg-white/5"
         }`}
       >
-        <span className='text-base'>{item.icon}</span>
-        <span className='font-medium flex-1 text-left'>{item.label}</span>
+        {isActive && (
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary to-secondary" />
+        )}
+        
+        <span className={`transition-transform duration-300 ${isActive ? "scale-110 text-primary-light" : "group-hover:scale-110"}`}>
+          {item.icon}
+        </span>
+        
+        <span className="flex-1">{item.label}</span>
+        
+        {isActive && <ChevronRight className="w-4 h-4 text-white/50" />}
       </Link>
     );
   };
@@ -106,24 +114,26 @@ function GameNavBar() {
       {/* Hamburger Button */}
       <button
         onClick={() => setSidebarOpen((prev) => !prev)}
-        className=' print:hidden w-14 fixed top-4 left-4 z-[1200] bg-transparent border-none cursor-pointer transition-transform hover:scale-110'
+        className={`print:hidden fixed top-4 left-4 z-[1200] w-16 h-16 flex items-center justify-center rounded-full transition-all duration-300 hover:scale-105 active:scale-95 ${
+          sidebarOpen 
+            ? "translate-x-64 bg-transparent" 
+            : "translate-x-0 bg-white/10 backdrop-blur-md border border-white/20 shadow-lg"
+        }`}
         aria-label='Toggle menu'
       >
         {sidebarOpen ? (
-          <X size={28} className='text-white drop-shadow-lg' />
+          <X size={32} className='text-white' />
         ) : (
           <Menu
-            size={28}
-            className={`transition-colors duration-300 drop-shadow-lg ${
-              isDarkHeader ? "text-white" : "text-text"
-            }`}
+            size={32}
+            className={`${isDarkHeader ? "text-white" : "text-gray-800"}`}
           />
         )}
       </button>
 
       {/* Backdrop */}
       <div
-        className={` print:hidden fixed inset-0 bg-black/50 z-[1000] transition-opacity duration-300 ${
+        className={`print:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] transition-all duration-500 ${
           sidebarOpen
             ? "opacity-100 pointer-events-auto"
             : "opacity-0 pointer-events-none"
@@ -133,60 +143,60 @@ function GameNavBar() {
 
       {/* Sidebar */}
       <aside
-        className={` print:hidden fixed top-0 left-0 h-full w-72 bg-gradient-to-br from-primary to-secondary text-white z-[1100] transition-transform duration-300 ease-in-out ${
+        className={`print:hidden fixed top-0 left-0 h-full w-80 bg-[#0f172a] text-white z-[1100] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] border-r border-white/5 shadow-2xl ${
           sidebarOpen
-            ? "translate-x-0 shadow-[4px_0_20px_rgba(0,0,0,0.2)]"
+            ? "translate-x-0"
             : "-translate-x-full"
         }`}
       >
-        <div className='flex flex-col h-full'>
-          {/* Header */}
-          <GameHeader />
+        <div className='flex flex-col h-full bg-gradient-to-b from-primary/10 to-transparent'>
+          {/* Header Area */}
+          <div className="p-6 pb-2">
+            <div className="flex items-center gap-3 mb-8">
+               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/20">
+                  <span className="text-xl">⚽</span>
+               </div>
+               <div>
+                  <h2 className="font-bold text-lg leading-tight">Game Center</h2>
+                  <p className="text-xs text-white/50">Manage your match</p>
+               </div>
+            </div>
+            
+            <div className="mb-6">
+               <GameHeader />
+            </div>
+          </div>
 
           {/* Navigation */}
-          <nav className='flex-1 overflow-y-auto p-4 space-y-1 custom-scrollbar'>
+          <nav className='flex-1 overflow-y-auto px-4 space-y-2 custom-scrollbar'>
+            <div className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-2 px-2">Menu</div>
             {navItems.map((item) => (
               <NavButton key={item.id} item={item} />
             ))}
           </nav>
 
           {/* Footer Info */}
-          <div className='flex-shrink-0 p-4 border-t border-white/10 bg-gradient-to-t from-black/10 to-transparent'>
-            <div className='text-xs text-white/60 text-center'>
-              Game ID: {game.id}
+          <div className='mt-auto p-6 border-t border-white/5 bg-black/20 backdrop-blur-md'>
+            <div className='flex items-center justify-between text-xs text-white/40'>
+               <span>Game ID</span>
+               <span className="font-mono bg-white/5 px-2 py-1 rounded">{game.id}</span>
             </div>
           </div>
         </div>
-
-        {/* Custom Scrollbar Styles */}
-        <style jsx global>{`
-          .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-          }
-
-          .custom-scrollbar::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            margin: 8px 0;
-          }
-
-          .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
-            transition: background 0.2s;
-          }
-
-          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.3);
-          }
-
-          .custom-scrollbar {
-            scrollbar-width: thin;
-            scrollbar-color: rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.05);
-          }
-        `}</style>
       </aside>
     </>
+  );
+}
+
+// Simple icon component for fallback since we're using lucide-react mainly
+function UsersIcon({ className }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
   );
 }
 
