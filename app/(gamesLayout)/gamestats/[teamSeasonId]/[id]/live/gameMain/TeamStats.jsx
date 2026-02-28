@@ -4,6 +4,7 @@ import useGameStore from "@/stores/gameStore";
 import useGamePlayersStore from "@/stores/gamePlayersStore";
 import useGameEventsStore from "@/stores/gameEventsStore";
 import Button from "@/components/ui/Button";
+import Dialog from "@/components/ui/Dialog";
 import { formatSecondsToMmss } from "@/lib/dateTimeUtils";
 import EventTypeSelectionModal from "./EventTypeSelectionModal";
 
@@ -26,6 +27,7 @@ function TeamStats({ onOpenLiveGameModal }) {
 
   const [showEventTypeModal, setShowEventTypeModal] = useState(false);
   const [showShotModal, setShowShotModal] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState(null);
 
   const availablePlayers = useMemo(() => {
     return players
@@ -97,12 +99,12 @@ function TeamStats({ onOpenLiveGameModal }) {
   };
 
   // Handle event type selection from first modal
-  const handleEventTypeSelected = (eventType, shouldStopClock) => {
-    // Immediately close first modal
-    setShowEventTypeModal(false);
+  const handleEventTypeSelected = async (eventType, shouldStopClock) => {
+    // Await to ensure loading states work
+    await onOpenLiveGameModal(eventType, shouldStopClock);
 
-    // Immediately open the LiveGameModal
-    onOpenLiveGameModal(eventType, shouldStopClock);
+    // Close only after modal opening sequence completes
+    setShowEventTypeModal(false);
   };
 
   // Get recent events for display
@@ -174,22 +176,75 @@ function TeamStats({ onOpenLiveGameModal }) {
       });
     });
 
+    // Team events (corners, offsides, fouls, etc.)
+    game.gameEventsTeam?.forEach((e) => {
+      let label = e.event_type.replace(/_/g, " ");
+      let details = e.team_season_id === teamSeasonId ? "Us" : "Them";
+
+      events.push({
+        id: e.id,
+        type: "team",
+        eventType: e.event_type,
+        label,
+        gameTime: e.game_time,
+        period: e.period,
+        clockStopped: false,
+        playerInfo: null,
+        details,
+        canEdit: true,
+        rawEvent: e,
+      });
+    });
+
+    // Player actions (shots, saves, etc.)
+    game.playerActions?.forEach((e) => {
+      let label = e.event_type.replace(/_/g, " ");
+      let playerInfo = null;
+
+      const actionPlayer = players.find(
+        (p) => p.playerGameId === e.player_game_id,
+      );
+      if (actionPlayer) {
+        playerInfo = `#${actionPlayer.jerseyNumber} ${actionPlayer.fullName}`;
+      }
+
+      events.push({
+        id: e.id,
+        type: "player_action",
+        eventType: e.event_type,
+        label,
+        gameTime: e.game_time,
+        period: e.period,
+        clockStopped: false,
+        playerInfo,
+        details: null,
+        canEdit: true,
+        rawEvent: e,
+      });
+    });
+
     // Sort by game time descending
-    return events.sort((a, b) => b.gameTime - a.gameTime).slice(0, 10);
+    return events.sort((a, b) => b.gameTime - a.gameTime).slice(0, 20);
   }, [game, players]);
 
-  const handleDeleteEvent = async (event) => {
-    if (!confirm(`Delete this ${event.label}?`)) return;
+  const handleDeleteEvent = (event) => {
+    setEventToDelete(event);
+  };
+
+  const confirmDeleteEvent = async () => {
+    if (!eventToDelete) return;
 
     try {
-      if (event.type === "major") {
-        await deleteEvent(event.id, "major", true);
+      if (eventToDelete.type === "major") {
+        await deleteEvent(eventToDelete.id, "major", true);
       } else {
-        await deleteEvent(event.id, event.type);
+        await deleteEvent(eventToDelete.id, eventToDelete.type);
       }
     } catch (error) {
       console.error("Error deleting event:", error);
       alert("Failed to delete event");
+    } finally {
+      setEventToDelete(null);
     }
   };
 
@@ -369,13 +424,12 @@ function TeamStats({ onOpenLiveGameModal }) {
                     )}
                     {event.details && (
                       <span
-                        className={`px-1.5 py-0.5 text-xs font-medium rounded ${
-                          event.details === "Us"
-                            ? "bg-primary text-white"
-                            : event.details === "Them"
-                              ? "bg-accent text-white"
-                              : "bg-gray-500 text-white"
-                        }`}
+                        className={`px-1.5 py-0.5 text-xs font-medium rounded ${event.details === "Us"
+                          ? "bg-primary text-white"
+                          : event.details === "Them"
+                            ? "bg-accent text-white"
+                            : "bg-gray-500 text-white"
+                          }`}
                       >
                         {event.details}
                       </span>
@@ -410,6 +464,7 @@ function TeamStats({ onOpenLiveGameModal }) {
         isOpen={showEventTypeModal}
         onClose={() => setShowEventTypeModal(false)}
         onEventTypeSelected={handleEventTypeSelected}
+        isRecording={isRecording}
       />
 
       {/* Shot Player Selection Modal - Simple version */}
@@ -440,6 +495,18 @@ function TeamStats({ onOpenLiveGameModal }) {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        isOpen={!!eventToDelete}
+        onClose={() => setEventToDelete(null)}
+        title="Delete Event"
+        message={`Are you sure you want to delete this ${eventToDelete?.label}?`}
+        type="warning"
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={confirmDeleteEvent}
+      />
     </div>
   );
 }

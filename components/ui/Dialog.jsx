@@ -30,6 +30,8 @@ const Dialog = ({
   onConfirm,
   onCancel,
   showCancel = true,
+  extraButtonText,
+  onExtraButton,
 }) => {
   const handleConfirm = () => {
     if (onConfirm) {
@@ -144,6 +146,18 @@ const Dialog = ({
               className='min-w-[100px]'
             >
               {cancelText}
+            </Button>
+          )}
+          {extraButtonText && onExtraButton && (
+            <Button
+              variant='outline'
+              onClick={() => {
+                onExtraButton();
+                onClose();
+              }}
+              className='min-w-[100px]'
+            >
+              {extraButtonText}
             </Button>
           )}
           <Button

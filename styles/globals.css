@@ -42,7 +42,8 @@ a {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  overflow: hidden; /* Prevent layout from expanding */
+  overflow: hidden;
+  /* Prevent layout from expanding */
   opacity: 0;
   animation: fadeIn 0.1s ease-in forwards;
 }
@@ -56,33 +57,52 @@ a {
 .main-body {
   display: flex;
   flex: 1;
-  min-height: 0; /* Allow flex item to shrink below content size */
-  overflow: hidden; /* Prevent expansion */
+  min-height: 0;
+  /* Allow flex item to shrink below content size */
+  overflow: hidden;
+  /* Prevent expansion */
 }
 
 .main-content {
   display: flex;
   flex-direction: column;
   flex: 1;
-  min-height: 0; /* Allow flex item to shrink below content size */
-  overflow: hidden; /* Prevent expansion */
+  min-height: 0;
+  /* Allow flex item to shrink below content size */
+  overflow: hidden;
+  /* Prevent expansion */
 }
 
-.main-content > *:last-child {
+.main-content>*:last-child {
   flex: 1;
-  overflow-y: auto; /* Make children scrollable */
+  overflow-y: auto;
+  /* Make children scrollable */
   min-height: 0;
 }
+
 @layer base {
+
   input,
   textarea,
-  select,
-  button {
+  select {
     padding: var(--padding-medium);
     border-radius: var(--radius-default);
     border: 1px solid hsl(var(--color-border));
     font-size: var(--font-size-body);
     width: 100%;
+    box-sizing: border-box;
+    margin-bottom: var(--padding-small);
+    color: hsl(var(--color-text));
+    background-color: hsl(var(--color-surface));
+    transition: border-color 0.2s ease, box-shadow 0.2s ease,
+      background-color 0.2s ease;
+  }
+
+  button {
+    padding: var(--padding-medium);
+    border-radius: var(--radius-default);
+    border: 1px solid hsl(var(--color-border));
+    font-size: var(--font-size-body);
     box-sizing: border-box;
     margin-bottom: var(--padding-small);
     color: hsl(var(--color-text));

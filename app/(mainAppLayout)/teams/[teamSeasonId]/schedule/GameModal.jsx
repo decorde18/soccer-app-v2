@@ -254,13 +254,13 @@ function AddSublocationModal({
 }) {
   const [sublocationData, setSublocationData] = useState({
     name: "",
-    type: "field",
+    surface_type: "field",
   });
 
   const handleSave = async () => {
     if (!sublocationData.name.trim()) return;
     await onSave(sublocationData);
-    setSublocationData({ name: "", type: "field" });
+    setSublocationData({ name: "", surface_type: "field" });
   };
 
   if (!isOpen) return null;
@@ -407,11 +407,10 @@ function GameHomeAway({ data, onChange }) {
         <button
           type='button'
           onClick={() => onChange("home_away", "home")}
-          className={`flex-1 py-8 px-4 rounded-lg border-2 transition-all ${
-            data.home_away === "home"
-              ? "border-primary bg-primary/10 text-primary font-semibold shadow-lg"
-              : "border-border hover:border-primary/50 hover:bg-primary/5"
-          }`}
+          className={`flex-1 py-8 px-4 rounded-lg border-2 transition-all ${data.home_away === "home"
+            ? "border-primary bg-primary/10 text-primary font-semibold shadow-lg"
+            : "border-border hover:border-primary/50 hover:bg-primary/5"
+            }`}
         >
           <div className='text-center'>
             <div className='text-4xl mb-2'>🏠</div>
@@ -421,11 +420,10 @@ function GameHomeAway({ data, onChange }) {
         <button
           type='button'
           onClick={() => onChange("home_away", "away")}
-          className={`flex-1 py-8 px-4 rounded-lg border-2 transition-all ${
-            data.home_away === "away"
-              ? "border-primary bg-primary/10 text-primary font-semibold shadow-lg"
-              : "border-border hover:border-primary/50 hover:bg-primary/5"
-          }`}
+          className={`flex-1 py-8 px-4 rounded-lg border-2 transition-all ${data.home_away === "away"
+            ? "border-primary bg-primary/10 text-primary font-semibold shadow-lg"
+            : "border-border hover:border-primary/50 hover:bg-primary/5"
+            }`}
         >
           <div className='text-center'>
             <div className='text-4xl mb-2'>✈️</div>
@@ -454,24 +452,26 @@ function GameOpponent({ data, onChange, clubs, teams, onAddClub, onAddTeam }) {
           Opponent Club <span className='text-accent'>*</span>
         </label>
         <div className='flex gap-2'>
-          <Select
-            value={data.club_id || ""}
-            onChange={(e) =>
-              onChange(
-                "club_id",
-                e.target.value ? parseInt(e.target.value) : null,
-              )
-            }
-            options={[
-              { value: "", label: "Select opponent club..." },
-              ...clubs.map((club) => ({
-                value: club.id,
-                label: club.name,
-              })),
-            ]}
-            width='full'
-            showPlaceholder={false}
-          />
+          <div className='flex-1'>
+            <Select
+              value={data.club_id || ""}
+              onChange={(e) =>
+                onChange(
+                  "club_id",
+                  e.target.value ? parseInt(e.target.value) : null,
+                )
+              }
+              options={[
+                { value: "", label: "Select opponent club..." },
+                ...clubs.map((club) => ({
+                  value: club.id,
+                  label: club.name,
+                })),
+              ]}
+              width='full'
+              showPlaceholder={false}
+            />
+          </div>
           <button
             type='button'
             onClick={onAddClub}
@@ -491,31 +491,33 @@ function GameOpponent({ data, onChange, clubs, teams, onAddClub, onAddTeam }) {
           Opponent Team <span className='text-accent'>*</span>
         </label>
         <div className='flex gap-2'>
-          <Select
-            value={data.opponent || ""}
-            onChange={(e) =>
-              onChange(
-                "opponent",
-                e.target.value ? parseInt(e.target.value) : null,
-              )
-            }
-            required
-            disabled={!data.club_id}
-            options={[
-              {
-                value: "",
-                label: data.club_id
-                  ? "Select opponent team..."
-                  : "Select a club first",
-              },
-              ...filteredTeams.map((team) => ({
-                value: team.id,
-                label: team.team_name,
-              })),
-            ]}
-            width='full'
-            showPlaceholder={false}
-          />
+          <div className='flex-1'>
+            <Select
+              value={data.opponent || ""}
+              onChange={(e) =>
+                onChange(
+                  "opponent",
+                  e.target.value ? parseInt(e.target.value) : null,
+                )
+              }
+              required
+              disabled={!data.club_id}
+              options={[
+                {
+                  value: "",
+                  label: data.club_id
+                    ? "Select opponent team..."
+                    : "Select a club first",
+                },
+                ...filteredTeams.map((team) => ({
+                  value: team.id,
+                  label: team.team_name,
+                })),
+              ]}
+              width='full'
+              showPlaceholder={false}
+            />
+          </div>
           <button
             type='button'
             onClick={onAddTeam}
@@ -562,25 +564,27 @@ function GameLocation({
           Venue <span className='text-accent'>*</span>
         </label>
         <div className='flex gap-2'>
-          <Select
-            value={data.location_id || ""}
-            onChange={(e) =>
-              onChange(
-                "location_id",
-                e.target.value ? parseInt(e.target.value) : null,
-              )
-            }
-            required
-            options={[
-              { value: "", label: "Select venue..." },
-              ...locations.map((loc) => ({
-                value: loc.location_id,
-                label: loc.location_name,
-              })),
-            ]}
-            width='full'
-            showPlaceholder={false}
-          />
+          <div className='flex-1'>
+            <Select
+              value={data.location_id || ""}
+              onChange={(e) =>
+                onChange(
+                  "location_id",
+                  e.target.value ? parseInt(e.target.value) : null,
+                )
+              }
+              required
+              options={[
+                { value: "", label: "Select venue..." },
+                ...locations.map((loc) => ({
+                  value: loc.location_id,
+                  label: loc.location_name,
+                })),
+              ]}
+              width='full'
+              showPlaceholder={false}
+            />
+          </div>
           <button
             type='button'
             onClick={onAddLocation}
@@ -595,30 +599,32 @@ function GameLocation({
       <div>
         <label className='block text-sm font-medium mb-1'>Field / Court</label>
         <div className='flex gap-2'>
-          <Select
-            value={data.sublocation_id || ""}
-            onChange={(e) =>
-              onChange(
-                "sublocation_id",
-                e.target.value ? parseInt(e.target.value) : null,
-              )
-            }
-            disabled={!data.location_id}
-            options={[
-              {
-                value: "",
-                label: data.location_id
-                  ? "Select field (optional)..."
-                  : "Select a venue first",
-              },
-              ...filteredSublocations.map((sub) => ({
-                value: sub.sublocation_id,
-                label: sub.sublocation_name,
-              })),
-            ]}
-            width='full'
-            showPlaceholder={false}
-          />
+          <div className='flex-1'>
+            <Select
+              value={data.sublocation_id || ""}
+              onChange={(e) =>
+                onChange(
+                  "sublocation_id",
+                  e.target.value ? parseInt(e.target.value) : null,
+                )
+              }
+              disabled={!data.location_id}
+              options={[
+                {
+                  value: "",
+                  label: data.location_id
+                    ? "Select field (optional)..."
+                    : "Select a venue first",
+                },
+                ...filteredSublocations.map((sub) => ({
+                  value: sub.sublocation_id,
+                  label: sub.sublocation_name,
+                })),
+              ]}
+              width='full'
+              showPlaceholder={false}
+            />
+          </div>
           <button
             type='button'
             onClick={onAddSublocation}
@@ -686,10 +692,19 @@ function GameLeagues({ data, onChange, leagues }) {
         <span className='text-accent'> *</span>
       </h3>
 
-      <p className='text-sm text-muted mb-3'>
-        Select all {data.game_type}s this game counts toward. The first one
-        selected will be the primary.
-      </p>
+      <div className='flex items-center justify-between mb-3'>
+        <p className='text-sm text-muted'>
+          Select all {data.game_type}s this game counts toward. The first one
+          selected will be the primary.
+        </p>
+        <button
+          type='button'
+          onClick={() => onChange("showing_add_league", true)}
+          className='px-3 py-1 text-sm border border-primary text-primary rounded-md hover:bg-primary/10 transition-colors whitespace-nowrap'
+        >
+          + Add {data.game_type === "tournament" ? "Tournament" : "League"}
+        </button>
+      </div>
 
       {leagues.length === 0 ? (
         <div className='p-4 bg-muted/10 rounded-md text-sm text-muted'>
@@ -705,13 +720,12 @@ function GameLeagues({ data, onChange, leagues }) {
             return (
               <div
                 key={league.id}
-                className={`p-3 rounded-md border-2 transition-all cursor-pointer ${
-                  isSelected
-                    ? isPrimary
-                      ? "border-primary bg-primary/10"
-                      : "border-primary/50 bg-primary/5"
-                    : "border-border hover:border-primary/30"
-                }`}
+                className={`p-3 rounded-md border-2 transition-all cursor-pointer ${isSelected
+                  ? isPrimary
+                    ? "border-primary bg-primary/10"
+                    : "border-primary/50 bg-primary/5"
+                  : "border-border hover:border-primary/30"
+                  }`}
                 onClick={() => handleToggleLeague(league.id)}
               >
                 <div className='flex items-center justify-between'>
@@ -1055,18 +1069,17 @@ export default function GameModal({
 
     if (game) {
       const isHome = +teamSeasonId === game.home_team_season_id;
-      const leagueIds = [];
 
       setFormData({
         start_date: toDateInputValue(game.start_date) || "",
         start_time: toTimeInputValue(game.start_time) || "",
         timezone_label: game.timezone_label || "CDT",
         game_type: game.game_type || "league",
-        league_node_ids: leagueIds,
+        league_node_ids: [], // Temp blank until fetch completes
         club_id: isHome
           ? teams.find((team) => team.id === game.away_team_season_id)?.club_id
           : teams.find((team) => team.id === game.home_team_season_id)
-              ?.club_id || null,
+            ?.club_id || null,
         opponent: isHome
           ? game.away_team_season_id
           : game.home_team_season_id || null,
@@ -1081,6 +1094,25 @@ export default function GameModal({
         max_ot_periods: "2",
         notes: game.notes || "",
       });
+
+      // Fetch existing leagues asynchronously so they are tracked on edit!
+      const loadLeagueNodes = async () => {
+        try {
+          const associations = await apiFetch("game_league_nodes", "GET", null, null, {
+            filters: { game_id: game.id },
+          });
+          if (associations && associations.length > 0) {
+            setFormData(prev => ({
+              ...prev,
+              league_node_ids: associations.map((a) => a.league_node_id)
+            }));
+          }
+        } catch (e) {
+          console.error("Failed to load existing game leagues:", e);
+        }
+      };
+      loadLeagueNodes();
+
     } else {
       setFormData(defaultGameData);
     }
@@ -1154,6 +1186,12 @@ export default function GameModal({
   const canProceed = () => {
     // Must visit all required tabs (0-4) and they must all be complete
     const requiredTabs = [0, 1, 2, 3, 4];
+
+    // If editing, we just need the fields to be complete, not necessarily visited
+    if (game) {
+      return requiredTabs.every((tab) => isTabComplete(tab));
+    }
+
     const allRequiredVisited = requiredTabs.every((tab) =>
       visitedTabs.has(tab),
     );
@@ -1207,8 +1245,9 @@ export default function GameModal({
         season_id: currentTeam.season_id,
       });
 
-      // Refresh teams data
-      window.location.reload(); // Simple refresh - could be improved with store refetch
+      // No longer fully reloading page - state management should ideally handle this
+      // If team updates don't trickle down automatically, we would trigger a team store reload
+      // useDataStore.getState().refetchTeams(); // Concept if store allows
 
       setFormData((prev) => ({ ...prev, opponent: newTeam.id }));
       setShowAddTeam(false);
@@ -1233,17 +1272,12 @@ export default function GameModal({
       });
       const address = await addressResponse.json();
 
-      const locationResponse = await fetch("/api/locations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: locationData.name,
-          address_id: address.id,
-        }),
+      const locationResponse = await apiFetch("locations", "POST", {
+        name: locationData.name,
+        address_id: address.id,
       });
-      const location = await locationResponse.json();
 
-      setFormData((prev) => ({ ...prev, location_id: location.id }));
+      setFormData((prev) => ({ ...prev, location_id: locationResponse.id }));
       setShowAddLocation(false);
     } catch (err) {
       console.error("Failed to add location:", err);
@@ -1255,7 +1289,7 @@ export default function GameModal({
     try {
       if (!formData.location_id) return;
 
-      const newSublocation = await createSublocation({
+      const newSublocation = await apiFetch("sublocations", "POST", {
         location_id: formData.location_id,
         name: sublocationData.name,
         type: sublocationData.type,
@@ -1266,6 +1300,33 @@ export default function GameModal({
     } catch (err) {
       console.error("Failed to add sublocation:", err);
       alert("Error adding field/court");
+    }
+  };
+
+  const handleAddLeague = async (leagueData) => {
+    try {
+      if (!currentTeam) return;
+      const isTourney = formData.game_type === "tournament" ? 1 : 0;
+
+      const newLeague = await apiFetch("leagues", "POST", {
+        name: leagueData.name,
+        is_tournament: isTourney,
+      });
+
+      await apiFetch("league_teams", "POST", {
+        league_id: newLeague.id,
+        team_season_id: currentTeam.id,
+        season: currentTeam.season_name, // e.g. Fall 2024
+      });
+
+      setFormData((prev) => ({
+        ...prev,
+        league_node_ids: [...prev.league_node_ids, newLeague.id],
+        showing_add_league: false
+      }));
+    } catch (err) {
+      console.error("Failed to add league:", err);
+      alert("Error adding league/tournament");
     }
   };
 
@@ -1322,13 +1383,12 @@ export default function GameModal({
                 <button
                   key={index}
                   onClick={() => handleTabChange(index)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all whitespace-nowrap ${
-                    isActive
-                      ? "border-primary bg-primary/10 text-primary font-semibold"
-                      : isVisited
-                        ? "border-border hover:border-primary/50"
-                        : "border-border opacity-50 cursor-not-allowed"
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all whitespace-nowrap ${isActive
+                    ? "border-primary bg-primary/10 text-primary font-semibold"
+                    : isVisited
+                      ? "border-border hover:border-primary/50"
+                      : "border-border opacity-50 cursor-not-allowed"
+                    }`}
                   disabled={!isVisited && index > currentTab}
                 >
                   <span>{tab.icon}</span>
@@ -1397,22 +1457,34 @@ export default function GameModal({
               Cancel
             </Button>
 
+            {game && (
+              <Button
+                variant={currentTab === 5 ? 'primary' : 'success'}
+                onClick={handleSubmit}
+                disabled={loading || !canProceed()}
+              >
+                {loading ? "Saving..." : "Update Game"}
+              </Button>
+            )}
+
             {currentTab < 5 ? (
               <Button
-                variant='primary'
+                variant={game ? 'outline' : 'primary'}
                 onClick={handleNext}
                 disabled={!isTabComplete(currentTab)}
               >
                 Next →
               </Button>
             ) : (
-              <Button
-                variant='primary'
-                onClick={handleSubmit}
-                disabled={loading || !canProceed()}
-              >
-                {loading ? "Saving..." : game ? "Update Game" : "Add Game"}
-              </Button>
+              !game && (
+                <Button
+                  variant='primary'
+                  onClick={handleSubmit}
+                  disabled={loading || !canProceed()}
+                >
+                  {loading ? "Saving..." : "Add Game"}
+                </Button>
+              )
             )}
           </div>
         </div>
@@ -1446,6 +1518,61 @@ export default function GameModal({
         locationId={formData.location_id}
         locationName={selectedLocation?.location_name || ""}
       />
+
+      {formData.showing_add_league && (
+        <AddLeagueModal
+          isOpen={true}
+          onClose={() => handleChange("showing_add_league", false)}
+          onSave={handleAddLeague}
+          type={formData.game_type}
+        />
+      )}
     </>
+  );
+}
+
+// Sub-modal for adding new league/tournament
+function AddLeagueModal({ isOpen, onClose, onSave, type }) {
+  const [leagueData, setLeagueData] = useState({ name: "" });
+
+  const handleSave = async () => {
+    if (!leagueData.name.trim()) return;
+    await onSave(leagueData);
+    setLeagueData({ name: "" });
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={`Add New ${type === "tournament" ? "Tournament" : "League"}`} size='sm'>
+      <div className='space-y-4'>
+        <div>
+          <label className='block text-sm font-medium mb-1'>
+            Name <span className='text-accent'>*</span>
+          </label>
+          <input
+            type='text'
+            value={leagueData.name}
+            onChange={(e) =>
+              setLeagueData((prev) => ({ ...prev, name: e.target.value }))
+            }
+            className='w-full px-3 py-2 border border-border rounded-md'
+            placeholder={`Enter ${type} name`}
+          />
+        </div>
+        <div className='flex justify-end gap-2 pt-4 border-t'>
+          <Button variant='outline' onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant='primary'
+            onClick={handleSave}
+            disabled={!leagueData.name.trim()}
+          >
+            Add {type === "tournament" ? "Tournament" : "League"}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }

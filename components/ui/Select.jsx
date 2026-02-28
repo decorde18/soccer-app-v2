@@ -46,11 +46,14 @@ export default function Select({
               {placeholder}
             </option>
           )}
-          {options.map((opt, i) => (
-            <option key={i} value={opt.value || opt}>
-              {opt.label || opt}
-            </option>
-          ))}
+          {options.map((opt, i) => {
+            const isObj = typeof opt === 'object' && opt !== null;
+            return (
+              <option key={i} value={isObj ? opt.value : opt}>
+                {isObj ? opt.label : opt}
+              </option>
+            );
+          })}
         </select>
 
         {label && (

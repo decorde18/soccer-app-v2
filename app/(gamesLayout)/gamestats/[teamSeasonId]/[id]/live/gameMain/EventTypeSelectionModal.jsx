@@ -8,8 +8,14 @@ import Button from "@/components/ui/Button";
  * User selects event type and whether clock should stop
  * Then proceeds to LiveGameModal for detailed event recording
  */
-function EventTypeSelectionModal({ isOpen, onClose, onEventTypeSelected }) {
+function EventTypeSelectionModal({
+  isOpen,
+  onClose,
+  onEventTypeSelected,
+  isRecording,
+}) {
   const [stopClock, setStopClock] = useState(true);
+  const [selectedAct, setSelectedAct] = useState(null);
 
   const eventTypes = [
     { value: "goal", label: "Goal", variant: "success", icon: "⚽" },
@@ -37,13 +43,21 @@ function EventTypeSelectionModal({ isOpen, onClose, onEventTypeSelected }) {
     { value: "other", label: "Other Stoppage", variant: "outline", icon: "⏸️" },
   ];
 
-  const handleEventTypeClick = (eventType) => {
-    onEventTypeSelected(eventType, stopClock);
-    onClose();
+  const handleEventTypeClick = async (eventType) => {
+    setSelectedAct(eventType);
+    await onEventTypeSelected(eventType, stopClock);
+    setSelectedAct(null);
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title='What Happened?' size='md'>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title='What Happened?'
+      size='xl'
+      closeOnOverlayClick={true}
+      showCloseButton={false}
+    >
       <div className='space-y-6'>
         {/* Stop Clock Toggle */}
         <div className='bg-surface p-4 rounded-lg border border-border'>
@@ -58,14 +72,17 @@ function EventTypeSelectionModal({ isOpen, onClose, onEventTypeSelected }) {
             </div>
             <button
               onClick={() => setStopClock(!stopClock)}
-              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
-                stopClock ? "bg-success" : "bg-gray-300"
-              }`}
+              disabled={isRecording}
+              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${stopClock
+                  ? isRecording
+                    ? "bg-success/50"
+                    : "bg-success"
+                  : "bg-gray-300"
+                }`}
             >
               <span
-                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                  stopClock ? "translate-x-7" : "translate-x-1"
-                }`}
+                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${stopClock ? "translate-x-7" : "translate-x-1"
+                  }`}
               />
             </button>
           </div>
@@ -82,10 +99,18 @@ function EventTypeSelectionModal({ isOpen, onClose, onEventTypeSelected }) {
                 key={type.value}
                 onClick={() => handleEventTypeClick(type.value)}
                 variant={type.variant}
-                className='h-20 flex flex-col items-center justify-center gap-2 text-base'
+                disabled={isRecording}
+                className={`h-20 flex flex-col items-center justify-center gap-2 text-base transition-all ${isRecording && selectedAct === type.value
+                    ? "opacity-100 ring-2 ring-primary ring-offset-2 animate-pulse"
+                    : ""
+                  }`}
               >
                 <span className='text-2xl'>{type.icon}</span>
-                <span>{type.label}</span>
+                <span>
+                  {isRecording && selectedAct === type.value
+                    ? "Starting..."
+                    : type.label}
+                </span>
               </Button>
             ))}
           </div>
@@ -100,7 +125,12 @@ function EventTypeSelectionModal({ isOpen, onClose, onEventTypeSelected }) {
         </div>
 
         {/* Cancel Button */}
-        <Button onClick={onClose} variant='outline' className='w-full'>
+        <Button
+          onClick={onClose}
+          variant='outline'
+          className='w-full'
+          disabled={isRecording}
+        >
           Cancel
         </Button>
       </div>

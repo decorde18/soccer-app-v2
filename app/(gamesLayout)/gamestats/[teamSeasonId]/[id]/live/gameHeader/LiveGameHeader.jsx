@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import Button from "@/components/ui/Button";
+import Dialog from "@/components/ui/Dialog";
 
 import useGameStore from "@/stores/gameStore";
 import useGameSubsStore from "@/stores/gameSubsStore";
@@ -15,6 +16,7 @@ function LiveGameHeader() {
   const periodNumber = useGameStore((s) => s.getCurrentPeriodNumber());
 
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showSubsPrompt, setShowSubsPrompt] = useState(false);
 
   const isGameLive = gameStage === "during_period";
   const isGameEnded = gameStage === "end_game";
@@ -23,15 +25,40 @@ function LiveGameHeader() {
 
   if (!game) return null;
 
-  const handleStartPeriod = async () => {
+  const executeStartPeriod = async () => {
     if (!game?.game_id || isProcessing) return;
-
     setIsProcessing(true);
-
     try {
       await startPeriod();
     } catch (error) {
       console.error("Error starting period:", error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleStartPeriod = async () => {
+    if (!game?.game_id || isProcessing) return;
+
+    // Check for pending subs
+    const pendingSubs = useGameSubsStore.getState().getPendingSubsSync();
+    if (pendingSubs.length > 0) {
+      setShowSubsPrompt(true);
+      return;
+    }
+
+    await executeStartPeriod();
+  };
+
+  const handleEnterSubsAndStart = async () => {
+    setShowSubsPrompt(false);
+    setIsProcessing(true);
+    try {
+      // From gameStore.js startNextPeriod:
+      // "Auto-confirm any pending subs at time 0 of new period"
+      await startPeriod();
+    } catch (error) {
+      console.error("Error entering subs and starting period:", error);
     } finally {
       setIsProcessing(false);
     }
@@ -86,6 +113,15 @@ function LiveGameHeader() {
 
   return (
     <>
+      <Dialog
+        isOpen={showSubsPrompt}
+        onClose={() => setShowSubsPrompt(false)}
+        title='Pending Substitutions'
+        message='You have pending substitutions. Would you like to enter them now before starting the next period?'
+        type='confirm'
+        confirmText='Enter & Start'
+        onConfirm={handleEnterSubsAndStart}
+      />
       <header className='relative col-span-2 row-start-1 flex items-center justify-between px-4 py-4 shadow-lg bg-secondary text-background m-0 rounded z-10'>
         {/* Left Section – Equalizer Spacer */}
         <div className='flex-shrink-0 w-[120px]'></div>

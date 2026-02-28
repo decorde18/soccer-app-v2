@@ -205,24 +205,13 @@ export function useTeamSeasonGames(teamSeasonId) {
 
       // 3. Update league associations
       // First, delete existing associations
-      const existingAssociations = await apiFetch(
+      await apiFetch(
         "game_league_nodes",
-        "GET",
+        "DELETE",
         null,
         null,
-        {
-          filters: { game_id: gameId },
-        }
+        { filters: { game_id: gameId } }
       );
-
-      for (const assoc of existingAssociations) {
-        await apiFetch(
-          "game_league_nodes",
-          "DELETE",
-          null,
-          `${gameId}/${assoc.league_node_id}`
-        );
-      }
 
       // Then create new associations
       for (const association of leagueAssociations) {
