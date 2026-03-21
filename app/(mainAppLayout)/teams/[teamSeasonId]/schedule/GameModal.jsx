@@ -1289,10 +1289,26 @@ export default function GameModal({
     try {
       if (!formData.location_id) return;
 
-      const newSublocation = await apiFetch("sublocations", "POST", {
+      const newSublocation = await apiFetch("locations_sublocations", "POST", {
         location_id: formData.location_id,
         name: sublocationData.name,
         type: sublocationData.type,
+      });
+
+      // Update the global store so the new sublocation appears in the Select drop-down immediately
+      const currentStore = useDataStore.getState();
+      const currentSublocations = currentStore.sublocations.data || [];
+      
+      currentStore.setsublocations({
+        ...currentStore.sublocations,
+        data: [
+          ...currentSublocations, 
+          {
+            sublocation_id: newSublocation.id,
+            sublocation_name: newSublocation.name,
+            location_id: newSublocation.location_id,
+          }
+        ]
       });
 
       setFormData((prev) => ({ ...prev, sublocation_id: newSublocation.id }));

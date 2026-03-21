@@ -362,15 +362,27 @@ const useGamePlayersStore = create((set, get) => ({
       const updates = [];
 
       if (currentPlayer.gameStatus === "goalkeeper") {
-        updates.push(get().updatePlayer(playerId, { gameStatus: "starter" }));
+        const newGameStatus = "starter";
+        updates.push(get().updatePlayer(playerId, { 
+          gameStatus: newGameStatus,
+          fieldStatus: get().calculateFieldStatus({ ...currentPlayer, gameStatus: newGameStatus })
+        }));
       } else {
         for (const p of players) {
           if (p.id !== playerId && p.gameStatus === "goalkeeper") {
-            updates.push(get().updatePlayer(p.id, { gameStatus: "starter" }));
+            const newGameStatus = "starter";
+            updates.push(get().updatePlayer(p.id, { 
+              gameStatus: newGameStatus,
+              fieldStatus: get().calculateFieldStatus({ ...p, gameStatus: newGameStatus })
+            }));
           }
         }
+        const newGameStatus = "goalkeeper";
         updates.push(
-          get().updatePlayer(playerId, { gameStatus: "goalkeeper" })
+          get().updatePlayer(playerId, { 
+            gameStatus: newGameStatus,
+            fieldStatus: get().calculateFieldStatus({ ...currentPlayer, gameStatus: newGameStatus })
+          })
         );
       }
 
@@ -378,7 +390,11 @@ const useGamePlayersStore = create((set, get) => ({
       return;
     }
 
-    await get().updatePlayer(playerId, { gameStatus: action });
+    const newGameStatus = action;
+    await get().updatePlayer(playerId, { 
+      gameStatus: newGameStatus,
+      fieldStatus: get().calculateFieldStatus({ ...currentPlayer, gameStatus: newGameStatus })
+    });
   },
 
   // ==================== SUB STATUS MANAGEMENT ====================

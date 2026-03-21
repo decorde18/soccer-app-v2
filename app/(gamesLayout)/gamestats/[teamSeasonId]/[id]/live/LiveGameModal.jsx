@@ -115,7 +115,11 @@ function LiveGameModal({
     () =>
       players
         .filter(
-          (p) => p.fieldStatus === "onField" || p.fieldStatus === "onFieldGk"
+          (p) => 
+            p.fieldStatus === "onField" || 
+            p.fieldStatus === "onFieldGk" || 
+            p.fieldStatus === "subbingOut" || 
+            p.fieldStatus === "subbingOutGk"
         )
         .map((p) => ({
           value: p.playerGameId,
