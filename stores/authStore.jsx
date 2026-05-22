@@ -56,7 +56,9 @@ const useAuthStore = create(
           // ✅ FIX: Load user context after login
           try {
             const { useUserContextStore } = await import("./userContextStore");
-            await useUserContextStore.getState().loadUserContext(data.user.userId);
+            await useUserContextStore
+              .getState()
+              .loadUserContext(data.user.userId);
           } catch (error) {
             console.error("Failed to load user context:", error);
             // Don't fail login if context fails
@@ -186,8 +188,8 @@ const useAuthStore = create(
           });
         }
       },
-    }
-  )
+    },
+  ),
 );
 
 export default useAuthStore;
