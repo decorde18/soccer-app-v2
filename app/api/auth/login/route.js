@@ -1,4 +1,5 @@
 // app/api/auth/login/route.js
+// Auth route - queries users table for password_hash and system_admin
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -11,61 +12,106 @@ export async function POST(request) {
     if (!email || !password) {
       return NextResponse.json(
         { message: "Email and password are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const pool = getPool();
 
-    const [people] = await pool.execute(
-      "SELECT * FROM people WHERE email = ?",
-      [email]
+    // Get user record by email through people table JOIN
+    const [users] = await pool.execute(
+      "SELECT u.id, u.person_id, u.password_hash, u.system_admin FROM users u JOIN people p ON u.person_id = p.id WHERE p.email = ?",
+      [email],
     );
 
-    if (people.length === 0) {
-      await bcrypt.compare(password, "$2b$10$invalidsaltinvalidsaltinv"); // dummy
+    if (users.length === 0) {
+      // Dummy compare for security (prevent timing attacks)
+      await bcrypt.compare(password, "$2b$10$invalidsaltinvalidsaltinv");
       return NextResponse.json(
         { message: "Invalid email or password" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
-    const person = people[0];
+    const userRecord = users[0];
+
+    console.log("User found:", {
+      email,
+      id: userRecord?.id,
+      has_password_hash: !!userRecord?.password_hash,
+      hash_type: typeof userRecord?.password_hash,
+      hash_length: userRecord?.password_hash?.length,
+    });
+
+    if (
+      !userRecord?.password_hash ||
+      typeof userRecord.password_hash !== "string"
+    ) {
+      console.warn("Invalid password hash for user:", email);
+      return NextResponse.json(
+        { message: "Invalid email or password" },
+        { status: 401 },
+      );
+    }
 
     const isValidPassword = await bcrypt.compare(
-      password,
-      person.password_hash
+      String(password),
+      userRecord.password_hash,
     );
 
     if (!isValidPassword) {
       return NextResponse.json(
         { message: "Invalid email or password" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
-    // ✅ Get system_admin as boolean
-    const isSystemAdmin =
-      person.system_admin === 1 || person.system_admin === true;
+    // Get person data for user object response
+    const [people] = await pool.execute("SELECT * FROM people WHERE id = ?", [
+      userRecord.person_id,
+    ]);
 
-    // Generate JWT token with user info
+    if (people.length === 0) {
+      return NextResponse.json(
+        { message: "Person record not found" },
+        { status: 401 },
+      );
+    }
+
+    const person = people[0];
+    const isSystemAdmin =
+      userRecord.system_admin === 1 || userRecord.system_admin === true;
+
+    // Generate JWT token with user info (userId is from users table)
     const token = jwt.sign(
       {
-        userId: person.id,
+        userId: userRecord.id,
         email: person.email,
-        systemAdmin: isSystemAdmin, // ✅ Use consistent naming
+        systemAdmin: isSystemAdmin,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
-    const { password_hash: _, ...personWithoutPassword } = person;
-
     const user = {
-      ...personWithoutPassword,
-      id: person.id, // ✅ Make sure id is included
+      id: person.id,
+      userId: userRecord.id,
+      first_name: person.first_name,
+      last_name: person.last_name,
+      nickname: person.nickname,
+      email: person.email,
+      phone: person.phone,
+      gender: person.gender,
+      birth_date: person.birth_date,
+      title: person.title,
+      other_last_name: person.other_last_name,
+      entry_year: person.entry_year,
+      credits_needed: person.credits_needed,
+      is_active: person.is_active,
+      created_at: person.created_at,
+      modified_at: person.modified_at,
       name: `${person.first_name} ${person.last_name}`.trim(),
-      systemAdmin: isSystemAdmin, // ✅ Add to user object
+      system_admin: isSystemAdmin,
     };
 
     console.log("Login successful for:", email, "System Admin:", isSystemAdmin);

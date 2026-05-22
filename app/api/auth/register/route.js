@@ -5,26 +5,19 @@ import { getPool } from "@/lib/db";
 
 export async function POST(request) {
   try {
-    const {
-      first_name,
-      last_name,
-      email,
-      password,
-      // The 'roles' column is now replaced by the 'system_admin' boolean flag.
-      // New users are not admins by default.
-    } = await request.json();
+    const { first_name, last_name, email, password } = await request.json();
 
     if (!first_name || !last_name || !email || !password) {
       return NextResponse.json(
         { message: "First name, last name, email, and password are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (password.length < 8) {
       return NextResponse.json(
         { message: "Password must be at least 8 characters" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -33,54 +26,56 @@ export async function POST(request) {
     // Check if person exists
     const [existingPeople] = await pool.execute(
       "SELECT id FROM people WHERE email = ?",
-      [email]
+      [email],
     );
 
     if (existingPeople.length > 0) {
       return NextResponse.json(
         { message: "Email already exists" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Set system_admin to 0 (false) for all new registrations
-    const system_admin = 0;
-
-    // Updated INSERT statement to use system_admin instead of roles
-    const [result] = await pool.execute(
-      "INSERT INTO people (first_name, last_name, email, password_hash, system_admin, created_at) VALUES (?, ?, ?, ?, ?, NOW())",
-      [first_name, last_name, email, hashedPassword, system_admin]
+    // Insert person record (without auth fields)
+    const [personResult] = await pool.execute(
+      "INSERT INTO people (first_name, last_name, email, created_at) VALUES (?, ?, ?, NOW())",
+      [first_name, last_name, email],
     );
 
-    const userId = result.insertId;
+    const personId = personResult.insertId;
 
-    // Determine systemRole for JWT and response
-    const systemRole = system_admin === 1 ? "system_admin" : "user";
+    // Create user record with password_hash and system_admin = 0 (false) for new registrations
+    const [userResult] = await pool.execute(
+      "INSERT INTO users (person_id, password_hash, system_admin) VALUES (?, ?, ?)",
+      [personId, hashedPassword, 0],
+    );
 
-    // Generate JWT token
+    const userId = userResult.insertId;
+
+    // Generate JWT token (using user_id from users table)
     const token = jwt.sign(
       {
         userId,
         email,
-        systemRole,
+        systemAdmin: false,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     return NextResponse.json({
       success: true,
       user: {
-        id: userId,
+        id: personId,
+        userId,
         first_name,
         last_name,
         name: `${first_name} ${last_name}`.trim(),
         email,
-        system_admin, // Include the new field in the response
-        systemRole,
+        system_admin: false,
       },
       token,
     });
@@ -88,7 +83,7 @@ export async function POST(request) {
     console.error("Registration error:", error);
     return NextResponse.json(
       { message: "Registration failed" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

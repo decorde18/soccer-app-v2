@@ -8,10 +8,10 @@ export async function GET(request, { params }) {
   try {
     const pool = getPool();
 
-    // ✅ Check if user is system_admin (boolean column)
+    // ✅ Check if user is system_admin (from users table)
     const [userRows] = await pool.query(
-      `SELECT system_admin FROM people WHERE id = ?`,
-      [userId]
+      `SELECT u.id, u.system_admin FROM users u WHERE u.id = ?`,
+      [userId],
     );
 
     const user = userRows[0];
@@ -49,31 +49,55 @@ export async function GET(request, { params }) {
         ORDER BY c.name
       `);
 
-      // Get favorites (if any)
-      const [favorites] = await pool.query(
-        `
-        SELECT 
-          t.id as team_id,
-          t.team_name,
-          t.club_id,
-          c.name AS club_name
-        FROM user_favorites uf
-        JOIN teams t ON uf.team_season_id = t.id
-        JOIN clubs c ON t.club_id = c.id
-        WHERE uf.person_id = ?
-      `,
-        [userId]
+      // Get favorites (if any) - need to map to person_id for user_favorites table
+      const [personResult] = await pool.query(
+        `SELECT person_id FROM users WHERE id = ?`,
+        [userId],
       );
+
+      const personId = personResult[0]?.person_id;
+
+      let favorites = [];
+      if (personId) {
+        const [favoritesResult] = await pool.query(
+          `
+          SELECT 
+            t.id as team_id,
+            t.team_name,
+            t.club_id,
+            c.name AS club_name
+          FROM user_favorites uf
+          JOIN teams t ON uf.team_season_id = t.id
+          JOIN clubs c ON t.club_id = c.id
+          WHERE uf.person_id = ?
+        `,
+          [personId],
+        );
+        favorites = favoritesResult || [];
+      }
 
       return NextResponse.json({
         teams: allTeams,
         clubs: allClubs,
-        favorites: favorites || [],
+        favorites: favorites,
         isSystemAdmin: true,
       });
     }
 
-    // ✅ Regular user - get their specific access
+    // ✅ Regular user - get their specific access (using person_id)
+    // First get person_id from users table
+    const [personResult] = await pool.query(
+      `SELECT person_id FROM users WHERE id = ?`,
+      [userId],
+    );
+
+    const personId = personResult[0]?.person_id;
+    if (!personId) {
+      return NextResponse.json(
+        { error: "User person record not found" },
+        { status: 404 },
+      );
+    }
 
     // Get teams from team_staff (coaches, admins)
     const [staffTeams] = await pool.query(
@@ -95,7 +119,7 @@ export async function GET(request, { params }) {
       JOIN seasons s ON ts.season_id = s.id
       WHERE staff.person_id = ? AND staff.is_active = 1
     `,
-      [userId]
+      [personId],
     );
 
     // Get teams from user_team_seasons (players, parents, fans)
@@ -118,7 +142,7 @@ export async function GET(request, { params }) {
       JOIN seasons s ON ts.season_id = s.id
       WHERE uts.person_id = ?
     `,
-      [userId]
+      [personId],
     );
 
     // Get clubs where user is admin
@@ -132,7 +156,7 @@ export async function GET(request, { params }) {
       JOIN clubs c ON cs.club_id = c.id
       WHERE cs.person_id = ? AND cs.is_active = 1
     `,
-      [userId]
+      [personId],
     );
 
     // Get favorites
@@ -148,7 +172,7 @@ export async function GET(request, { params }) {
       JOIN clubs c ON t.club_id = c.id
       WHERE uf.person_id = ?
     `,
-      [userId]
+      [personId],
     );
 
     return NextResponse.json({
@@ -168,7 +192,7 @@ export async function GET(request, { params }) {
         details:
           process.env.NODE_ENV === "development" ? error.message : undefined,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
