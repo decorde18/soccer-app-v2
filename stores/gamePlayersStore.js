@@ -92,7 +92,27 @@ const useGamePlayersStore = create((set, get) => ({
       });
       const pendingSubs = allSubs.filter((sub) => sub.sub_time === null);
       const confirmedSubs = allSubs.filter((sub) => sub.sub_time !== null);
+      const allStats = await apiFetch(
+        "v_player_game_stats_enhanced",
+        "GET",
+        null,
+        null,
+        { filters: { game_id: gameId } }
+      );
+      const allSubs = await apiFetch("game_subs", "GET", null, null, {
+        filters: { game_id: gameId },
+      });
+      const pendingSubs = allSubs.filter((sub) => sub.sub_time === null);
+      const confirmedSubs = allSubs.filter((sub) => sub.sub_time !== null);
 
+      const players = allPlayerGames.map((pg) => {
+        const playerIns = confirmedSubs
+          .filter((sub) => sub.in_player_id === pg.player_game_id)
+          .map((sub) => ({
+            gameTime: sub.sub_time,
+            subId: sub.id,
+            gkSub: sub.gk_sub === 1,
+          }));
       const players = allPlayerGames.map((pg) => {
         const playerIns = confirmedSubs
           .filter((sub) => sub.in_player_id === pg.player_game_id)
@@ -109,7 +129,20 @@ const useGamePlayersStore = create((set, get) => ({
             subId: sub.id,
             gkSub: sub.gk_sub === 1,
           }));
+        const playerOuts = confirmedSubs
+          .filter((sub) => sub.out_player_id === pg.player_game_id)
+          .map((sub) => ({
+            gameTime: sub.sub_time,
+            subId: sub.id,
+            gkSub: sub.gk_sub === 1,
+          }));
 
+        const playerPendingIn = pendingSubs.find(
+          (sub) => sub.in_player_id === pg.player_game_id
+        );
+        const playerPendingOut = pendingSubs.find(
+          (sub) => sub.out_player_id === pg.player_game_id
+        );
         const playerPendingIn = pendingSubs.find(
           (sub) => sub.in_player_id === pg.player_game_id
         );
@@ -131,7 +164,29 @@ const useGamePlayersStore = create((set, get) => ({
             gkSub: playerPendingOut.gk_sub === 1,
           });
         }
+        if (playerPendingIn) {
+          playerIns.push({
+            gameTime: null,
+            subId: playerPendingIn.id,
+            gkSub: playerPendingIn.gk_sub === 1,
+          });
+        }
+        if (playerPendingOut) {
+          playerOuts.push({
+            gameTime: null,
+            subId: playerPendingOut.id,
+            gkSub: playerPendingOut.gk_sub === 1,
+          });
+        }
 
+        let subStatus = null;
+        if (playerPendingIn && playerPendingOut) {
+          subStatus = "pendingBoth";
+        } else if (playerPendingIn) {
+          subStatus = "pendingIn";
+        } else if (playerPendingOut) {
+          subStatus = "pendingOut";
+        }
         let subStatus = null;
         if (playerPendingIn && playerPendingOut) {
           subStatus = "pendingBoth";
@@ -166,7 +221,15 @@ const useGamePlayersStore = create((set, get) => ({
           teamId: pg.team_id,
           teamSeasonId: pg.team_season_id,
           homeAway: pg.home_away,
+          // Team Context
+          teamId: pg.team_id,
+          teamSeasonId: pg.team_season_id,
+          homeAway: pg.home_away,
 
+          // Game Status
+          gameStatus: pg.game_status || "dressed",
+          started: pg.started === 1,
+          isGuest: pg.is_guest === 1,
           // Game Status
           gameStatus: pg.game_status || "dressed",
           started: pg.started === 1,
@@ -176,7 +239,18 @@ const useGamePlayersStore = create((set, get) => ({
           ins: playerIns,
           outs: playerOuts,
           subStatus: subStatus,
+          // Substitution Tracking
+          ins: playerIns,
+          outs: playerOuts,
+          subStatus: subStatus,
 
+          // All Stats from Enhanced View
+          // Offensive Stats
+          goals: playerStats?.goals || 0,
+          penaltyGoals: playerStats?.penalty_goals || 0,
+          assists: playerStats?.assists || 0,
+          shots: playerStats?.shots || 0,
+          shotsOnTarget: playerStats?.shots_on_target || 0,
           // All Stats from Enhanced View
           // Offensive Stats
           goals: playerStats?.goals || 0,
@@ -191,11 +265,23 @@ const useGamePlayersStore = create((set, get) => ({
           penaltiesFaced: playerStats?.penalties_faced || 0,
           penaltySaves: playerStats?.penalty_saves || 0,
           cleanSheet: playerStats?.clean_sheet || 0,
+          // Goalkeeper Stats
+          saves: playerStats?.saves || 0,
+          goalsAgainst: playerStats?.goals_against || 0,
+          penaltiesFaced: playerStats?.penalties_faced || 0,
+          penaltySaves: playerStats?.penalty_saves || 0,
+          cleanSheet: playerStats?.clean_sheet || 0,
 
           // Disciplinary
           yellowCards: playerStats?.yellow_cards || 0,
           redCards: playerStats?.red_cards || 0,
+          // Disciplinary
+          yellowCards: playerStats?.yellow_cards || 0,
+          redCards: playerStats?.red_cards || 0,
 
+          // Fouls
+          foulsCommitted: playerStats?.fouls_committed || 0,
+          foulsDrawn: playerStats?.fouls_drawn || 0,
           // Fouls
           foulsCommitted: playerStats?.fouls_committed || 0,
           foulsDrawn: playerStats?.fouls_drawn || 0,
@@ -204,18 +290,30 @@ const useGamePlayersStore = create((set, get) => ({
           goalkeeperTime: 0,
           plusMinus: 0,
         };
+          // Time tracking (initialized to 0, calculated separately)
+          goalkeeperTime: 0,
+          plusMinus: 0,
+        };
 
+        player.fieldStatus = get().calculateFieldStatus(player);
         player.fieldStatus = get().calculateFieldStatus(player);
 
         return player;
       });
+        return player;
+      });
 
+      set({ players, isLoading: false });
       set({ players, isLoading: false });
 
       // Calculate plus/minus and goalkeeper time for all players after loading
       get().calculateAndUpdatePlusMinus(gameId);
       get().calculateAndUpdateGoalkeeperTime(gameId);
+      // Calculate plus/minus and goalkeeper time for all players after loading
+      get().calculateAndUpdatePlusMinus(gameId);
+      get().calculateAndUpdateGoalkeeperTime(gameId);
 
+      return players;
       return players;
     } catch (error) {
       console.error("Error loading players:", error);
@@ -242,6 +340,7 @@ const useGamePlayersStore = create((set, get) => ({
           apiFetch("player_games", "POST", {
             game_id: gameId,
             player_id: p.player_id,
+            team_season_id: p.team_season_id,
             team_season_id: p.team_season_id,
             position_id: null,
             started: 0,
