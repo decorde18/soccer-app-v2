@@ -165,7 +165,19 @@ export async function apiFetch(
     const res = await fetch(url, fetchOptions);
 
     if (!res.ok) {
-      throw new Error(`API call failed: ${res.status} ${res.statusText}`);
+      const text = await res.text();
+      let message = `API call failed: ${res.status} ${res.statusText}`;
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed?.error) {
+          message += ` - ${parsed.error}`;
+        }
+      } catch (err) {
+        if (text) {
+          message += ` - ${text}`;
+        }
+      }
+      throw new Error(message);
     }
 
     const result = await res.json();

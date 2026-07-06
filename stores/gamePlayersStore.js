@@ -21,157 +21,192 @@ const useGamePlayersStore = create((set, get) => ({
         "GET",
         null,
         null,
-        { filters: { game_id: gameId, team_season_id: teamSeasonId } }
+        { filters: { game_id: gameId, team_id: teamSeasonId } }
       );
 
-      if (existingPlayerGames && existingPlayerGames.length > 0) {
-        const allSubs = await apiFetch("game_subs", "GET", null, null, {
-          filters: { game_id: gameId },
-        });
+      const teamPlayers =
+        (await apiFetch("v_players", "GET", null, null, {
+          filters: {
+            team_season_id: teamSeasonId,
+            player_is_active: 1,
+          },
+        })) || [];
 
-        const pendingSubs = allSubs.filter((sub) => sub.sub_time === null);
-        const confirmedSubs = allSubs.filter((sub) => sub.sub_time !== null);
+      const missingPlayers = teamPlayers.filter(
+        (p) =>
+          !existingPlayerGames.some(
+            (pg) => pg.player_id === p.player_id
+          )
+      );
 
-        const allStats = await apiFetch(
-          "v_player_game_stats_enhanced",
-          "GET",
-          null,
-          null,
-          { filters: { game_id: gameId } }
+      let createdPlayers = [];
+      if (missingPlayers.length > 0) {
+        console.log(
+          `Creating ${missingPlayers.length} missing player_games for game ${gameId}...`
         );
-
-        const players = existingPlayerGames.map((pg) => {
-          const playerIns = confirmedSubs
-            .filter((sub) => sub.in_player_id === pg.player_game_id)
-            .map((sub) => ({
-              gameTime: sub.sub_time,
-              subId: sub.id,
-              gkSub: sub.gk_sub === 1,
-            }));
-
-          const playerOuts = confirmedSubs
-            .filter((sub) => sub.out_player_id === pg.player_game_id)
-            .map((sub) => ({
-              gameTime: sub.sub_time,
-              subId: sub.id,
-              gkSub: sub.gk_sub === 1,
-            }));
-
-          const playerPendingIn = pendingSubs.find(
-            (sub) => sub.in_player_id === pg.player_game_id
-          );
-          const playerPendingOut = pendingSubs.find(
-            (sub) => sub.out_player_id === pg.player_game_id
-          );
-
-          if (playerPendingIn) {
-            playerIns.push({
-              gameTime: null,
-              subId: playerPendingIn.id,
-              gkSub: playerPendingIn.gk_sub === 1,
-            });
-          }
-          if (playerPendingOut) {
-            playerOuts.push({
-              gameTime: null,
-              subId: playerPendingOut.id,
-              gkSub: playerPendingOut.gk_sub === 1,
-            });
-          }
-
-          let subStatus = null;
-          if (playerPendingIn && playerPendingOut) {
-            subStatus = "pendingBoth";
-          } else if (playerPendingIn) {
-            subStatus = "pendingIn";
-          } else if (playerPendingOut) {
-            subStatus = "pendingOut";
-          }
-
-          const playerStats = allStats.find(
-            (s) => s.player_game_id === pg.player_game_id
-          );
-
-          const player = {
-            // Identity
-            id: pg.player_id,
-            playerGameId: pg.player_game_id,
-            firstName: pg.first_name,
-            lastName: pg.last_name,
-            fullName: pg.full_name,
-            nickname: pg.nickname,
-            jerseyNumber: pg.jersey_number,
-            position: pg.primary_position,
-
-            // Team Context
-            teamId: pg.team_id,
-            teamSeasonId: pg.team_season_id,
-            homeAway: pg.home_away,
-
-            // Game Status
-            gameStatus: pg.game_status || "dressed",
-            started: pg.started === 1,
-            isGuest: pg.is_guest === 1,
-
-            // Substitution Tracking
-            ins: playerIns,
-            outs: playerOuts,
-            subStatus: subStatus,
-
-            // All Stats from Enhanced View
-            // Offensive Stats
-            goals: playerStats?.goals || 0,
-            penaltyGoals: playerStats?.penalty_goals || 0,
-            assists: playerStats?.assists || 0,
-            shots: playerStats?.shots || 0,
-            shotsOnTarget: playerStats?.shots_on_target || 0,
-
-            // Goalkeeper Stats
-            saves: playerStats?.saves || 0,
-            goalsAgainst: playerStats?.goals_against || 0,
-            penaltiesFaced: playerStats?.penalties_faced || 0,
-            penaltySaves: playerStats?.penalty_saves || 0,
-            cleanSheet: playerStats?.clean_sheet || 0,
-
-            // Disciplinary
-            yellowCards: playerStats?.yellow_cards || 0,
-            redCards: playerStats?.red_cards || 0,
-
-            // Fouls
-            foulsCommitted: playerStats?.fouls_committed || 0,
-            foulsDrawn: playerStats?.fouls_drawn || 0,
-
-            // Time tracking (initialized to 0, calculated separately)
-            goalkeeperTime: 0,
-            plusMinus: 0,
-          };
-
-          player.fieldStatus = get().calculateFieldStatus(player);
-
-          return player;
-        });
-
-        set({ players, isLoading: false });
-
-        // Calculate plus/minus and goalkeeper time for all players after loading
-        get().calculateAndUpdatePlusMinus(gameId);
-        get().calculateAndUpdateGoalkeeperTime(gameId);
-
-        return players;
+        createdPlayers = await get().createPlayerGamesFromRoster(
+          gameId,
+          teamSeasonId,
+          missingPlayers
+        );
       }
 
-      console.log(
-        `No player_games found for game ${gameId}. Creating from roster...`
+      const allPlayerGames = [
+        ...existingPlayerGames,
+        ...createdPlayers.map((pg) => ({
+          player_game_id: pg.playerGameId,
+          game_id: pg.gameId,
+          player_id: pg.id,
+          team_id: pg.teamId,
+          team_season_id: pg.teamSeasonId,
+          position_id: null,
+          started: pg.started ? 1 : 0,
+          game_status: pg.gameStatus,
+          is_guest: pg.isGuest ? 1 : 0,
+          first_name: pg.firstName,
+          last_name: pg.lastName,
+          full_name: pg.fullName,
+          nickname: pg.nickname,
+          jersey_number: pg.jerseyNumber,
+          primary_position: pg.position,
+          home_away: pg.homeAway,
+          team_season_id: pg.teamSeasonId,
+          created_at: null,
+          modified_at: null,
+        })),
+      ];
+
+      const allStats = await apiFetch(
+        "v_player_game_stats_enhanced",
+        "GET",
+        null,
+        null,
+        { filters: { game_id: gameId } }
       );
+      const allSubs = await apiFetch("game_subs", "GET", null, null, {
+        filters: { game_id: gameId },
+      });
+      const pendingSubs = allSubs.filter((sub) => sub.sub_time === null);
+      const confirmedSubs = allSubs.filter((sub) => sub.sub_time !== null);
 
-      const createdPlayers = await get().createPlayerGamesFromRoster(
-        gameId,
-        teamSeasonId
-      );
+      const players = allPlayerGames.map((pg) => {
+        const playerIns = confirmedSubs
+          .filter((sub) => sub.in_player_id === pg.player_game_id)
+          .map((sub) => ({
+            gameTime: sub.sub_time,
+            subId: sub.id,
+            gkSub: sub.gk_sub === 1,
+          }));
 
-      set({ players: createdPlayers, isLoading: false });
+        const playerOuts = confirmedSubs
+          .filter((sub) => sub.out_player_id === pg.player_game_id)
+          .map((sub) => ({
+            gameTime: sub.sub_time,
+            subId: sub.id,
+            gkSub: sub.gk_sub === 1,
+          }));
 
-      return createdPlayers;
+        const playerPendingIn = pendingSubs.find(
+          (sub) => sub.in_player_id === pg.player_game_id
+        );
+        const playerPendingOut = pendingSubs.find(
+          (sub) => sub.out_player_id === pg.player_game_id
+        );
+
+        if (playerPendingIn) {
+          playerIns.push({
+            gameTime: null,
+            subId: playerPendingIn.id,
+            gkSub: playerPendingIn.gk_sub === 1,
+          });
+        }
+        if (playerPendingOut) {
+          playerOuts.push({
+            gameTime: null,
+            subId: playerPendingOut.id,
+            gkSub: playerPendingOut.gk_sub === 1,
+          });
+        }
+
+        let subStatus = null;
+        if (playerPendingIn && playerPendingOut) {
+          subStatus = "pendingBoth";
+        } else if (playerPendingIn) {
+          subStatus = "pendingIn";
+        } else if (playerPendingOut) {
+          subStatus = "pendingOut";
+        }
+
+        const playerStats = allStats.find(
+          (s) => s.player_game_id === pg.player_game_id
+        );
+
+        const player = {
+          // Identity
+          id: pg.player_id,
+          playerGameId: pg.player_game_id,
+          firstName: pg.first_name,
+          lastName: pg.last_name,
+          fullName: pg.full_name,
+          nickname: pg.nickname,
+          jerseyNumber: pg.jersey_number,
+          position: pg.primary_position,
+
+          // Team Context
+          teamId: pg.team_id,
+          teamSeasonId: pg.team_season_id,
+          homeAway: pg.home_away,
+
+          // Game Status
+          gameStatus: pg.game_status || "dressed",
+          started: pg.started === 1,
+          isGuest: pg.is_guest === 1,
+
+          // Substitution Tracking
+          ins: playerIns,
+          outs: playerOuts,
+          subStatus: subStatus,
+
+          // All Stats from Enhanced View
+          // Offensive Stats
+          goals: playerStats?.goals || 0,
+          penaltyGoals: playerStats?.penalty_goals || 0,
+          assists: playerStats?.assists || 0,
+          shots: playerStats?.shots || 0,
+          shotsOnTarget: playerStats?.shots_on_target || 0,
+
+          // Goalkeeper Stats
+          saves: playerStats?.saves || 0,
+          goalsAgainst: playerStats?.goals_against || 0,
+          penaltiesFaced: playerStats?.penalties_faced || 0,
+          penaltySaves: playerStats?.penalty_saves || 0,
+          cleanSheet: playerStats?.clean_sheet || 0,
+
+          // Disciplinary
+          yellowCards: playerStats?.yellow_cards || 0,
+          redCards: playerStats?.red_cards || 0,
+
+          // Fouls
+          foulsCommitted: playerStats?.fouls_committed || 0,
+          foulsDrawn: playerStats?.fouls_drawn || 0,
+
+          // Time tracking (initialized to 0, calculated separately)
+          goalkeeperTime: 0,
+          plusMinus: 0,
+        };
+
+        player.fieldStatus = get().calculateFieldStatus(player);
+
+        return player;
+      });
+
+      set({ players, isLoading: false });
+
+      // Calculate plus/minus and goalkeeper time for all players after loading
+      get().calculateAndUpdatePlusMinus(gameId);
+      get().calculateAndUpdateGoalkeeperTime(gameId);
+
+      return players;
     } catch (error) {
       console.error("Error loading players:", error);
       set({ error: error.message, isLoading: false });
@@ -197,7 +232,7 @@ const useGamePlayersStore = create((set, get) => ({
           apiFetch("player_games", "POST", {
             game_id: gameId,
             player_id: p.player_id,
-            team_id: p.team_id,
+            team_season_id: p.team_season_id,
             position_id: null,
             started: 0,
             game_status: "dressed",
