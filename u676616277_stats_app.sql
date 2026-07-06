@@ -2,9 +2,9 @@
 -- version 5.2.2
 -- https://www.phpmyadmin.net/
 --
--- Host: 127.0.0.1
--- Generation Time: May 22, 2026 at 07:10 PM
--- Server version: 11.8.6-MariaDB-log
+-- Host: 127.0.0.1:3306
+-- Generation Time: Jul 05, 2026 at 08:41 PM
+-- Server version: 11.8.8-MariaDB-log
 -- PHP Version: 7.2.34
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
@@ -323,24 +323,6 @@ CREATE TABLE `game_periods` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `game_scores`
---
-
-CREATE TABLE `game_scores` (
-  `id` int(11) NOT NULL,
-  `game_id` int(11) NOT NULL,
-  `home_score` int(11) DEFAULT NULL,
-  `away_score` int(11) DEFAULT NULL,
-  `home_penalty_score` int(11) DEFAULT NULL,
-  `away_penalty_score` int(11) DEFAULT NULL,
-  `final_status` enum('regulation','overtime','penalty_kicks') DEFAULT 'regulation',
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
-  `modified_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `game_standings_inclusions`
 --
 
@@ -536,34 +518,6 @@ CREATE TABLE `player_relationships` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `player_season_stats`
---
-
-CREATE TABLE `player_season_stats` (
-  `id` int(11) NOT NULL,
-  `player_id` int(11) NOT NULL,
-  `team_season_id` int(11) NOT NULL,
-  `goals` int(11) DEFAULT 0,
-  `assists` int(11) DEFAULT 0,
-  `yellow_cards` int(11) DEFAULT 0,
-  `red_cards` int(11) DEFAULT 0,
-  `games_played` int(11) DEFAULT 0,
-  `games_started` int(11) DEFAULT 0,
-  `minutes_played` int(11) DEFAULT 0,
-  `shots` int(11) DEFAULT 0,
-  `shots_on_target` int(11) DEFAULT 0,
-  `saves` int(11) DEFAULT 0,
-  `clean_sheets` int(11) DEFAULT 0,
-  `penalty_goals` int(11) DEFAULT 0,
-  `notes` text DEFAULT NULL,
-  `stats_source` enum('manual','calculated','hybrid') DEFAULT 'manual',
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
-  `modified_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `player_teams`
 --
 
@@ -652,29 +606,6 @@ CREATE TABLE `team_seasons` (
   `modified_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `age_group` int(11) DEFAULT NULL,
   `is_active` tinyint(1) NOT NULL DEFAULT 1
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `team_season_records`
---
-
-CREATE TABLE `team_season_records` (
-  `id` int(11) NOT NULL,
-  `team_season_id` int(11) NOT NULL,
-  `league_node_season_id` int(11) DEFAULT NULL,
-  `wins` int(11) DEFAULT 0,
-  `losses` int(11) DEFAULT 0,
-  `draws` int(11) DEFAULT 0,
-  `goals_for` int(11) DEFAULT 0,
-  `goals_against` int(11) DEFAULT 0,
-  `games_played` int(11) DEFAULT 0,
-  `points` int(11) DEFAULT 0,
-  `notes` text DEFAULT NULL,
-  `record_source` enum('manual','calculated','hybrid') DEFAULT 'manual',
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
-  `modified_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -831,78 +762,18 @@ CREATE TABLE `v_games` (
 -- --------------------------------------------------------
 
 --
--- Stand-in structure for view `v_games_leagues`
--- (See below for the actual view)
+-- Table structure for table `v_games_leagues`
 --
-CREATE TABLE `v_games_leagues` (
-`game_id` int(11)
-,`status` enum('scheduled','in_progress','completed','postponed','cancelled')
-,`start_date` date
-,`start_time` time
-,`end_date` date
-,`end_time` time
-,`timezone_label` varchar(10)
-,`season_name` varchar(50)
-,`location_id` int(11)
-,`location_name` varchar(255)
-,`sublocation_id` int(11)
-,`sublocation_name` varchar(100)
-,`home_team_season_id` int(11)
-,`home_team_name` varchar(100)
-,`home_club_name` varchar(100)
-,`home_gender` enum('Men','Women','Mixed')
-,`away_team_season_id` int(11)
-,`away_team_name` varchar(100)
-,`away_club_name` varchar(100)
-,`away_gender` enum('Men','Women','Mixed')
-,`league_node_season_id` int(11)
-,`league_node_id` int(11)
-,`league_node_name` varchar(255)
-,`league_node_type` enum('league','conference','division','group','region','district','classification','age_group','gender','custom','tournament')
-,`league_id` int(11)
-,`league_name` varchar(255)
-,`is_primary_league` tinyint(1)
-,`home_score` int(11)
-,`away_score` int(11)
-,`final_status` enum('regulation','overtime','penalty_kicks')
-);
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_games_leagues`  AS SELECT `g`.`id` AS `game_id`, `g`.`status` AS `status`, `g`.`start_date` AS `start_date`, `g`.`start_time` AS `start_time`, `g`.`end_date` AS `end_date`, `g`.`end_time` AS `end_time`, `g`.`timezone_label` AS `timezone_label`, `s`.`season_name` AS `season_name`, `g`.`location_id` AS `location_id`, `l`.`name` AS `location_name`, `g`.`sublocation_id` AS `sublocation_id`, `ls`.`name` AS `sublocation_name`, `g`.`home_team_season_id` AS `home_team_season_id`, `ht`.`team_name` AS `home_team_name`, `hc`.`name` AS `home_club_name`, `ht`.`gender` AS `home_gender`, `g`.`away_team_season_id` AS `away_team_season_id`, `at`.`team_name` AS `away_team_name`, `ac`.`name` AS `away_club_name`, `at`.`gender` AS `away_gender`, `lns`.`id` AS `league_node_season_id`, `ln`.`id` AS `league_node_id`, `ln`.`name` AS `league_node_name`, `ln`.`node_type` AS `league_node_type`, `l_league`.`id` AS `league_id`, `l_league`.`name` AS `league_name`, `gln`.`is_primary` AS `is_primary_league`, `gs`.`home_score` AS `home_score`, `gs`.`away_score` AS `away_score`, `gs`.`final_status` AS `final_status` FROM ((((((((((((((`games` `g` join `seasons` `s` on(`g`.`season_id` = `s`.`id`)) left join `locations` `l` on(`g`.`location_id` = `l`.`id`)) left join `locations_sublocations` `ls` on(`g`.`sublocation_id` = `ls`.`id`)) join `team_seasons` `hts` on(`g`.`home_team_season_id` = `hts`.`id`)) join `teams` `ht` on(`hts`.`team_id` = `ht`.`id`)) join `clubs` `hc` on(`ht`.`club_id` = `hc`.`id`)) join `team_seasons` `ats` on(`g`.`away_team_season_id` = `ats`.`id`)) join `teams` `at` on(`ats`.`team_id` = `at`.`id`)) join `clubs` `ac` on(`at`.`club_id` = `ac`.`id`)) join `game_league_nodes` `gln` on(`g`.`id` = `gln`.`game_id`)) join `league_node_seasons` `lns` on(`gln`.`league_node_id` = `lns`.`id`)) join `league_nodes` `ln` on(`lns`.`league_node_id` = `ln`.`id`)) join `leagues` `l_league` on(`ln`.`league_id` = `l_league`.`id`)) left join `game_scores` `gs` on(`g`.`id` = `gs`.`id`)) ;
 
 -- --------------------------------------------------------
 
 --
--- Stand-in structure for view `v_games_summary`
--- (See below for the actual view)
+-- Table structure for table `v_games_summary`
 --
-CREATE TABLE `v_games_summary` (
-`game_id` int(11)
-,`status` enum('scheduled','in_progress','completed','postponed','cancelled')
-,`game_type` enum('league','tournament','friendly','scrimmage','exhibition','playoff')
-,`start_date` date
-,`start_time` time
-,`end_date` date
-,`end_time` time
-,`timezone_label` varchar(10)
-,`season_name` varchar(50)
-,`location_id` int(11)
-,`location_name` varchar(255)
-,`sublocation_id` int(11)
-,`sublocation_name` varchar(100)
-,`home_team_season_id` int(11)
-,`home_team_name` varchar(100)
-,`home_club_name` varchar(100)
-,`home_gender` enum('Men','Women','Mixed')
-,`away_team_season_id` int(11)
-,`away_team_name` varchar(100)
-,`away_club_name` varchar(100)
-,`away_gender` enum('Men','Women','Mixed')
-,`league_names` longtext
-,`league_node_names` longtext
-,`leagues_array` longtext
-,`home_score` bigint(22)
-,`away_score` bigint(22)
-,`final_status` enum('regulation','overtime','penalty_kicks')
-,`score_source` varchar(10)
-);
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_games_summary`  AS SELECT `g`.`id` AS `game_id`, `g`.`status` AS `status`, `g`.`game_type` AS `game_type`, `g`.`start_date` AS `start_date`, `g`.`start_time` AS `start_time`, `g`.`end_date` AS `end_date`, `g`.`end_time` AS `end_time`, `g`.`timezone_label` AS `timezone_label`, `s`.`season_name` AS `season_name`, `g`.`location_id` AS `location_id`, `l`.`name` AS `location_name`, `g`.`sublocation_id` AS `sublocation_id`, `ls`.`name` AS `sublocation_name`, `g`.`home_team_season_id` AS `home_team_season_id`, `ht`.`team_name` AS `home_team_name`, `hc`.`name` AS `home_club_name`, `ht`.`gender` AS `home_gender`, `g`.`away_team_season_id` AS `away_team_season_id`, `at`.`team_name` AS `away_team_name`, `ac`.`name` AS `away_club_name`, `at`.`gender` AS `away_gender`, group_concat(distinct coalesce(`l_league`.`abbreviation`,`l_league`.`name`) order by `gln`.`is_primary` DESC,`l_league`.`name` ASC separator ', ') AS `league_names`, group_concat(distinct `ln`.`name` order by `gln`.`is_primary` DESC,`ln`.`name` ASC separator ', ') AS `league_node_names`, json_arrayagg(json_object('league_id',`l_league`.`id`,'league_name',`l_league`.`name`,'league_abbreviation',`l_league`.`abbreviation`,'league_node_id',`ln`.`id`,'league_node_name',`ln`.`name`,'league_node_type',`ln`.`node_type`,'league_node_season_id',`lns`.`id`,'is_primary',`gln`.`is_primary`,'is_tournament',`l_league`.`is_tournament`)) AS `leagues_array`, coalesce(`gs`.`home_score`,(select count(0) from (`game_events_goals` `geg` join `game_events_major` `gem` on(`geg`.`major_event_id` = `gem`.`id`)) where `gem`.`game_id` = `g`.`id` and `geg`.`team_season_id` = `g`.`home_team_season_id` and coalesce(`geg`.`is_own_goal`,0) = 0) + (select count(0) from (`game_events_goals` `geg` join `game_events_major` `gem` on(`geg`.`major_event_id` = `gem`.`id`)) where `gem`.`game_id` = `g`.`id` and `geg`.`team_season_id` = `g`.`away_team_season_id` and `geg`.`is_own_goal` = 1)) AS `home_score`, coalesce(`gs`.`away_score`,(select count(0) from (`game_events_goals` `geg` join `game_events_major` `gem` on(`geg`.`major_event_id` = `gem`.`id`)) where `gem`.`game_id` = `g`.`id` and `geg`.`team_season_id` = `g`.`away_team_season_id` and coalesce(`geg`.`is_own_goal`,0) = 0) + (select count(0) from (`game_events_goals` `geg` join `game_events_major` `gem` on(`geg`.`major_event_id` = `gem`.`id`)) where `gem`.`game_id` = `g`.`id` and `geg`.`team_season_id` = `g`.`home_team_season_id` and `geg`.`is_own_goal` = 1)) AS `away_score`, `gs`.`final_status` AS `final_status`, CASE WHEN `gs`.`home_score` is not null THEN 'manual' WHEN exists(select 1 from (`game_events_goals` `geg` join `game_events_major` `gem` on(`geg`.`major_event_id` = `gem`.`id`)) where `gem`.`game_id` = `g`.`id` limit 1) THEN 'calculated' ELSE NULL END AS `score_source` FROM ((((((((((((((`games` `g` join `seasons` `s` on(`g`.`season_id` = `s`.`id`)) left join `locations` `l` on(`g`.`location_id` = `l`.`id`)) left join `locations_sublocations` `ls` on(`g`.`sublocation_id` = `ls`.`id`)) join `team_seasons` `hts` on(`g`.`home_team_season_id` = `hts`.`id`)) join `teams` `ht` on(`hts`.`team_id` = `ht`.`id`)) join `clubs` `hc` on(`ht`.`club_id` = `hc`.`id`)) join `team_seasons` `ats` on(`g`.`away_team_season_id` = `ats`.`id`)) join `teams` `at` on(`ats`.`team_id` = `at`.`id`)) join `clubs` `ac` on(`at`.`club_id` = `ac`.`id`)) left join `game_league_nodes` `gln` on(`g`.`id` = `gln`.`game_id`)) left join `league_node_seasons` `lns` on(`gln`.`league_node_id` = `lns`.`id`)) left join `league_nodes` `ln` on(`lns`.`league_node_id` = `ln`.`id`)) left join `leagues` `l_league` on(`ln`.`league_id` = `l_league`.`id`)) left join `game_scores` `gs` on(`g`.`id` = `gs`.`game_id`)) GROUP BY `g`.`id`, `g`.`status`, `g`.`game_type`, `g`.`start_date`, `g`.`start_time`, `g`.`end_date`, `g`.`end_time`, `g`.`timezone_label`, `s`.`season_name`, `g`.`location_id`, `l`.`name`, `g`.`sublocation_id`, `ls`.`name`, `g`.`home_team_season_id`, `ht`.`team_name`, `hc`.`name`, `ht`.`gender`, `g`.`away_team_season_id`, `at`.`team_name`, `ac`.`name`, `at`.`gender`, `gs`.`home_score`, `gs`.`away_score`, `gs`.`final_status` ;
 
 -- --------------------------------------------------------
 
@@ -1099,26 +970,10 @@ CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL S
 -- --------------------------------------------------------
 
 --
--- Stand-in structure for view `v_head_to_head`
--- (See below for the actual view)
+-- Table structure for table `v_head_to_head`
 --
-CREATE TABLE `v_head_to_head` (
-`game_id` int(11)
-,`start_date` date
-,`status` enum('scheduled','in_progress','completed','postponed','cancelled')
-,`season_name` varchar(50)
-,`home_team_season_id` int(11)
-,`home_team_name` varchar(100)
-,`home_club_name` varchar(100)
-,`away_team_season_id` int(11)
-,`away_team_name` varchar(100)
-,`away_club_name` varchar(100)
-,`home_score` int(11)
-,`away_score` int(11)
-,`final_status` enum('regulation','overtime','penalty_kicks')
-,`winner` varchar(4)
-,`league_names` longtext
-);
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_head_to_head`  AS SELECT `g`.`id` AS `game_id`, `g`.`start_date` AS `start_date`, `g`.`status` AS `status`, `s`.`season_name` AS `season_name`, `g`.`home_team_season_id` AS `home_team_season_id`, `ht`.`team_name` AS `home_team_name`, `hc`.`name` AS `home_club_name`, `g`.`away_team_season_id` AS `away_team_season_id`, `at`.`team_name` AS `away_team_name`, `ac`.`name` AS `away_club_name`, `gs`.`home_score` AS `home_score`, `gs`.`away_score` AS `away_score`, `gs`.`final_status` AS `final_status`, CASE WHEN `gs`.`home_score` > `gs`.`away_score` THEN 'home' WHEN `gs`.`away_score` > `gs`.`home_score` THEN 'away' ELSE 'draw' END AS `winner`, group_concat(distinct `ln`.`name` order by `ln`.`name` ASC separator ', ') AS `league_names` FROM (((((((((((`games` `g` join `seasons` `s` on(`g`.`season_id` = `s`.`id`)) join `team_seasons` `hts` on(`g`.`home_team_season_id` = `hts`.`id`)) join `teams` `ht` on(`hts`.`team_id` = `ht`.`id`)) join `clubs` `hc` on(`ht`.`club_id` = `hc`.`id`)) join `team_seasons` `ats` on(`g`.`away_team_season_id` = `ats`.`id`)) join `teams` `at` on(`ats`.`team_id` = `at`.`id`)) join `clubs` `ac` on(`at`.`club_id` = `ac`.`id`)) left join `game_scores` `gs` on(`g`.`id` = `gs`.`game_id`)) left join `game_league_nodes` `gln` on(`g`.`id` = `gln`.`game_id`)) left join `league_node_seasons` `lns` on(`gln`.`league_node_id` = `lns`.`id`)) left join `league_nodes` `ln` on(`lns`.`league_node_id` = `ln`.`id`)) WHERE `g`.`status` = 'completed' GROUP BY `g`.`id`, `g`.`start_date`, `g`.`status`, `s`.`season_name`, `g`.`home_team_season_id`, `ht`.`team_name`, `hc`.`name`, `g`.`away_team_season_id`, `at`.`team_name`, `ac`.`name`, `gs`.`home_score`, `gs`.`away_score`, `gs`.`final_status` ORDER BY `g`.`start_date` DESC ;
 
 -- --------------------------------------------------------
 
@@ -1367,7 +1222,7 @@ CREATE TABLE `v_player_career_stats` (
 ,`teams_played_for` bigint(21)
 ,`seasons_played` bigint(21)
 ,`career_games` decimal(42,0)
-,`career_starts` decimal(44,0)
+,`career_starts` decimal(45,0)
 ,`career_goals` decimal(64,0)
 ,`career_penalty_goals` decimal(64,0)
 ,`career_assists` decimal(64,0)
@@ -1448,7 +1303,7 @@ CREATE TABLE `v_player_game_stats_enhanced` (
 ,`jersey_number` int(11)
 ,`position` varchar(50)
 ,`game_status` enum('goalkeeper','starter','dressed','not_dressed','injured','suspended','unavailable')
-,`started` int(1)
+,`started` int(2)
 ,`team_season_id` int(11)
 ,`goals` bigint(21)
 ,`penalty_goals` bigint(21)
@@ -1461,7 +1316,7 @@ CREATE TABLE `v_player_game_stats_enhanced` (
 ,`penalty_saves` bigint(21)
 ,`yellow_cards` bigint(21)
 ,`red_cards` bigint(21)
-,`clean_sheet` int(1)
+,`clean_sheet` int(2)
 );
 
 -- --------------------------------------------------------
@@ -1504,7 +1359,7 @@ CREATE TABLE `v_player_season_stats_calculated` (
 ,`season_id` int(11)
 ,`season_name` varchar(50)
 ,`games_played` bigint(21)
-,`games_started` decimal(22,0)
+,`games_started` decimal(23,0)
 ,`total_goals` decimal(42,0)
 ,`total_penalty_goals` decimal(42,0)
 ,`total_assists` decimal(42,0)
@@ -1527,101 +1382,18 @@ CREATE TABLE `v_player_season_stats_calculated` (
 -- --------------------------------------------------------
 
 --
--- Stand-in structure for view `v_player_stats_combined`
--- (See below for the actual view)
+-- Table structure for table `v_player_stats_combined`
 --
-CREATE TABLE `v_player_stats_combined` (
-`player_id` int(11)
-,`first_name` varchar(25)
-,`last_name` varchar(25)
-,`team_season_id` int(11)
-,`team_name` varchar(100)
-,`club_name` varchar(100)
-,`season_name` varchar(50)
-,`calculated_goals` decimal(42,0)
-,`calculated_assists` decimal(42,0)
-,`calculated_yellow_cards` decimal(42,0)
-,`calculated_red_cards` decimal(42,0)
-,`calculated_shots` decimal(42,0)
-,`calculated_shots_on_target` decimal(42,0)
-,`calculated_saves` decimal(42,0)
-,`calculated_games_played` bigint(21)
-,`calculated_games_started` decimal(22,0)
-,`manual_goals` int(11)
-,`manual_assists` int(11)
-,`manual_yellow_cards` int(11)
-,`manual_red_cards` int(11)
-,`manual_games_played` int(11)
-,`manual_games_started` int(11)
-,`manual_shots` int(11)
-,`manual_shots_on_target` int(11)
-,`manual_saves` int(11)
-,`manual_clean_sheets` int(11)
-,`stats_source` enum('manual','calculated','hybrid')
-,`total_goals` decimal(42,0)
-,`total_assists` decimal(42,0)
-,`total_yellow_cards` decimal(42,0)
-,`total_red_cards` decimal(42,0)
-,`total_games_played` bigint(21)
-,`total_shots` decimal(42,0)
-,`total_saves` decimal(42,0)
-);
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_player_stats_combined`  AS SELECT `p`.`id` AS `player_id`, `p`.`first_name` AS `first_name`, `p`.`last_name` AS `last_name`, `ts`.`id` AS `team_season_id`, `t`.`team_name` AS `team_name`, `c`.`name` AS `club_name`, `s`.`season_name` AS `season_name`, coalesce(`psc`.`total_goals`,0) AS `calculated_goals`, coalesce(`psc`.`total_assists`,0) AS `calculated_assists`, coalesce(`psc`.`total_yellow_cards`,0) AS `calculated_yellow_cards`, coalesce(`psc`.`total_red_cards`,0) AS `calculated_red_cards`, coalesce(`psc`.`total_shots`,0) AS `calculated_shots`, coalesce(`psc`.`total_shots_on_target`,0) AS `calculated_shots_on_target`, coalesce(`psc`.`total_saves`,0) AS `calculated_saves`, coalesce(`psc`.`games_played`,0) AS `calculated_games_played`, coalesce(`psc`.`games_started`,0) AS `calculated_games_started`, `pss`.`goals` AS `manual_goals`, `pss`.`assists` AS `manual_assists`, `pss`.`yellow_cards` AS `manual_yellow_cards`, `pss`.`red_cards` AS `manual_red_cards`, `pss`.`games_played` AS `manual_games_played`, `pss`.`games_started` AS `manual_games_started`, `pss`.`shots` AS `manual_shots`, `pss`.`shots_on_target` AS `manual_shots_on_target`, `pss`.`saves` AS `manual_saves`, `pss`.`clean_sheets` AS `manual_clean_sheets`, `pss`.`stats_source` AS `stats_source`, coalesce(`pss`.`goals`,`psc`.`total_goals`,0) AS `total_goals`, coalesce(`pss`.`assists`,`psc`.`total_assists`,0) AS `total_assists`, coalesce(`pss`.`yellow_cards`,`psc`.`total_yellow_cards`,0) AS `total_yellow_cards`, coalesce(`pss`.`red_cards`,`psc`.`total_red_cards`,0) AS `total_red_cards`, coalesce(`pss`.`games_played`,`psc`.`games_played`,0) AS `total_games_played`, coalesce(`pss`.`shots`,`psc`.`total_shots`,0) AS `total_shots`, coalesce(`pss`.`saves`,`psc`.`total_saves`,0) AS `total_saves` FROM (((((((`people` `p` join `player_teams` `pt` on(`p`.`id` = `pt`.`player_id` and `pt`.`is_active` = 1)) join `team_seasons` `ts` on(`pt`.`team_season_id` = `ts`.`id`)) join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `v_player_season_stats_calculated` `psc` on(`p`.`id` = `psc`.`player_id` and `ts`.`id` = `psc`.`team_season_id`)) left join `player_season_stats` `pss` on(`p`.`id` = `pss`.`player_id` and `ts`.`id` = `pss`.`team_season_id`)) ORDER BY `c`.`name` ASC, `t`.`team_name` ASC, `p`.`last_name` ASC, `p`.`first_name` ASC ;
 
 -- --------------------------------------------------------
 
 --
--- Stand-in structure for view `v_standings`
--- (See below for the actual view)
+-- Table structure for table `v_standings`
 --
-CREATE TABLE `v_standings` (
-`team_season_id` int(11)
-,`team_id` int(11)
-,`team_name` varchar(100)
-,`team_gender` enum('Men','Women','Mixed')
-,`club_id` int(11)
-,`club_name` varchar(100)
-,`club_abbreviation` varchar(20)
-,`club_logo_url` varchar(255)
-,`club_type` enum('high_school','club')
-,`club_location` varchar(100)
-,`season_id` int(11)
-,`season_name` varchar(50)
-,`season_start` date
-,`season_end` date
-,`is_current_season` int(1)
-,`age_group_id` int(11)
-,`age_group_name` varchar(50)
-,`league_id` int(11)
-,`league_name` varchar(255)
-,`league_node_season_id` int(11)
-,`league_node_id` int(11)
-,`league_node_name` varchar(255)
-,`league_node_type` enum('league','conference','division','group','region','district','classification','age_group','gender','custom','tournament')
-,`league_level` int(11)
-,`wins` decimal(22,0)
-,`losses` decimal(22,0)
-,`draws` decimal(22,0)
-,`games_played` bigint(21)
-,`goals_for` bigint(22)
-,`goals_against` bigint(22)
-,`goal_difference` bigint(12)
-,`points` decimal(22,0)
-,`home_wins` decimal(22,0)
-,`home_losses` decimal(22,0)
-,`home_draws` decimal(22,0)
-,`away_wins` decimal(22,0)
-,`away_losses` decimal(22,0)
-,`away_draws` decimal(22,0)
-,`current_streak` binary(0)
-,`last_5_form` binary(0)
-,`points_per_game` decimal(26,2)
-,`win_percentage` decimal(28,2)
-,`goals_per_game` decimal(14,2)
-,`goals_against_per_game` decimal(14,2)
-,`record_source` varchar(10)
-,`enrollment_is_active` tinyint(1)
-,`team_season_is_active` tinyint(1)
-);
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_standings`  AS SELECT `ts`.`id` AS `team_season_id`, `t`.`id` AS `team_id`, `t`.`team_name` AS `team_name`, `t`.`gender` AS `team_gender`, `c`.`id` AS `club_id`, `c`.`name` AS `club_name`, `c`.`abbreviation` AS `club_abbreviation`, `c`.`logo_url` AS `club_logo_url`, `c`.`type` AS `club_type`, `c`.`location` AS `club_location`, `s`.`id` AS `season_id`, `s`.`season_name` AS `season_name`, `s`.`start_date` AS `season_start`, `s`.`end_date` AS `season_end`, `s`.`status`= 'active' AS `is_current_season`, `ag`.`id` AS `age_group_id`, `ag`.`name` AS `age_group_name`, `l`.`id` AS `league_id`, `l`.`name` AS `league_name`, `lns`.`id` AS `league_node_season_id`, `ln`.`id` AS `league_node_id`, `ln`.`name` AS `league_node_name`, `ln`.`node_type` AS `league_node_type`, `ln`.`level` AS `league_level`, coalesce(`tsr`.`wins`,sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 1 else 0 end)) AS `wins`, coalesce(`tsr`.`losses`,sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` < `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` < `gs`.`home_score` then 1 else 0 end)) AS `losses`, coalesce(`tsr`.`draws`,sum(case when (`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `gs`.`home_score` = `gs`.`away_score` and `gs`.`home_score` is not null then 1 else 0 end)) AS `draws`, coalesce(`tsr`.`games_played`,count(distinct case when `gs`.`game_id` is not null then `g`.`id` end)) AS `games_played`, coalesce(`tsr`.`goals_for`,(select count(0) from ((`u676616277_stats_app`.`game_events_goals` `geg2` join `u676616277_stats_app`.`game_events_major` `gem2` on(`geg2`.`major_event_id` = `gem2`.`id`)) join `u676616277_stats_app`.`games` `g2` on(`gem2`.`game_id` = `g2`.`id`)) where (`g2`.`home_team_season_id` = `ts`.`id` or `g2`.`away_team_season_id` = `ts`.`id`) and `g2`.`status` = 'completed' and `geg2`.`team_season_id` = `ts`.`id` and coalesce(`geg2`.`is_own_goal`,0) = 0) + (select count(0) from ((`u676616277_stats_app`.`game_events_goals` `geg3` join `u676616277_stats_app`.`game_events_major` `gem3` on(`geg3`.`major_event_id` = `gem3`.`id`)) join `u676616277_stats_app`.`games` `g3` on(`gem3`.`game_id` = `g3`.`id`)) where (`g3`.`home_team_season_id` = `ts`.`id` or `g3`.`away_team_season_id` = `ts`.`id`) and `g3`.`status` = 'completed' and `geg3`.`team_season_id` <> `ts`.`id` and `geg3`.`is_own_goal` = 1)) AS `goals_for`, coalesce(`tsr`.`goals_against`,(select count(0) from ((`u676616277_stats_app`.`game_events_goals` `geg4` join `u676616277_stats_app`.`game_events_major` `gem4` on(`geg4`.`major_event_id` = `gem4`.`id`)) join `u676616277_stats_app`.`games` `g4` on(`gem4`.`game_id` = `g4`.`id`)) where (`g4`.`home_team_season_id` = `ts`.`id` or `g4`.`away_team_season_id` = `ts`.`id`) and `g4`.`status` = 'completed' and `geg4`.`team_season_id` <> `ts`.`id` and coalesce(`geg4`.`is_own_goal`,0) = 0) + (select count(0) from ((`u676616277_stats_app`.`game_events_goals` `geg5` join `u676616277_stats_app`.`game_events_major` `gem5` on(`geg5`.`major_event_id` = `gem5`.`id`)) join `u676616277_stats_app`.`games` `g5` on(`gem5`.`game_id` = `g5`.`id`)) where (`g5`.`home_team_season_id` = `ts`.`id` or `g5`.`away_team_season_id` = `ts`.`id`) and `g5`.`status` = 'completed' and `geg5`.`team_season_id` = `ts`.`id` and `geg5`.`is_own_goal` = 1)) AS `goals_against`, coalesce(`tsr`.`goals_for`,0) - coalesce(`tsr`.`goals_against`,0) AS `goal_difference`, coalesce(`tsr`.`points`,sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 3 when (`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `gs`.`home_score` = `gs`.`away_score` and `gs`.`home_score` is not null then 1 else 0 end)) AS `points`, sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` then 1 else 0 end) AS `home_wins`, sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` < `gs`.`away_score` then 1 else 0 end) AS `home_losses`, sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` = `gs`.`away_score` and `gs`.`home_score` is not null then 1 else 0 end) AS `home_draws`, sum(case when `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 1 else 0 end) AS `away_wins`, sum(case when `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` < `gs`.`home_score` then 1 else 0 end) AS `away_losses`, sum(case when `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` = `gs`.`home_score` and `gs`.`away_score` is not null then 1 else 0 end) AS `away_draws`, NULL AS `current_streak`, NULL AS `last_5_form`, CASE WHEN coalesce(`tsr`.`games_played`,count(distinct case when `gs`.`game_id` is not null then `g`.`id` end)) > 0 THEN round(coalesce(`tsr`.`points`,sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 3 when (`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `gs`.`home_score` = `gs`.`away_score` and `gs`.`home_score` is not null then 1 else 0 end)) * 1.0 / coalesce(`tsr`.`games_played`,count(distinct case when `gs`.`game_id` is not null then `g`.`id` end)),2) ELSE 0 END AS `points_per_game`, CASE WHEN coalesce(`tsr`.`games_played`,count(distinct case when `gs`.`game_id` is not null then `g`.`id` end)) > 0 THEN round(coalesce(`tsr`.`wins`,sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 1 else 0 end)) * 100.0 / coalesce(`tsr`.`games_played`,count(distinct case when `gs`.`game_id` is not null then `g`.`id` end)),2) ELSE 0 END AS `win_percentage`, CASE WHEN coalesce(`tsr`.`games_played`,count(distinct case when `gs`.`game_id` is not null then `g`.`id` end)) > 0 THEN round(coalesce(`tsr`.`goals_for`,0) * 1.0 / coalesce(`tsr`.`games_played`,count(distinct case when `gs`.`game_id` is not null then `g`.`id` end)),2) ELSE 0 END AS `goals_per_game`, CASE WHEN coalesce(`tsr`.`games_played`,count(distinct case when `gs`.`game_id` is not null then `g`.`id` end)) > 0 THEN round(coalesce(`tsr`.`goals_against`,0) * 1.0 / coalesce(`tsr`.`games_played`,count(distinct case when `gs`.`game_id` is not null then `g`.`id` end)),2) ELSE 0 END AS `goals_against_per_game`, coalesce(`tsr`.`record_source`,'calculated') AS `record_source`, `tle`.`is_active` AS `enrollment_is_active`, `ts`.`is_active` AS `team_season_is_active` FROM ((((((((((((`u676616277_stats_app`.`team_seasons` `ts` join `u676616277_stats_app`.`teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `u676616277_stats_app`.`clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `u676616277_stats_app`.`seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `u676616277_stats_app`.`age_groups` `ag` on(`ts`.`age_group` = `ag`.`id`)) join `u676616277_stats_app`.`team_league_enrollments` `tle` on(`ts`.`id` = `tle`.`team_season_id`)) join `u676616277_stats_app`.`league_node_seasons` `lns` on(`tle`.`league_node_season_id` = `lns`.`id`)) join `u676616277_stats_app`.`league_nodes` `ln` on(`lns`.`league_node_id` = `ln`.`id`)) join `u676616277_stats_app`.`leagues` `l` on(`ln`.`league_id` = `l`.`id`)) left join `u676616277_stats_app`.`team_season_records` `tsr` on(`ts`.`id` = `tsr`.`team_season_id` and `lns`.`id` = `tsr`.`league_node_season_id`)) left join `u676616277_stats_app`.`games` `g` on((`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `g`.`status` = 'completed')) left join `u676616277_stats_app`.`game_league_nodes` `gln` on(`g`.`id` = `gln`.`game_id` and `gln`.`league_node_id` = `lns`.`id`)) left join (select `v_games_summary`.`game_id` AS `game_id`,`v_games_summary`.`home_score` AS `home_score`,`v_games_summary`.`away_score` AS `away_score` from `u676616277_stats_app`.`v_games_summary`) `gs` on(`g`.`id` = `gs`.`game_id`)) WHERE `ts`.`is_active` = 1 AND `t`.`is_active` = 1 AND `c`.`is_active` = 1 AND `tle`.`is_active` = 1 GROUP BY `ts`.`id`, `t`.`id`, `t`.`team_name`, `t`.`gender`, `c`.`id`, `c`.`name`, `c`.`abbreviation`, `c`.`logo_url`, `c`.`type`, `c`.`location`, `s`.`id`, `s`.`season_name`, `s`.`start_date`, `s`.`end_date`, `s`.`status`, `ag`.`id`, `ag`.`name`, `l`.`id`, `l`.`name`, `lns`.`id`, `ln`.`id`, `ln`.`name`, `ln`.`node_type`, `ln`.`level`, `tsr`.`wins`, `tsr`.`losses`, `tsr`.`draws`, `tsr`.`goals_for`, `tsr`.`goals_against`, `tsr`.`games_played`, `tsr`.`points`, `tsr`.`record_source`, `tle`.`is_active`, `ts`.`is_active` ORDER BY `s`.`status`= 'active' DESC, `l`.`name` ASC, `ln`.`level` ASC, `ln`.`name` ASC, coalesce(`tsr`.`points`,0) DESC, coalesce(`tsr`.`goals_for`,0) - coalesce(`tsr`.`goals_against`,0) DESC, coalesce(`tsr`.`goals_for`,0) DESC, `c`.`name` ASC, `t`.`team_name` ASC ;
 
 -- --------------------------------------------------------
 
@@ -1650,7 +1422,7 @@ CREATE TABLE `v_stat_leaders` (
 ,`total_yellow_cards` decimal(42,0)
 ,`total_red_cards` decimal(42,0)
 ,`games_played` bigint(21)
-,`games_started` decimal(22,0)
+,`games_started` decimal(23,0)
 ,`goals_per_game` decimal(46,2)
 ,`shooting_percentage` decimal(47,1)
 ,`save_percentage` decimal(47,1)
@@ -1691,23 +1463,10 @@ CREATE TABLE `v_teams_all` (
 -- --------------------------------------------------------
 
 --
--- Stand-in structure for view `v_team_form`
--- (See below for the actual view)
+-- Table structure for table `v_team_form`
 --
-CREATE TABLE `v_team_form` (
-`team_season_id` int(11)
-,`team_name` varchar(100)
-,`club_name` varchar(100)
-,`season_name` varchar(50)
-,`recent_games` bigint(21)
-,`recent_wins` decimal(22,0)
-,`recent_losses` decimal(22,0)
-,`recent_draws` decimal(22,0)
-,`recent_goals_for` decimal(32,0)
-,`recent_goals_against` decimal(32,0)
-,`recent_points` decimal(22,0)
-,`last_game_date` date
-);
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_team_form`  AS SELECT `ts`.`id` AS `team_season_id`, `t`.`team_name` AS `team_name`, `c`.`name` AS `club_name`, `s`.`season_name` AS `season_name`, count(distinct `g`.`id`) AS `recent_games`, sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 1 else 0 end) AS `recent_wins`, sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` < `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` < `gs`.`home_score` then 1 else 0 end) AS `recent_losses`, sum(case when (`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `gs`.`home_score` = `gs`.`away_score` then 1 else 0 end) AS `recent_draws`, sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`home_score` when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`away_score` else 0 end) AS `recent_goals_for`, sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`away_score` when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`home_score` else 0 end) AS `recent_goals_against`, sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 3 when (`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `gs`.`home_score` = `gs`.`away_score` then 1 else 0 end) AS `recent_points`, max(`g`.`start_date`) AS `last_game_date` FROM (((((`team_seasons` `ts` join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) join `games` `g` on((`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `g`.`status` = 'completed' and `g`.`start_date` >= curdate() - interval 60 day)) left join `game_scores` `gs` on(`g`.`id` = `gs`.`game_id`)) GROUP BY `ts`.`id`, `t`.`team_name`, `c`.`name`, `s`.`season_name` ;
 
 -- --------------------------------------------------------
 
@@ -1748,43 +1507,10 @@ CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL S
 -- --------------------------------------------------------
 
 --
--- Stand-in structure for view `v_team_standings_detailed`
--- (See below for the actual view)
+-- Table structure for table `v_team_standings_detailed`
 --
-CREATE TABLE `v_team_standings_detailed` (
-`team_season_id` int(11)
-,`team_name` varchar(100)
-,`club_name` varchar(100)
-,`season_name` varchar(50)
-,`league_node_season_id` int(11)
-,`league_node_name` varchar(255)
-,`league_name` varchar(255)
-,`home_wins` decimal(22,0)
-,`home_losses` decimal(22,0)
-,`home_draws` decimal(22,0)
-,`away_wins` decimal(22,0)
-,`away_losses` decimal(22,0)
-,`away_draws` decimal(22,0)
-,`calculated_wins` decimal(22,0)
-,`calculated_losses` decimal(22,0)
-,`calculated_draws` decimal(22,0)
-,`calculated_goals_for` decimal(33,0)
-,`calculated_goals_against` decimal(33,0)
-,`manual_wins` int(11)
-,`manual_losses` int(11)
-,`manual_draws` int(11)
-,`manual_goals_for` int(11)
-,`manual_goals_against` int(11)
-,`manual_points` int(11)
-,`record_source` enum('manual','calculated','hybrid')
-,`total_wins` decimal(22,0)
-,`total_losses` decimal(22,0)
-,`total_draws` decimal(22,0)
-,`total_goals_for` decimal(33,0)
-,`total_goals_against` decimal(33,0)
-,`total_points` decimal(22,0)
-,`goal_difference` decimal(34,0)
-);
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_team_standings_detailed`  AS SELECT `ts`.`id` AS `team_season_id`, `t`.`team_name` AS `team_name`, `c`.`name` AS `club_name`, `s`.`season_name` AS `season_name`, `lns`.`id` AS `league_node_season_id`, `ln`.`name` AS `league_node_name`, `l`.`name` AS `league_name`, coalesce(sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` then 1 else 0 end),0) AS `home_wins`, coalesce(sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` < `gs`.`away_score` then 1 else 0 end),0) AS `home_losses`, coalesce(sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` = `gs`.`away_score` then 1 else 0 end),0) AS `home_draws`, coalesce(sum(case when `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 1 else 0 end),0) AS `away_wins`, coalesce(sum(case when `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` < `gs`.`home_score` then 1 else 0 end),0) AS `away_losses`, coalesce(sum(case when `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` = `gs`.`home_score` then 1 else 0 end),0) AS `away_draws`, coalesce(sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 1 else 0 end),0) AS `calculated_wins`, coalesce(sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` < `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` < `gs`.`home_score` then 1 else 0 end),0) AS `calculated_losses`, coalesce(sum(case when (`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `gs`.`home_score` = `gs`.`away_score` then 1 else 0 end),0) AS `calculated_draws`, coalesce(sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`home_score` else 0 end),0) + coalesce(sum(case when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`away_score` else 0 end),0) AS `calculated_goals_for`, coalesce(sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`away_score` else 0 end),0) + coalesce(sum(case when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`home_score` else 0 end),0) AS `calculated_goals_against`, `tsr`.`wins` AS `manual_wins`, `tsr`.`losses` AS `manual_losses`, `tsr`.`draws` AS `manual_draws`, `tsr`.`goals_for` AS `manual_goals_for`, `tsr`.`goals_against` AS `manual_goals_against`, `tsr`.`points` AS `manual_points`, `tsr`.`record_source` AS `record_source`, coalesce(`tsr`.`wins`,sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 1 else 0 end),0) AS `total_wins`, coalesce(`tsr`.`losses`,sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` < `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` < `gs`.`home_score` then 1 else 0 end),0) AS `total_losses`, coalesce(`tsr`.`draws`,sum(case when (`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `gs`.`home_score` = `gs`.`away_score` then 1 else 0 end),0) AS `total_draws`, coalesce(`tsr`.`goals_for`,sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`home_score` else 0 end) + sum(case when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`away_score` else 0 end),0) AS `total_goals_for`, coalesce(`tsr`.`goals_against`,sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`away_score` else 0 end) + sum(case when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`home_score` else 0 end),0) AS `total_goals_against`, coalesce(`tsr`.`points`,sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 3 when (`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `gs`.`home_score` = `gs`.`away_score` then 1 else 0 end),0) AS `total_points`, coalesce(`tsr`.`goals_for`,sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`home_score` else 0 end) + sum(case when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`away_score` else 0 end),0) - coalesce(`tsr`.`goals_against`,sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`away_score` else 0 end) + sum(case when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`home_score` else 0 end),0) AS `goal_difference` FROM ((((((((((`team_seasons` `ts` join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `team_league_enrollments` `tle` on(`ts`.`id` = `tle`.`team_season_id`)) left join `league_node_seasons` `lns` on(`tle`.`league_node_season_id` = `lns`.`id`)) left join `league_nodes` `ln` on(`lns`.`league_node_id` = `ln`.`id`)) left join `leagues` `l` on(`ln`.`league_id` = `l`.`id`)) left join `team_season_records` `tsr` on(`ts`.`id` = `tsr`.`team_season_id` and `lns`.`id` = `tsr`.`league_node_season_id`)) left join `games` `g` on((`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `g`.`status` = 'completed')) left join `game_scores` `gs` on(`g`.`id` = `gs`.`game_id`)) WHERE `ts`.`is_active` = 1 GROUP BY `ts`.`id`, `t`.`team_name`, `c`.`name`, `s`.`season_name`, `lns`.`id`, `ln`.`name`, `l`.`name`, `tsr`.`wins`, `tsr`.`losses`, `tsr`.`draws`, `tsr`.`goals_for`, `tsr`.`goals_against`, `tsr`.`points`, `tsr`.`record_source` ORDER BY coalesce(`tsr`.`points`,sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 3 when (`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `gs`.`home_score` = `gs`.`away_score` then 1 else 0 end),0) DESC, coalesce(`tsr`.`goals_for`,sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`home_score` else 0 end) + sum(case when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`away_score` else 0 end),0) - coalesce(`tsr`.`goals_against`,sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`away_score` else 0 end) + sum(case when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`home_score` else 0 end),0) DESC, coalesce(`tsr`.`goals_for`,sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`home_score` else 0 end) + sum(case when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`away_score` else 0 end),0) DESC ;
 
 -- --------------------------------------------------------
 
@@ -1834,7 +1560,7 @@ CREATE TABLE `v_users` (
 -- (See below for the actual view)
 --
 CREATE TABLE `v_user_teams` (
-`user_id` int(11)
+`person_id` int(11)
 ,`team_season_id` int(11)
 ,`team_id` int(11)
 ,`season_id` int(11)
@@ -1849,7 +1575,7 @@ CREATE TABLE `v_user_teams` (
 ,`season_name` varchar(50)
 ,`season_start` date
 ,`season_end` date
-,`is_current_season` int(1)
+,`is_current_season` int(2)
 ,`age_group` int(11)
 ,`age_group_name` varchar(50)
 ,`team_season_is_active` tinyint(4)
@@ -1858,7 +1584,7 @@ CREATE TABLE `v_user_teams` (
 ,`role_joined_date` date
 ,`role_left_date` date
 ,`role_is_active` int(4)
-,`is_favorite` int(1)
+,`is_favorite` int(2)
 );
 
 --
@@ -2004,14 +1730,6 @@ ALTER TABLE `game_periods`
   ADD UNIQUE KEY `game_id` (`game_id`,`period_number`);
 
 --
--- Indexes for table `game_scores`
---
-ALTER TABLE `game_scores`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_game_score` (`game_id`),
-  ADD KEY `idx_game_scores_game` (`game_id`);
-
---
 -- Indexes for table `game_standings_inclusions`
 --
 ALTER TABLE `game_standings_inclusions`
@@ -2098,16 +1816,6 @@ ALTER TABLE `player_relationships`
   ADD KEY `fk_parent_person` (`related_person_id`);
 
 --
--- Indexes for table `player_season_stats`
---
-ALTER TABLE `player_season_stats`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_player_team_season` (`player_id`,`team_season_id`),
-  ADD KEY `idx_player_season_stats_player` (`player_id`),
-  ADD KEY `idx_player_season_stats_team_season` (`team_season_id`),
-  ADD KEY `idx_player_season_stats_composite` (`player_id`,`team_season_id`);
-
---
 -- Indexes for table `player_teams`
 --
 ALTER TABLE `player_teams`
@@ -2145,16 +1853,6 @@ ALTER TABLE `team_seasons`
   ADD UNIQUE KEY `team_id` (`team_id`,`season_id`),
   ADD KEY `season_id` (`season_id`),
   ADD KEY `fk_team_seasons_age_group` (`age_group`);
-
---
--- Indexes for table `team_season_records`
---
-ALTER TABLE `team_season_records`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_team_league_record` (`team_season_id`,`league_node_season_id`),
-  ADD KEY `idx_team_records_team_season` (`team_season_id`),
-  ADD KEY `idx_team_records_league` (`league_node_season_id`),
-  ADD KEY `idx_team_season_records_composite` (`team_season_id`,`league_node_season_id`);
 
 --
 -- Indexes for table `team_staff`
@@ -2292,12 +1990,6 @@ ALTER TABLE `game_periods`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT for table `game_scores`
---
-ALTER TABLE `game_scores`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
 -- AUTO_INCREMENT for table `game_standings_inclusions`
 --
 ALTER TABLE `game_standings_inclusions`
@@ -2364,12 +2056,6 @@ ALTER TABLE `player_relationships`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT for table `player_season_stats`
---
-ALTER TABLE `player_season_stats`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
 -- AUTO_INCREMENT for table `player_teams`
 --
 ALTER TABLE `player_teams`
@@ -2397,12 +2083,6 @@ ALTER TABLE `team_league_enrollments`
 -- AUTO_INCREMENT for table `team_seasons`
 --
 ALTER TABLE `team_seasons`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `team_season_records`
---
-ALTER TABLE `team_season_records`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
@@ -2465,24 +2145,6 @@ CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL S
 -- --------------------------------------------------------
 
 --
--- Structure for view `v_games_leagues`
---
-DROP TABLE IF EXISTS `v_games_leagues`;
-
-CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_games_leagues`  AS SELECT `g`.`id` AS `game_id`, `g`.`status` AS `status`, `g`.`start_date` AS `start_date`, `g`.`start_time` AS `start_time`, `g`.`end_date` AS `end_date`, `g`.`end_time` AS `end_time`, `g`.`timezone_label` AS `timezone_label`, `s`.`season_name` AS `season_name`, `g`.`location_id` AS `location_id`, `l`.`name` AS `location_name`, `g`.`sublocation_id` AS `sublocation_id`, `ls`.`name` AS `sublocation_name`, `g`.`home_team_season_id` AS `home_team_season_id`, `ht`.`team_name` AS `home_team_name`, `hc`.`name` AS `home_club_name`, `ht`.`gender` AS `home_gender`, `g`.`away_team_season_id` AS `away_team_season_id`, `at`.`team_name` AS `away_team_name`, `ac`.`name` AS `away_club_name`, `at`.`gender` AS `away_gender`, `lns`.`id` AS `league_node_season_id`, `ln`.`id` AS `league_node_id`, `ln`.`name` AS `league_node_name`, `ln`.`node_type` AS `league_node_type`, `l_league`.`id` AS `league_id`, `l_league`.`name` AS `league_name`, `gln`.`is_primary` AS `is_primary_league`, `gs`.`home_score` AS `home_score`, `gs`.`away_score` AS `away_score`, `gs`.`final_status` AS `final_status` FROM ((((((((((((((`games` `g` join `seasons` `s` on(`g`.`season_id` = `s`.`id`)) left join `locations` `l` on(`g`.`location_id` = `l`.`id`)) left join `locations_sublocations` `ls` on(`g`.`sublocation_id` = `ls`.`id`)) join `team_seasons` `hts` on(`g`.`home_team_season_id` = `hts`.`id`)) join `teams` `ht` on(`hts`.`team_id` = `ht`.`id`)) join `clubs` `hc` on(`ht`.`club_id` = `hc`.`id`)) join `team_seasons` `ats` on(`g`.`away_team_season_id` = `ats`.`id`)) join `teams` `at` on(`ats`.`team_id` = `at`.`id`)) join `clubs` `ac` on(`at`.`club_id` = `ac`.`id`)) join `game_league_nodes` `gln` on(`g`.`id` = `gln`.`game_id`)) join `league_node_seasons` `lns` on(`gln`.`league_node_id` = `lns`.`id`)) join `league_nodes` `ln` on(`lns`.`league_node_id` = `ln`.`id`)) join `leagues` `l_league` on(`ln`.`league_id` = `l_league`.`id`)) left join `game_scores` `gs` on(`g`.`id` = `gs`.`id`)) ;
-
--- --------------------------------------------------------
-
---
--- Structure for view `v_games_summary`
---
-DROP TABLE IF EXISTS `v_games_summary`;
-
-CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_games_summary`  AS SELECT `g`.`id` AS `game_id`, `g`.`status` AS `status`, `g`.`game_type` AS `game_type`, `g`.`start_date` AS `start_date`, `g`.`start_time` AS `start_time`, `g`.`end_date` AS `end_date`, `g`.`end_time` AS `end_time`, `g`.`timezone_label` AS `timezone_label`, `s`.`season_name` AS `season_name`, `g`.`location_id` AS `location_id`, `l`.`name` AS `location_name`, `g`.`sublocation_id` AS `sublocation_id`, `ls`.`name` AS `sublocation_name`, `g`.`home_team_season_id` AS `home_team_season_id`, `ht`.`team_name` AS `home_team_name`, `hc`.`name` AS `home_club_name`, `ht`.`gender` AS `home_gender`, `g`.`away_team_season_id` AS `away_team_season_id`, `at`.`team_name` AS `away_team_name`, `ac`.`name` AS `away_club_name`, `at`.`gender` AS `away_gender`, group_concat(distinct coalesce(`l_league`.`abbreviation`,`l_league`.`name`) order by `gln`.`is_primary` DESC,`l_league`.`name` ASC separator ', ') AS `league_names`, group_concat(distinct `ln`.`name` order by `gln`.`is_primary` DESC,`ln`.`name` ASC separator ', ') AS `league_node_names`, json_arrayagg(json_object('league_id',`l_league`.`id`,'league_name',`l_league`.`name`,'league_abbreviation',`l_league`.`abbreviation`,'league_node_id',`ln`.`id`,'league_node_name',`ln`.`name`,'league_node_type',`ln`.`node_type`,'league_node_season_id',`lns`.`id`,'is_primary',`gln`.`is_primary`,'is_tournament',`l_league`.`is_tournament`)) AS `leagues_array`, coalesce(`gs`.`home_score`,(select count(0) from (`game_events_goals` `geg` join `game_events_major` `gem` on(`geg`.`major_event_id` = `gem`.`id`)) where `gem`.`game_id` = `g`.`id` and `geg`.`team_season_id` = `g`.`home_team_season_id` and coalesce(`geg`.`is_own_goal`,0) = 0) + (select count(0) from (`game_events_goals` `geg` join `game_events_major` `gem` on(`geg`.`major_event_id` = `gem`.`id`)) where `gem`.`game_id` = `g`.`id` and `geg`.`team_season_id` = `g`.`away_team_season_id` and `geg`.`is_own_goal` = 1)) AS `home_score`, coalesce(`gs`.`away_score`,(select count(0) from (`game_events_goals` `geg` join `game_events_major` `gem` on(`geg`.`major_event_id` = `gem`.`id`)) where `gem`.`game_id` = `g`.`id` and `geg`.`team_season_id` = `g`.`away_team_season_id` and coalesce(`geg`.`is_own_goal`,0) = 0) + (select count(0) from (`game_events_goals` `geg` join `game_events_major` `gem` on(`geg`.`major_event_id` = `gem`.`id`)) where `gem`.`game_id` = `g`.`id` and `geg`.`team_season_id` = `g`.`home_team_season_id` and `geg`.`is_own_goal` = 1)) AS `away_score`, `gs`.`final_status` AS `final_status`, CASE WHEN `gs`.`home_score` is not null THEN 'manual' WHEN exists(select 1 from (`game_events_goals` `geg` join `game_events_major` `gem` on(`geg`.`major_event_id` = `gem`.`id`)) where `gem`.`game_id` = `g`.`id` limit 1) THEN 'calculated' ELSE NULL END AS `score_source` FROM ((((((((((((((`games` `g` join `seasons` `s` on(`g`.`season_id` = `s`.`id`)) left join `locations` `l` on(`g`.`location_id` = `l`.`id`)) left join `locations_sublocations` `ls` on(`g`.`sublocation_id` = `ls`.`id`)) join `team_seasons` `hts` on(`g`.`home_team_season_id` = `hts`.`id`)) join `teams` `ht` on(`hts`.`team_id` = `ht`.`id`)) join `clubs` `hc` on(`ht`.`club_id` = `hc`.`id`)) join `team_seasons` `ats` on(`g`.`away_team_season_id` = `ats`.`id`)) join `teams` `at` on(`ats`.`team_id` = `at`.`id`)) join `clubs` `ac` on(`at`.`club_id` = `ac`.`id`)) left join `game_league_nodes` `gln` on(`g`.`id` = `gln`.`game_id`)) left join `league_node_seasons` `lns` on(`gln`.`league_node_id` = `lns`.`id`)) left join `league_nodes` `ln` on(`lns`.`league_node_id` = `ln`.`id`)) left join `leagues` `l_league` on(`ln`.`league_id` = `l_league`.`id`)) left join `game_scores` `gs` on(`g`.`id` = `gs`.`game_id`)) GROUP BY `g`.`id`, `g`.`status`, `g`.`game_type`, `g`.`start_date`, `g`.`start_time`, `g`.`end_date`, `g`.`end_time`, `g`.`timezone_label`, `s`.`season_name`, `g`.`location_id`, `l`.`name`, `g`.`sublocation_id`, `ls`.`name`, `g`.`home_team_season_id`, `ht`.`team_name`, `hc`.`name`, `ht`.`gender`, `g`.`away_team_season_id`, `at`.`team_name`, `ac`.`name`, `at`.`gender`, `gs`.`home_score`, `gs`.`away_score`, `gs`.`final_status` ;
-
--- --------------------------------------------------------
-
---
 -- Structure for view `v_game_events_discipline_complete`
 --
 DROP TABLE IF EXISTS `v_game_events_discipline_complete`;
@@ -2524,15 +2186,6 @@ CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL S
 DROP TABLE IF EXISTS `v_game_timeline`;
 
 CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_game_timeline`  AS SELECT `gem`.`game_id` AS `game_id`, `gem`.`id` AS `event_id`, `gem`.`event_type` AS `major_event_type`, `gem`.`game_time` AS `game_time`, `gem`.`end_time` AS `end_time`, `gem`.`period` AS `period`, `gem`.`clock_should_run` AS `clock_should_run`, `geg`.`id` AS `goal_id`, CASE WHEN `geg`.`scorer_player_game_id` is not null THEN concat(`p_scorer`.`first_name`,' ',`p_scorer`.`last_name`) ELSE concat('Opponent #',`geg`.`opponent_jersey_number`) END AS `scorer_name`, `geg`.`team_season_id` AS `scoring_team_season_id`, `t_scorer`.`team_name` AS `scoring_team_name`, `geg`.`is_own_goal` AS `is_own_goal`, `geg`.`goal_types` AS `goal_types`, CASE WHEN `geg`.`assist_player_game_id` is not null THEN concat(`p_assist`.`first_name`,' ',`p_assist`.`last_name`) ELSE NULL END AS `assist_name`, `gep`.`id` AS `penalty_id`, `gep`.`outcome` AS `penalty_outcome`, `gep`.`is_shootout` AS `is_shootout`, `gep`.`shootout_round` AS `shootout_round`, CASE WHEN `gep`.`shooter_player_game_id` is not null THEN concat(`p_pen_shooter`.`first_name`,' ',`p_pen_shooter`.`last_name`) ELSE concat('Opponent #',`gep`.`opponent_jersey_number`) END AS `penalty_shooter_name`, `ged`.`id` AS `discipline_id`, `ged`.`card_type` AS `card_type`, `ged`.`card_reason` AS `card_reason`, CASE WHEN `ged`.`player_game_id` is not null THEN concat(`p_card`.`first_name`,' ',`p_card`.`last_name`) ELSE concat('Opponent #',`ged`.`opponent_jersey_number`) END AS `card_recipient_name`, `ged`.`team_season_id` AS `card_team_season_id`, `t_card`.`team_name` AS `card_team_name`, `gem`.`details` AS `details`, `gem`.`created_at` AS `created_at`, `gem`.`modified_at` AS `modified_at` FROM (((((((((((((((`game_events_major` `gem` left join `game_events_goals` `geg` on(`geg`.`major_event_id` = `gem`.`id`)) left join `player_games` `pg_scorer` on(`geg`.`scorer_player_game_id` = `pg_scorer`.`id`)) left join `people` `p_scorer` on(`pg_scorer`.`player_id` = `p_scorer`.`id`)) left join `player_games` `pg_assist` on(`geg`.`assist_player_game_id` = `pg_assist`.`id`)) left join `people` `p_assist` on(`pg_assist`.`player_id` = `p_assist`.`id`)) left join `team_seasons` `ts_scorer` on(`geg`.`team_season_id` = `ts_scorer`.`id`)) left join `teams` `t_scorer` on(`ts_scorer`.`team_id` = `t_scorer`.`id`)) left join `game_events_penalties` `gep` on(`gep`.`major_event_id` = `gem`.`id`)) left join `player_games` `pg_pen_shooter` on(`gep`.`shooter_player_game_id` = `pg_pen_shooter`.`id`)) left join `people` `p_pen_shooter` on(`pg_pen_shooter`.`player_id` = `p_pen_shooter`.`id`)) left join `game_events_discipline` `ged` on(`ged`.`major_event_id` = `gem`.`id`)) left join `player_games` `pg_card` on(`ged`.`player_game_id` = `pg_card`.`id`)) left join `people` `p_card` on(`pg_card`.`player_id` = `p_card`.`id`)) left join `team_seasons` `ts_card` on(`ged`.`team_season_id` = `ts_card`.`id`)) left join `teams` `t_card` on(`ts_card`.`team_id` = `t_card`.`id`)) ORDER BY `gem`.`game_id` ASC, `gem`.`period` ASC, `gem`.`game_time` ASC ;
-
--- --------------------------------------------------------
-
---
--- Structure for view `v_head_to_head`
---
-DROP TABLE IF EXISTS `v_head_to_head`;
-
-CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_head_to_head`  AS SELECT `g`.`id` AS `game_id`, `g`.`start_date` AS `start_date`, `g`.`status` AS `status`, `s`.`season_name` AS `season_name`, `g`.`home_team_season_id` AS `home_team_season_id`, `ht`.`team_name` AS `home_team_name`, `hc`.`name` AS `home_club_name`, `g`.`away_team_season_id` AS `away_team_season_id`, `at`.`team_name` AS `away_team_name`, `ac`.`name` AS `away_club_name`, `gs`.`home_score` AS `home_score`, `gs`.`away_score` AS `away_score`, `gs`.`final_status` AS `final_status`, CASE WHEN `gs`.`home_score` > `gs`.`away_score` THEN 'home' WHEN `gs`.`away_score` > `gs`.`home_score` THEN 'away' ELSE 'draw' END AS `winner`, group_concat(distinct `ln`.`name` order by `ln`.`name` ASC separator ', ') AS `league_names` FROM (((((((((((`games` `g` join `seasons` `s` on(`g`.`season_id` = `s`.`id`)) join `team_seasons` `hts` on(`g`.`home_team_season_id` = `hts`.`id`)) join `teams` `ht` on(`hts`.`team_id` = `ht`.`id`)) join `clubs` `hc` on(`ht`.`club_id` = `hc`.`id`)) join `team_seasons` `ats` on(`g`.`away_team_season_id` = `ats`.`id`)) join `teams` `at` on(`ats`.`team_id` = `at`.`id`)) join `clubs` `ac` on(`at`.`club_id` = `ac`.`id`)) left join `game_scores` `gs` on(`g`.`id` = `gs`.`game_id`)) left join `game_league_nodes` `gln` on(`g`.`id` = `gln`.`game_id`)) left join `league_node_seasons` `lns` on(`gln`.`league_node_id` = `lns`.`id`)) left join `league_nodes` `ln` on(`lns`.`league_node_id` = `ln`.`id`)) WHERE `g`.`status` = 'completed' GROUP BY `g`.`id`, `g`.`start_date`, `g`.`status`, `s`.`season_name`, `g`.`home_team_season_id`, `ht`.`team_name`, `hc`.`name`, `g`.`away_team_season_id`, `at`.`team_name`, `ac`.`name`, `gs`.`home_score`, `gs`.`away_score`, `gs`.`final_status` ORDER BY `g`.`start_date` DESC ;
 
 -- --------------------------------------------------------
 
@@ -2654,24 +2307,6 @@ CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL S
 -- --------------------------------------------------------
 
 --
--- Structure for view `v_player_stats_combined`
---
-DROP TABLE IF EXISTS `v_player_stats_combined`;
-
-CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_player_stats_combined`  AS SELECT `p`.`id` AS `player_id`, `p`.`first_name` AS `first_name`, `p`.`last_name` AS `last_name`, `ts`.`id` AS `team_season_id`, `t`.`team_name` AS `team_name`, `c`.`name` AS `club_name`, `s`.`season_name` AS `season_name`, coalesce(`psc`.`total_goals`,0) AS `calculated_goals`, coalesce(`psc`.`total_assists`,0) AS `calculated_assists`, coalesce(`psc`.`total_yellow_cards`,0) AS `calculated_yellow_cards`, coalesce(`psc`.`total_red_cards`,0) AS `calculated_red_cards`, coalesce(`psc`.`total_shots`,0) AS `calculated_shots`, coalesce(`psc`.`total_shots_on_target`,0) AS `calculated_shots_on_target`, coalesce(`psc`.`total_saves`,0) AS `calculated_saves`, coalesce(`psc`.`games_played`,0) AS `calculated_games_played`, coalesce(`psc`.`games_started`,0) AS `calculated_games_started`, `pss`.`goals` AS `manual_goals`, `pss`.`assists` AS `manual_assists`, `pss`.`yellow_cards` AS `manual_yellow_cards`, `pss`.`red_cards` AS `manual_red_cards`, `pss`.`games_played` AS `manual_games_played`, `pss`.`games_started` AS `manual_games_started`, `pss`.`shots` AS `manual_shots`, `pss`.`shots_on_target` AS `manual_shots_on_target`, `pss`.`saves` AS `manual_saves`, `pss`.`clean_sheets` AS `manual_clean_sheets`, `pss`.`stats_source` AS `stats_source`, coalesce(`pss`.`goals`,`psc`.`total_goals`,0) AS `total_goals`, coalesce(`pss`.`assists`,`psc`.`total_assists`,0) AS `total_assists`, coalesce(`pss`.`yellow_cards`,`psc`.`total_yellow_cards`,0) AS `total_yellow_cards`, coalesce(`pss`.`red_cards`,`psc`.`total_red_cards`,0) AS `total_red_cards`, coalesce(`pss`.`games_played`,`psc`.`games_played`,0) AS `total_games_played`, coalesce(`pss`.`shots`,`psc`.`total_shots`,0) AS `total_shots`, coalesce(`pss`.`saves`,`psc`.`total_saves`,0) AS `total_saves` FROM (((((((`people` `p` join `player_teams` `pt` on(`p`.`id` = `pt`.`player_id` and `pt`.`is_active` = 1)) join `team_seasons` `ts` on(`pt`.`team_season_id` = `ts`.`id`)) join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `v_player_season_stats_calculated` `psc` on(`p`.`id` = `psc`.`player_id` and `ts`.`id` = `psc`.`team_season_id`)) left join `player_season_stats` `pss` on(`p`.`id` = `pss`.`player_id` and `ts`.`id` = `pss`.`team_season_id`)) ORDER BY `c`.`name` ASC, `t`.`team_name` ASC, `p`.`last_name` ASC, `p`.`first_name` ASC ;
-
--- --------------------------------------------------------
-
---
--- Structure for view `v_standings`
---
-DROP TABLE IF EXISTS `v_standings`;
-
-CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_standings`  AS SELECT `ts`.`id` AS `team_season_id`, `t`.`id` AS `team_id`, `t`.`team_name` AS `team_name`, `t`.`gender` AS `team_gender`, `c`.`id` AS `club_id`, `c`.`name` AS `club_name`, `c`.`abbreviation` AS `club_abbreviation`, `c`.`logo_url` AS `club_logo_url`, `c`.`type` AS `club_type`, `c`.`location` AS `club_location`, `s`.`id` AS `season_id`, `s`.`season_name` AS `season_name`, `s`.`start_date` AS `season_start`, `s`.`end_date` AS `season_end`, `s`.`status`= 'active' AS `is_current_season`, `ag`.`id` AS `age_group_id`, `ag`.`name` AS `age_group_name`, `l`.`id` AS `league_id`, `l`.`name` AS `league_name`, `lns`.`id` AS `league_node_season_id`, `ln`.`id` AS `league_node_id`, `ln`.`name` AS `league_node_name`, `ln`.`node_type` AS `league_node_type`, `ln`.`level` AS `league_level`, coalesce(`tsr`.`wins`,sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 1 else 0 end)) AS `wins`, coalesce(`tsr`.`losses`,sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` < `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` < `gs`.`home_score` then 1 else 0 end)) AS `losses`, coalesce(`tsr`.`draws`,sum(case when (`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `gs`.`home_score` = `gs`.`away_score` and `gs`.`home_score` is not null then 1 else 0 end)) AS `draws`, coalesce(`tsr`.`games_played`,count(distinct case when `gs`.`game_id` is not null then `g`.`id` end)) AS `games_played`, coalesce(`tsr`.`goals_for`,(select count(0) from ((`game_events_goals` `geg2` join `game_events_major` `gem2` on(`geg2`.`major_event_id` = `gem2`.`id`)) join `games` `g2` on(`gem2`.`game_id` = `g2`.`id`)) where (`g2`.`home_team_season_id` = `ts`.`id` or `g2`.`away_team_season_id` = `ts`.`id`) and `g2`.`status` = 'completed' and `geg2`.`team_season_id` = `ts`.`id` and coalesce(`geg2`.`is_own_goal`,0) = 0) + (select count(0) from ((`game_events_goals` `geg3` join `game_events_major` `gem3` on(`geg3`.`major_event_id` = `gem3`.`id`)) join `games` `g3` on(`gem3`.`game_id` = `g3`.`id`)) where (`g3`.`home_team_season_id` = `ts`.`id` or `g3`.`away_team_season_id` = `ts`.`id`) and `g3`.`status` = 'completed' and `geg3`.`team_season_id` <> `ts`.`id` and `geg3`.`is_own_goal` = 1)) AS `goals_for`, coalesce(`tsr`.`goals_against`,(select count(0) from ((`game_events_goals` `geg4` join `game_events_major` `gem4` on(`geg4`.`major_event_id` = `gem4`.`id`)) join `games` `g4` on(`gem4`.`game_id` = `g4`.`id`)) where (`g4`.`home_team_season_id` = `ts`.`id` or `g4`.`away_team_season_id` = `ts`.`id`) and `g4`.`status` = 'completed' and `geg4`.`team_season_id` <> `ts`.`id` and coalesce(`geg4`.`is_own_goal`,0) = 0) + (select count(0) from ((`game_events_goals` `geg5` join `game_events_major` `gem5` on(`geg5`.`major_event_id` = `gem5`.`id`)) join `games` `g5` on(`gem5`.`game_id` = `g5`.`id`)) where (`g5`.`home_team_season_id` = `ts`.`id` or `g5`.`away_team_season_id` = `ts`.`id`) and `g5`.`status` = 'completed' and `geg5`.`team_season_id` = `ts`.`id` and `geg5`.`is_own_goal` = 1)) AS `goals_against`, coalesce(`tsr`.`goals_for`,0) - coalesce(`tsr`.`goals_against`,0) AS `goal_difference`, coalesce(`tsr`.`points`,sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 3 when (`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `gs`.`home_score` = `gs`.`away_score` and `gs`.`home_score` is not null then 1 else 0 end)) AS `points`, sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` then 1 else 0 end) AS `home_wins`, sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` < `gs`.`away_score` then 1 else 0 end) AS `home_losses`, sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` = `gs`.`away_score` and `gs`.`home_score` is not null then 1 else 0 end) AS `home_draws`, sum(case when `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 1 else 0 end) AS `away_wins`, sum(case when `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` < `gs`.`home_score` then 1 else 0 end) AS `away_losses`, sum(case when `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` = `gs`.`home_score` and `gs`.`away_score` is not null then 1 else 0 end) AS `away_draws`, NULL AS `current_streak`, NULL AS `last_5_form`, CASE WHEN coalesce(`tsr`.`games_played`,count(distinct case when `gs`.`game_id` is not null then `g`.`id` end)) > 0 THEN round(coalesce(`tsr`.`points`,sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 3 when (`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `gs`.`home_score` = `gs`.`away_score` and `gs`.`home_score` is not null then 1 else 0 end)) * 1.0 / coalesce(`tsr`.`games_played`,count(distinct case when `gs`.`game_id` is not null then `g`.`id` end)),2) ELSE 0 END AS `points_per_game`, CASE WHEN coalesce(`tsr`.`games_played`,count(distinct case when `gs`.`game_id` is not null then `g`.`id` end)) > 0 THEN round(coalesce(`tsr`.`wins`,sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 1 else 0 end)) * 100.0 / coalesce(`tsr`.`games_played`,count(distinct case when `gs`.`game_id` is not null then `g`.`id` end)),2) ELSE 0 END AS `win_percentage`, CASE WHEN coalesce(`tsr`.`games_played`,count(distinct case when `gs`.`game_id` is not null then `g`.`id` end)) > 0 THEN round(coalesce(`tsr`.`goals_for`,0) * 1.0 / coalesce(`tsr`.`games_played`,count(distinct case when `gs`.`game_id` is not null then `g`.`id` end)),2) ELSE 0 END AS `goals_per_game`, CASE WHEN coalesce(`tsr`.`games_played`,count(distinct case when `gs`.`game_id` is not null then `g`.`id` end)) > 0 THEN round(coalesce(`tsr`.`goals_against`,0) * 1.0 / coalesce(`tsr`.`games_played`,count(distinct case when `gs`.`game_id` is not null then `g`.`id` end)),2) ELSE 0 END AS `goals_against_per_game`, coalesce(`tsr`.`record_source`,'calculated') AS `record_source`, `tle`.`is_active` AS `enrollment_is_active`, `ts`.`is_active` AS `team_season_is_active` FROM ((((((((((((`team_seasons` `ts` join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `age_groups` `ag` on(`ts`.`age_group` = `ag`.`id`)) join `team_league_enrollments` `tle` on(`ts`.`id` = `tle`.`team_season_id`)) join `league_node_seasons` `lns` on(`tle`.`league_node_season_id` = `lns`.`id`)) join `league_nodes` `ln` on(`lns`.`league_node_id` = `ln`.`id`)) join `leagues` `l` on(`ln`.`league_id` = `l`.`id`)) left join `team_season_records` `tsr` on(`ts`.`id` = `tsr`.`team_season_id` and `lns`.`id` = `tsr`.`league_node_season_id`)) left join `games` `g` on((`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `g`.`status` = 'completed')) left join `game_league_nodes` `gln` on(`g`.`id` = `gln`.`game_id` and `gln`.`league_node_id` = `lns`.`id`)) left join (select `v_games_summary`.`game_id` AS `game_id`,`v_games_summary`.`home_score` AS `home_score`,`v_games_summary`.`away_score` AS `away_score` from `v_games_summary`) `gs` on(`g`.`id` = `gs`.`game_id`)) WHERE `ts`.`is_active` = 1 AND `t`.`is_active` = 1 AND `c`.`is_active` = 1 AND `tle`.`is_active` = 1 GROUP BY `ts`.`id`, `t`.`id`, `t`.`team_name`, `t`.`gender`, `c`.`id`, `c`.`name`, `c`.`abbreviation`, `c`.`logo_url`, `c`.`type`, `c`.`location`, `s`.`id`, `s`.`season_name`, `s`.`start_date`, `s`.`end_date`, `s`.`status`, `ag`.`id`, `ag`.`name`, `l`.`id`, `l`.`name`, `lns`.`id`, `ln`.`id`, `ln`.`name`, `ln`.`node_type`, `ln`.`level`, `tsr`.`wins`, `tsr`.`losses`, `tsr`.`draws`, `tsr`.`goals_for`, `tsr`.`goals_against`, `tsr`.`games_played`, `tsr`.`points`, `tsr`.`record_source`, `tle`.`is_active`, `ts`.`is_active` ORDER BY `s`.`status`= 'active' DESC, `l`.`name` ASC, `ln`.`level` ASC, `ln`.`name` ASC, coalesce(`tsr`.`points`,0) DESC, coalesce(`tsr`.`goals_for`,0) - coalesce(`tsr`.`goals_against`,0) DESC, coalesce(`tsr`.`goals_for`,0) DESC, `c`.`name` ASC, `t`.`team_name` ASC ;
-
--- --------------------------------------------------------
-
---
 -- Structure for view `v_stat_leaders`
 --
 DROP TABLE IF EXISTS `v_stat_leaders`;
@@ -2690,29 +2325,11 @@ CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL S
 -- --------------------------------------------------------
 
 --
--- Structure for view `v_team_form`
---
-DROP TABLE IF EXISTS `v_team_form`;
-
-CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_team_form`  AS SELECT `ts`.`id` AS `team_season_id`, `t`.`team_name` AS `team_name`, `c`.`name` AS `club_name`, `s`.`season_name` AS `season_name`, count(distinct `g`.`id`) AS `recent_games`, sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 1 else 0 end) AS `recent_wins`, sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` < `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` < `gs`.`home_score` then 1 else 0 end) AS `recent_losses`, sum(case when (`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `gs`.`home_score` = `gs`.`away_score` then 1 else 0 end) AS `recent_draws`, sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`home_score` when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`away_score` else 0 end) AS `recent_goals_for`, sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`away_score` when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`home_score` else 0 end) AS `recent_goals_against`, sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 3 when (`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `gs`.`home_score` = `gs`.`away_score` then 1 else 0 end) AS `recent_points`, max(`g`.`start_date`) AS `last_game_date` FROM (((((`team_seasons` `ts` join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) join `games` `g` on((`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `g`.`status` = 'completed' and `g`.`start_date` >= curdate() - interval 60 day)) left join `game_scores` `gs` on(`g`.`id` = `gs`.`game_id`)) GROUP BY `ts`.`id`, `t`.`team_name`, `c`.`name`, `s`.`season_name` ;
-
--- --------------------------------------------------------
-
---
 -- Structure for view `v_team_games`
 --
 DROP TABLE IF EXISTS `v_team_games`;
 
 CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_team_games`  AS SELECT `games`.`id` AS `id`, `games`.`season_id` AS `season_id`, `games`.`timezone_label` AS `timezone_label`, `games`.`home_team_season_id` AS `home_team_season_id`, `games`.`away_team_season_id` AS `away_team_season_id`, `games`.`status` AS `status`, `games`.`notes` AS `notes`, `games`.`created_at` AS `created_at`, `games`.`modified_at` AS `modified_at`, `games`.`default_reg_periods` AS `default_reg_periods`, `games`.`video_link` AS `video_link`, `games`.`location_id` AS `location_id`, `games`.`google_cal_id` AS `google_cal_id`, `games`.`sublocation_id` AS `sublocation_id`, `games`.`start_date` AS `start_date`, `games`.`start_time` AS `start_time`, `games`.`end_date` AS `end_date`, `games`.`end_time` AS `end_time`, `games`.`home_team_season_id` AS `team_season_id` FROM `games`union all select `games`.`id` AS `id`,`games`.`season_id` AS `season_id`,`games`.`timezone_label` AS `timezone_label`,`games`.`home_team_season_id` AS `home_team_season_id`,`games`.`away_team_season_id` AS `away_team_season_id`,`games`.`status` AS `status`,`games`.`notes` AS `notes`,`games`.`created_at` AS `created_at`,`games`.`modified_at` AS `modified_at`,`games`.`default_reg_periods` AS `default_reg_periods`,`games`.`video_link` AS `video_link`,`games`.`location_id` AS `location_id`,`games`.`google_cal_id` AS `google_cal_id`,`games`.`sublocation_id` AS `sublocation_id`,`games`.`start_date` AS `start_date`,`games`.`start_time` AS `start_time`,`games`.`end_date` AS `end_date`,`games`.`end_time` AS `end_time`,`games`.`away_team_season_id` AS `team_season_id` from `games`  ;
-
--- --------------------------------------------------------
-
---
--- Structure for view `v_team_standings_detailed`
---
-DROP TABLE IF EXISTS `v_team_standings_detailed`;
-
-CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_team_standings_detailed`  AS SELECT `ts`.`id` AS `team_season_id`, `t`.`team_name` AS `team_name`, `c`.`name` AS `club_name`, `s`.`season_name` AS `season_name`, `lns`.`id` AS `league_node_season_id`, `ln`.`name` AS `league_node_name`, `l`.`name` AS `league_name`, coalesce(sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` then 1 else 0 end),0) AS `home_wins`, coalesce(sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` < `gs`.`away_score` then 1 else 0 end),0) AS `home_losses`, coalesce(sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` = `gs`.`away_score` then 1 else 0 end),0) AS `home_draws`, coalesce(sum(case when `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 1 else 0 end),0) AS `away_wins`, coalesce(sum(case when `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` < `gs`.`home_score` then 1 else 0 end),0) AS `away_losses`, coalesce(sum(case when `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` = `gs`.`home_score` then 1 else 0 end),0) AS `away_draws`, coalesce(sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 1 else 0 end),0) AS `calculated_wins`, coalesce(sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` < `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` < `gs`.`home_score` then 1 else 0 end),0) AS `calculated_losses`, coalesce(sum(case when (`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `gs`.`home_score` = `gs`.`away_score` then 1 else 0 end),0) AS `calculated_draws`, coalesce(sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`home_score` else 0 end),0) + coalesce(sum(case when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`away_score` else 0 end),0) AS `calculated_goals_for`, coalesce(sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`away_score` else 0 end),0) + coalesce(sum(case when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`home_score` else 0 end),0) AS `calculated_goals_against`, `tsr`.`wins` AS `manual_wins`, `tsr`.`losses` AS `manual_losses`, `tsr`.`draws` AS `manual_draws`, `tsr`.`goals_for` AS `manual_goals_for`, `tsr`.`goals_against` AS `manual_goals_against`, `tsr`.`points` AS `manual_points`, `tsr`.`record_source` AS `record_source`, coalesce(`tsr`.`wins`,sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 1 else 0 end),0) AS `total_wins`, coalesce(`tsr`.`losses`,sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` < `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` < `gs`.`home_score` then 1 else 0 end),0) AS `total_losses`, coalesce(`tsr`.`draws`,sum(case when (`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `gs`.`home_score` = `gs`.`away_score` then 1 else 0 end),0) AS `total_draws`, coalesce(`tsr`.`goals_for`,sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`home_score` else 0 end) + sum(case when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`away_score` else 0 end),0) AS `total_goals_for`, coalesce(`tsr`.`goals_against`,sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`away_score` else 0 end) + sum(case when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`home_score` else 0 end),0) AS `total_goals_against`, coalesce(`tsr`.`points`,sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 3 when (`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `gs`.`home_score` = `gs`.`away_score` then 1 else 0 end),0) AS `total_points`, coalesce(`tsr`.`goals_for`,sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`home_score` else 0 end) + sum(case when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`away_score` else 0 end),0) - coalesce(`tsr`.`goals_against`,sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`away_score` else 0 end) + sum(case when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`home_score` else 0 end),0) AS `goal_difference` FROM ((((((((((`team_seasons` `ts` join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `team_league_enrollments` `tle` on(`ts`.`id` = `tle`.`team_season_id`)) left join `league_node_seasons` `lns` on(`tle`.`league_node_season_id` = `lns`.`id`)) left join `league_nodes` `ln` on(`lns`.`league_node_id` = `ln`.`id`)) left join `leagues` `l` on(`ln`.`league_id` = `l`.`id`)) left join `team_season_records` `tsr` on(`ts`.`id` = `tsr`.`team_season_id` and `lns`.`id` = `tsr`.`league_node_season_id`)) left join `games` `g` on((`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `g`.`status` = 'completed')) left join `game_scores` `gs` on(`g`.`id` = `gs`.`game_id`)) WHERE `ts`.`is_active` = 1 GROUP BY `ts`.`id`, `t`.`team_name`, `c`.`name`, `s`.`season_name`, `lns`.`id`, `ln`.`name`, `l`.`name`, `tsr`.`wins`, `tsr`.`losses`, `tsr`.`draws`, `tsr`.`goals_for`, `tsr`.`goals_against`, `tsr`.`points`, `tsr`.`record_source` ORDER BY coalesce(`tsr`.`points`,sum(case when `g`.`home_team_season_id` = `ts`.`id` and `gs`.`home_score` > `gs`.`away_score` or `g`.`away_team_season_id` = `ts`.`id` and `gs`.`away_score` > `gs`.`home_score` then 3 when (`g`.`home_team_season_id` = `ts`.`id` or `g`.`away_team_season_id` = `ts`.`id`) and `gs`.`home_score` = `gs`.`away_score` then 1 else 0 end),0) DESC, coalesce(`tsr`.`goals_for`,sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`home_score` else 0 end) + sum(case when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`away_score` else 0 end),0) - coalesce(`tsr`.`goals_against`,sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`away_score` else 0 end) + sum(case when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`home_score` else 0 end),0) DESC, coalesce(`tsr`.`goals_for`,sum(case when `g`.`home_team_season_id` = `ts`.`id` then `gs`.`home_score` else 0 end) + sum(case when `g`.`away_team_season_id` = `ts`.`id` then `gs`.`away_score` else 0 end),0) DESC ;
 
 -- --------------------------------------------------------
 
@@ -2730,7 +2347,7 @@ CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL S
 --
 DROP TABLE IF EXISTS `v_user_teams`;
 
-CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_user_teams`  AS SELECT DISTINCT `p`.`id` AS `user_id`, `ts`.`id` AS `team_season_id`, `ts`.`team_id` AS `team_id`, `ts`.`season_id` AS `season_id`, `t`.`team_name` AS `team_name`, `t`.`gender` AS `gender`, `t`.`club_id` AS `club_id`, `c`.`name` AS `club_name`, `c`.`abbreviation` AS `club_abbreviation`, `c`.`location` AS `club_location`, `c`.`logo_url` AS `club_logo_url`, `c`.`type` AS `club_type`, `s`.`season_name` AS `season_name`, `s`.`start_date` AS `season_start`, `s`.`end_date` AS `season_end`, `s`.`status`= 'active' AS `is_current_season`, `ts`.`age_group` AS `age_group`, `ag`.`name` AS `age_group_name`, `ts`.`is_active` AS `team_season_is_active`, 'Player' AS `user_role`, `pt`.`jersey_number` AS `jersey_number`, `pt`.`joined_date` AS `role_joined_date`, `pt`.`left_date` AS `role_left_date`, `pt`.`is_active` AS `role_is_active`, NULL AS `is_favorite` FROM ((((((`people` `p` join `player_teams` `pt` on(`p`.`id` = `pt`.`player_id`)) join `team_seasons` `ts` on(`pt`.`team_season_id` = `ts`.`id`)) join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `age_groups` `ag` on(`ts`.`age_group` = `ag`.`id`)) WHERE `pt`.`is_active` = 1 AND `ts`.`is_active` = 1 AND `t`.`is_active` = 1 AND `c`.`is_active` = 1unionselect distinct `pr`.`related_person_id` AS `user_id`,`ts`.`id` AS `team_season_id`,`ts`.`team_id` AS `team_id`,`ts`.`season_id` AS `season_id`,`t`.`team_name` AS `team_name`,`t`.`gender` AS `gender`,`t`.`club_id` AS `club_id`,`c`.`name` AS `club_name`,`c`.`abbreviation` AS `club_abbreviation`,`c`.`location` AS `club_location`,`c`.`logo_url` AS `club_logo_url`,`c`.`type` AS `club_type`,`s`.`season_name` AS `season_name`,`s`.`start_date` AS `season_start`,`s`.`end_date` AS `season_end`,`s`.`status` = 'active' AS `is_current_season`,`ts`.`age_group` AS `age_group`,`ag`.`name` AS `age_group_name`,`ts`.`is_active` AS `team_season_is_active`,concat('Parent of ',`p`.`first_name`,' ',`p`.`last_name`) AS `user_role`,NULL AS `jersey_number`,NULL AS `role_joined_date`,NULL AS `role_left_date`,`pt`.`is_active` AS `role_is_active`,NULL AS `is_favorite` from (((((((`player_relationships` `pr` join `people` `p` on(`pr`.`player_id` = `p`.`id`)) join `player_teams` `pt` on(`pr`.`player_id` = `pt`.`player_id`)) join `team_seasons` `ts` on(`pt`.`team_season_id` = `ts`.`id`)) join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `age_groups` `ag` on(`ts`.`age_group` = `ag`.`id`)) where `pr`.`relationship` in ('Parent','Guardian') and `pt`.`is_active` = 1 and `ts`.`is_active` = 1 and `t`.`is_active` = 1 and `c`.`is_active` = 1 union select distinct `team_staff`.`person_id` AS `person_id`,`ts`.`id` AS `team_season_id`,`ts`.`team_id` AS `team_id`,`ts`.`season_id` AS `season_id`,`t`.`team_name` AS `team_name`,`t`.`gender` AS `gender`,`t`.`club_id` AS `club_id`,`c`.`name` AS `club_name`,`c`.`abbreviation` AS `club_abbreviation`,`c`.`location` AS `club_location`,`c`.`logo_url` AS `club_logo_url`,`c`.`type` AS `club_type`,`s`.`season_name` AS `season_name`,`s`.`start_date` AS `season_start`,`s`.`end_date` AS `season_end`,`s`.`status` = 'active' AS `is_current_season`,`ts`.`age_group` AS `age_group`,`ag`.`name` AS `age_group_name`,`ts`.`is_active` AS `team_season_is_active`,case `team_staff`.`role` when 'head_coach' then 'Head Coach' when 'assistant_coach' then 'Assistant Coach' when 'team_admin' then 'Team Admin' when 'stats_keeper' then 'Stats Keeper' else `team_staff`.`role` end AS `user_role`,NULL AS `jersey_number`,`team_staff`.`joined_date` AS `role_joined_date`,`team_staff`.`left_date` AS `role_left_date`,`team_staff`.`is_active` AS `role_is_active`,NULL AS `is_favorite` from (((((`team_staff` join `team_seasons` `ts` on(`team_staff`.`team_season_id` = `ts`.`id`)) join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `age_groups` `ag` on(`ts`.`age_group` = `ag`.`id`)) where `team_staff`.`is_active` = 1 and `ts`.`is_active` = 1 and `t`.`is_active` = 1 and `c`.`is_active` = 1 union select distinct `cs`.`person_id` AS `person_id`,`ts`.`id` AS `team_season_id`,`ts`.`team_id` AS `team_id`,`ts`.`season_id` AS `season_id`,`t`.`team_name` AS `team_name`,`t`.`gender` AS `gender`,`t`.`club_id` AS `club_id`,`c`.`name` AS `club_name`,`c`.`abbreviation` AS `club_abbreviation`,`c`.`location` AS `club_location`,`c`.`logo_url` AS `club_logo_url`,`c`.`type` AS `club_type`,`s`.`season_name` AS `season_name`,`s`.`start_date` AS `season_start`,`s`.`end_date` AS `season_end`,`s`.`status` = 'active' AS `is_current_season`,`ts`.`age_group` AS `age_group`,`ag`.`name` AS `age_group_name`,`ts`.`is_active` AS `team_season_is_active`,case `cs`.`role` when 'club_admin' then 'Club Admin' when 'director' then 'Club Director' when 'registrar' then 'Club Registrar' else `cs`.`role` end AS `user_role`,NULL AS `jersey_number`,`cs`.`joined_date` AS `role_joined_date`,`cs`.`left_date` AS `role_left_date`,`cs`.`is_active` AS `role_is_active`,NULL AS `is_favorite` from (((((`club_staff` `cs` join `clubs` `c` on(`cs`.`club_id` = `c`.`id`)) join `teams` `t` on(`t`.`club_id` = `c`.`id`)) join `team_seasons` `ts` on(`ts`.`team_id` = `t`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `age_groups` `ag` on(`ts`.`age_group` = `ag`.`id`)) where `cs`.`is_active` = 1 and `ts`.`is_active` = 1 and `t`.`is_active` = 1 and `c`.`is_active` = 1 union select distinct `uf`.`person_id` AS `person_id`,`ts`.`id` AS `team_season_id`,`ts`.`team_id` AS `team_id`,`ts`.`season_id` AS `season_id`,`t`.`team_name` AS `team_name`,`t`.`gender` AS `gender`,`t`.`club_id` AS `club_id`,`c`.`name` AS `club_name`,`c`.`abbreviation` AS `club_abbreviation`,`c`.`location` AS `club_location`,`c`.`logo_url` AS `club_logo_url`,`c`.`type` AS `club_type`,`s`.`season_name` AS `season_name`,`s`.`start_date` AS `season_start`,`s`.`end_date` AS `season_end`,`s`.`status` = 'active' AS `is_current_season`,`ts`.`age_group` AS `age_group`,`ag`.`name` AS `age_group_name`,`ts`.`is_active` AS `team_season_is_active`,'Favorite' AS `user_role`,NULL AS `jersey_number`,NULL AS `role_joined_date`,NULL AS `role_left_date`,1 AS `role_is_active`,1 AS `is_favorite` from (((((`user_favorites` `uf` join `team_seasons` `ts` on(`uf`.`team_season_id` = `ts`.`id`)) join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `age_groups` `ag` on(`ts`.`age_group` = `ag`.`id`)) where `ts`.`is_active` = 1 and `t`.`is_active` = 1 and `c`.`is_active` = 1 union select distinct `uts`.`person_id` AS `person_id`,`ts`.`id` AS `team_season_id`,`ts`.`team_id` AS `team_id`,`ts`.`season_id` AS `season_id`,`t`.`team_name` AS `team_name`,`t`.`gender` AS `gender`,`t`.`club_id` AS `club_id`,`c`.`name` AS `club_name`,`c`.`abbreviation` AS `club_abbreviation`,`c`.`location` AS `club_location`,`c`.`logo_url` AS `club_logo_url`,`c`.`type` AS `club_type`,`s`.`season_name` AS `season_name`,`s`.`start_date` AS `season_start`,`s`.`end_date` AS `season_end`,`s`.`status` = 'active' AS `is_current_season`,`ts`.`age_group` AS `age_group`,`ag`.`name` AS `age_group_name`,`ts`.`is_active` AS `team_season_is_active`,`uts`.`role` AS `user_role`,NULL AS `jersey_number`,NULL AS `role_joined_date`,NULL AS `role_left_date`,1 AS `role_is_active`,NULL AS `is_favorite` from (((((`user_team_seasons` `uts` join `team_seasons` `ts` on(`uts`.`team_season_id` = `ts`.`id`)) join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `age_groups` `ag` on(`ts`.`age_group` = `ag`.`id`)) where `ts`.`is_active` = 1 and `t`.`is_active` = 1 and `c`.`is_active` = 1 order by `user_id`,`is_current_season` desc,`season_start` desc,`club_name`,`team_name`  ;
+CREATE ALGORITHM=UNDEFINED DEFINER=`u676616277_u676616277_dec`@`127.0.0.1` SQL SECURITY DEFINER VIEW `v_user_teams`  AS SELECT DISTINCT `p`.`id` AS `person_id`, `ts`.`id` AS `team_season_id`, `ts`.`team_id` AS `team_id`, `ts`.`season_id` AS `season_id`, `t`.`team_name` AS `team_name`, `t`.`gender` AS `gender`, `t`.`club_id` AS `club_id`, `c`.`name` AS `club_name`, `c`.`abbreviation` AS `club_abbreviation`, `c`.`location` AS `club_location`, `c`.`logo_url` AS `club_logo_url`, `c`.`type` AS `club_type`, `s`.`season_name` AS `season_name`, `s`.`start_date` AS `season_start`, `s`.`end_date` AS `season_end`, `s`.`status`= 'active' AS `is_current_season`, `ts`.`age_group` AS `age_group`, `ag`.`name` AS `age_group_name`, `ts`.`is_active` AS `team_season_is_active`, 'Player' AS `user_role`, `pt`.`jersey_number` AS `jersey_number`, `pt`.`joined_date` AS `role_joined_date`, `pt`.`left_date` AS `role_left_date`, `pt`.`is_active` AS `role_is_active`, NULL AS `is_favorite` FROM ((((((`people` `p` join `player_teams` `pt` on(`p`.`id` = `pt`.`player_id`)) join `team_seasons` `ts` on(`pt`.`team_season_id` = `ts`.`id`)) join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `age_groups` `ag` on(`ts`.`age_group` = `ag`.`id`)) WHERE `pt`.`is_active` = 1 AND `ts`.`is_active` = 1 AND `t`.`is_active` = 1 AND `c`.`is_active` = 1unionselect distinct `pr`.`related_person_id` AS `user_id`,`ts`.`id` AS `team_season_id`,`ts`.`team_id` AS `team_id`,`ts`.`season_id` AS `season_id`,`t`.`team_name` AS `team_name`,`t`.`gender` AS `gender`,`t`.`club_id` AS `club_id`,`c`.`name` AS `club_name`,`c`.`abbreviation` AS `club_abbreviation`,`c`.`location` AS `club_location`,`c`.`logo_url` AS `club_logo_url`,`c`.`type` AS `club_type`,`s`.`season_name` AS `season_name`,`s`.`start_date` AS `season_start`,`s`.`end_date` AS `season_end`,`s`.`status` = 'active' AS `is_current_season`,`ts`.`age_group` AS `age_group`,`ag`.`name` AS `age_group_name`,`ts`.`is_active` AS `team_season_is_active`,concat('Parent of ',`p`.`first_name`,' ',`p`.`last_name`) AS `user_role`,NULL AS `jersey_number`,NULL AS `role_joined_date`,NULL AS `role_left_date`,`pt`.`is_active` AS `role_is_active`,NULL AS `is_favorite` from (((((((`player_relationships` `pr` join `people` `p` on(`pr`.`player_id` = `p`.`id`)) join `player_teams` `pt` on(`pr`.`player_id` = `pt`.`player_id`)) join `team_seasons` `ts` on(`pt`.`team_season_id` = `ts`.`id`)) join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `age_groups` `ag` on(`ts`.`age_group` = `ag`.`id`)) where `pr`.`relationship` in ('Parent','Guardian') and `pt`.`is_active` = 1 and `ts`.`is_active` = 1 and `t`.`is_active` = 1 and `c`.`is_active` = 1 union select distinct `team_staff`.`person_id` AS `person_id`,`ts`.`id` AS `team_season_id`,`ts`.`team_id` AS `team_id`,`ts`.`season_id` AS `season_id`,`t`.`team_name` AS `team_name`,`t`.`gender` AS `gender`,`t`.`club_id` AS `club_id`,`c`.`name` AS `club_name`,`c`.`abbreviation` AS `club_abbreviation`,`c`.`location` AS `club_location`,`c`.`logo_url` AS `club_logo_url`,`c`.`type` AS `club_type`,`s`.`season_name` AS `season_name`,`s`.`start_date` AS `season_start`,`s`.`end_date` AS `season_end`,`s`.`status` = 'active' AS `is_current_season`,`ts`.`age_group` AS `age_group`,`ag`.`name` AS `age_group_name`,`ts`.`is_active` AS `team_season_is_active`,case `team_staff`.`role` when 'head_coach' then 'Head Coach' when 'assistant_coach' then 'Assistant Coach' when 'team_admin' then 'Team Admin' when 'stats_keeper' then 'Stats Keeper' else `team_staff`.`role` end AS `user_role`,NULL AS `jersey_number`,`team_staff`.`joined_date` AS `role_joined_date`,`team_staff`.`left_date` AS `role_left_date`,`team_staff`.`is_active` AS `role_is_active`,NULL AS `is_favorite` from (((((`team_staff` join `team_seasons` `ts` on(`team_staff`.`team_season_id` = `ts`.`id`)) join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `age_groups` `ag` on(`ts`.`age_group` = `ag`.`id`)) where `team_staff`.`is_active` = 1 and `ts`.`is_active` = 1 and `t`.`is_active` = 1 and `c`.`is_active` = 1 union select distinct `cs`.`person_id` AS `person_id`,`ts`.`id` AS `team_season_id`,`ts`.`team_id` AS `team_id`,`ts`.`season_id` AS `season_id`,`t`.`team_name` AS `team_name`,`t`.`gender` AS `gender`,`t`.`club_id` AS `club_id`,`c`.`name` AS `club_name`,`c`.`abbreviation` AS `club_abbreviation`,`c`.`location` AS `club_location`,`c`.`logo_url` AS `club_logo_url`,`c`.`type` AS `club_type`,`s`.`season_name` AS `season_name`,`s`.`start_date` AS `season_start`,`s`.`end_date` AS `season_end`,`s`.`status` = 'active' AS `is_current_season`,`ts`.`age_group` AS `age_group`,`ag`.`name` AS `age_group_name`,`ts`.`is_active` AS `team_season_is_active`,case `cs`.`role` when 'club_admin' then 'Club Admin' when 'director' then 'Club Director' when 'registrar' then 'Club Registrar' else `cs`.`role` end AS `user_role`,NULL AS `jersey_number`,`cs`.`joined_date` AS `role_joined_date`,`cs`.`left_date` AS `role_left_date`,`cs`.`is_active` AS `role_is_active`,NULL AS `is_favorite` from (((((`club_staff` `cs` join `clubs` `c` on(`cs`.`club_id` = `c`.`id`)) join `teams` `t` on(`t`.`club_id` = `c`.`id`)) join `team_seasons` `ts` on(`ts`.`team_id` = `t`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `age_groups` `ag` on(`ts`.`age_group` = `ag`.`id`)) where `cs`.`is_active` = 1 and `ts`.`is_active` = 1 and `t`.`is_active` = 1 and `c`.`is_active` = 1 union select distinct `uf`.`person_id` AS `person_id`,`ts`.`id` AS `team_season_id`,`ts`.`team_id` AS `team_id`,`ts`.`season_id` AS `season_id`,`t`.`team_name` AS `team_name`,`t`.`gender` AS `gender`,`t`.`club_id` AS `club_id`,`c`.`name` AS `club_name`,`c`.`abbreviation` AS `club_abbreviation`,`c`.`location` AS `club_location`,`c`.`logo_url` AS `club_logo_url`,`c`.`type` AS `club_type`,`s`.`season_name` AS `season_name`,`s`.`start_date` AS `season_start`,`s`.`end_date` AS `season_end`,`s`.`status` = 'active' AS `is_current_season`,`ts`.`age_group` AS `age_group`,`ag`.`name` AS `age_group_name`,`ts`.`is_active` AS `team_season_is_active`,'Favorite' AS `user_role`,NULL AS `jersey_number`,NULL AS `role_joined_date`,NULL AS `role_left_date`,1 AS `role_is_active`,1 AS `is_favorite` from (((((`user_favorites` `uf` join `team_seasons` `ts` on(`uf`.`team_season_id` = `ts`.`id`)) join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `age_groups` `ag` on(`ts`.`age_group` = `ag`.`id`)) where `ts`.`is_active` = 1 and `t`.`is_active` = 1 and `c`.`is_active` = 1 union select distinct `uts`.`person_id` AS `person_id`,`ts`.`id` AS `team_season_id`,`ts`.`team_id` AS `team_id`,`ts`.`season_id` AS `season_id`,`t`.`team_name` AS `team_name`,`t`.`gender` AS `gender`,`t`.`club_id` AS `club_id`,`c`.`name` AS `club_name`,`c`.`abbreviation` AS `club_abbreviation`,`c`.`location` AS `club_location`,`c`.`logo_url` AS `club_logo_url`,`c`.`type` AS `club_type`,`s`.`season_name` AS `season_name`,`s`.`start_date` AS `season_start`,`s`.`end_date` AS `season_end`,`s`.`status` = 'active' AS `is_current_season`,`ts`.`age_group` AS `age_group`,`ag`.`name` AS `age_group_name`,`ts`.`is_active` AS `team_season_is_active`,`uts`.`role` AS `user_role`,NULL AS `jersey_number`,NULL AS `role_joined_date`,NULL AS `role_left_date`,1 AS `role_is_active`,NULL AS `is_favorite` from (((((`user_team_seasons` `uts` join `team_seasons` `ts` on(`uts`.`team_season_id` = `ts`.`id`)) join `teams` `t` on(`ts`.`team_id` = `t`.`id`)) join `clubs` `c` on(`t`.`club_id` = `c`.`id`)) join `seasons` `s` on(`ts`.`season_id` = `s`.`id`)) left join `age_groups` `ag` on(`ts`.`age_group` = `ag`.`id`)) where `ts`.`is_active` = 1 and `t`.`is_active` = 1 and `c`.`is_active` = 1 order by `person_id`,`is_current_season` desc,`season_start` desc,`club_name`,`team_name`  ;
 
 --
 -- Constraints for dumped tables
@@ -2836,12 +2453,6 @@ ALTER TABLE `game_periods`
   ADD CONSTRAINT `game_periods_ibfk_1` FOREIGN KEY (`game_id`) REFERENCES `games` (`id`) ON DELETE CASCADE;
 
 --
--- Constraints for table `game_scores`
---
-ALTER TABLE `game_scores`
-  ADD CONSTRAINT `fk_game_scores_game` FOREIGN KEY (`game_id`) REFERENCES `games` (`id`) ON DELETE CASCADE;
-
---
 -- Constraints for table `game_standings_inclusions`
 --
 ALTER TABLE `game_standings_inclusions`
@@ -2904,13 +2515,6 @@ ALTER TABLE `player_relationships`
   ADD CONSTRAINT `fk_player_person` FOREIGN KEY (`player_id`) REFERENCES `people` (`id`) ON DELETE CASCADE;
 
 --
--- Constraints for table `player_season_stats`
---
-ALTER TABLE `player_season_stats`
-  ADD CONSTRAINT `fk_player_season_stats_player` FOREIGN KEY (`player_id`) REFERENCES `people` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `fk_player_season_stats_team_season` FOREIGN KEY (`team_season_id`) REFERENCES `team_seasons` (`id`) ON DELETE CASCADE;
-
---
 -- Constraints for table `player_teams`
 --
 ALTER TABLE `player_teams`
@@ -2937,13 +2541,6 @@ ALTER TABLE `team_seasons`
   ADD CONSTRAINT `fk_team_seasons_age_group` FOREIGN KEY (`age_group`) REFERENCES `age_groups` (`id`),
   ADD CONSTRAINT `team_seasons_ibfk_1` FOREIGN KEY (`team_id`) REFERENCES `teams` (`id`),
   ADD CONSTRAINT `team_seasons_ibfk_2` FOREIGN KEY (`season_id`) REFERENCES `seasons` (`id`);
-
---
--- Constraints for table `team_season_records`
---
-ALTER TABLE `team_season_records`
-  ADD CONSTRAINT `fk_team_records_league` FOREIGN KEY (`league_node_season_id`) REFERENCES `league_node_seasons` (`id`) ON DELETE SET NULL,
-  ADD CONSTRAINT `fk_team_records_team_season` FOREIGN KEY (`team_season_id`) REFERENCES `team_seasons` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `team_staff`
